@@ -1,0 +1,61 @@
+# Dependencies
+node_modules/
+oh_modules/
+
+# Build outputs
+**/build/
+.hvigor/
+hvigor/
+build/
+out/
+
+# IDE
+.idea/
+.vscode/
+DevEcoStudio/
+*.iml
+
+# Local config
+local.properties
+.local.properties
+*.local
+
+# C/C++ build outputs
+.cxx/
+clang-format/
+clang-tidy/
+
+# Generated files
+.generated/
+*.generated.*
+
+# Test outputs
+**/*.test
+**/test-results/
+**/reports/
+
+# Logs
+*.log
+logs/
+
+# Cache
+.cache/
+.temp/
+tmp/
+
+# App analyzer
+.appanalyzer/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# App signing
+*.p7b
+*.cer
+*.keystore
+*.jks
+signing/
+
+# Sandbox/local data (optional - uncomment if needed)
+# .sandbox/
