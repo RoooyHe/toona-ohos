@@ -1,11 +1,6 @@
 import { MatrixHttpClient, MatrixConfig } from '../network/MatrixHttpClient';
-import { 
-  LoginRequest, 
-  LoginResponse, 
-  RegisterRequest, 
-  RegisterResponse,
-  WhoAmIResponse,
-  VersionsResponse 
+import {
+  LoginResponse, RegisterResponse, WhoAmIResponse, VersionsResponse
 } from '../models/MatrixTypes';
 import { Session } from '../models/DataModels';
 import { SecureStorage } from '../storage/SecureStorage';
@@ -52,8 +47,13 @@ export class AuthManager {
     }
 
     try {
-      const response = await this.httpClient.get<VersionsResponse>('/versions');
-      return response.versions && response.versions.includes('r0.0.0');
+      const response = await this.httpClient.getWithoutVersionPrefix<VersionsResponse>('/versions');
+      if (response.versions) {
+        return response.versions.includes('v1.1') ||
+        response.versions.includes('v1.2') ||
+        response.versions.includes('v1.3');
+      }
+      return false;
     } catch (error) {
       console.error('Failed to check homeserver version:', error);
       return false;
@@ -65,26 +65,31 @@ export class AuthManager {
       throw new Error('Homeserver not set');
     }
 
-    const loginRequest: LoginRequest = {
-      identifier: {
-        type: 'm.id.user',
-        user: userId
-      },
-      password: password,
-      device_id: this.generateDeviceId(),
-      initial_device_display_name: deviceName || 'Toona鸿蒙客户端'
+    const deviceId: string = this.generateDeviceId();
+    const displayName: string = deviceName || 'Toona鸿蒙客户端';
+    const identifier: Record<string, string | object> = {
+      "type": 'm.id.user',
+      "user": userId
+    };
+    const loginBody: Record<string, string | object> = {
+      "identifier": identifier,
+      "password": password,
+      "device_id": deviceId,
+      "initial_device_display_name": displayName,
+      "type": 'm.login.password'
     };
 
     try {
-      const response = await this.httpClient.post<LoginResponse>('/login', loginRequest);
-      
-      this.session = Session.fromLoginResponse(response, response.access_token);
+      const response = await this.httpClient.post<LoginResponse>('/login', loginBody);
+
+      this.session =
+        Session.fromLoginResponse(response.user_id, response.access_token, response.home_server, response.device_id);
       this.session.isGuest = false;
-      
+
       this.httpClient.setAccessToken(response.access_token);
-      
+
       await this.saveSession();
-      
+
       return this.session;
     } catch (error) {
       console.error('Login failed:', error);
@@ -98,23 +103,26 @@ export class AuthManager {
       throw new Error('Homeserver not set');
     }
 
-    const registerRequest: RegisterRequest = {
-      username: username,
-      password: password,
-      device_id: this.generateDeviceId(),
-      initial_device_display_name: deviceName || 'Toona鸿蒙客户端'
+    const deviceId: string = this.generateDeviceId();
+    const displayName: string = deviceName || 'Toona鸿蒙客户端';
+    const registerBody: Record<string, string | object> = {
+      "username": username,
+      "password": password,
+      "device_id": deviceId,
+      "initial_device_display_name": displayName
     };
 
     try {
-      const response = await this.httpClient.post<RegisterResponse>('/register', registerRequest);
-      
-      this.session = Session.fromLoginResponse(response, response.access_token);
+      const response = await this.httpClient.post<RegisterResponse>('/register', registerBody);
+
+      this.session =
+        Session.fromLoginResponse(response.user_id, response.access_token, response.home_server, response.device_id);
       this.session.isGuest = false;
-      
+
       this.httpClient.setAccessToken(response.access_token);
-      
+
       await this.saveSession();
-      
+
       return this.session;
     } catch (error) {
       console.error('Registration failed:', error);
@@ -129,7 +137,7 @@ export class AuthManager {
     }
 
     try {
-      await this.httpClient.post('/logout');
+      await this.httpClient.post<object>('/logout');
     } catch (error) {
       console.error('Logout request failed:', error);
     } finally {
@@ -138,32 +146,42 @@ export class AuthManager {
   }
 
   async restoreSession(): Promise<Session | null> {
+    console.info('AuthManager: Starting session restore');
+    
     if (!this.secureStorage) {
+      console.error('AuthManager: secureStorage not available');
       return null;
     }
 
     try {
       const sessionJson = await this.secureStorage.loadSession();
       if (!sessionJson) {
+        console.info('AuthManager: No session found in storage');
         return null;
       }
 
-      const sessionData = JSON.parse(sessionJson);
+      console.info('AuthManager: Session data loaded, parsing...');
+      const sessionData: Record<string, string> = JSON.parse(sessionJson) as Record<string, string>;
       this.session = Session.fromJSON(sessionData);
-      
+      console.info('AuthManager: Session parsed, userId: ' + this.session.userId);
+
       MatrixConfig.getInstance().setHomeserver(this.session.homeServer);
       this.httpClient = MatrixConfig.getInstance().getHttpClient();
       this.httpClient.setAccessToken(this.session.accessToken);
-      
+      console.info('AuthManager: HTTP client configured with token');
+
+      console.info('AuthManager: Validating token...');
       const isValid = await this.validateToken();
       if (!isValid) {
+        console.warn('AuthManager: Token validation failed, clearing session');
         await this.clearSession();
         return null;
       }
-      
+
+      console.info('AuthManager: Session restored successfully');
       return this.session;
     } catch (error) {
-      console.error('Failed to restore session:', error);
+      console.error('AuthManager: Failed to restore session:', error);
       return null;
     }
   }
@@ -184,10 +202,13 @@ export class AuthManager {
 
   private async saveSession(): Promise<void> {
     if (!this.session) {
+      console.warn('AuthManager: No session to save');
       return;
     }
     const sessionJson = JSON.stringify(this.session.toJSON());
+    console.info('AuthManager: Saving session...');
     await this.secureStorage.saveSession(sessionJson);
+    console.info('AuthManager: Session saved');
   }
 
   private clearSession(): void {

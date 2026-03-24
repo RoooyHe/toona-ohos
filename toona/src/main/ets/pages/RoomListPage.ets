@@ -1,10 +1,20 @@
 import router from '@ohos.router';
 import { RoomManager, CreateRoomOptions } from '../services/RoomManager';
-import { Room } from '../models/DataModels';
+import { Room, Message } from '../models/DataModels';
 import { SyncManager } from '../services/SyncManager';
+
+enum FilterType {
+  ALL = 'all',
+  UNREAD = 'unread',
+  DM = 'dm',
+  ROOM = 'room',
+  FAVORITE = 'favorite',
+  INVITE = 'invite'
+}
 
 @Component
 struct RoomListPage {
+  @Prop filterType: FilterType = FilterType.ALL;
   @State rooms: Room[] = [];
   @State isLoading: boolean = true;
   @State searchQuery: string = '';
@@ -28,7 +38,7 @@ struct RoomListPage {
       this.updateRoomInList(room);
     });
 
-    this.syncManager.setRoomInvitedCallback((room: Room) => {
+    this.syncManager.setRoomInvitedCallback(() => {
       this.loadRooms();
     });
 
@@ -36,7 +46,7 @@ struct RoomListPage {
       this.removeRoomFromList(roomId);
     });
 
-    this.syncManager.setNewMessagesCallback((roomId: string, messages: Room[]) => {
+    this.syncManager.setNewMessagesCallback((roomId: string, messages: Message[]) => {
       console.info('New messages in room:', roomId, messages.length);
     });
   }
@@ -82,15 +92,26 @@ struct RoomListPage {
   }
 
   getFilteredRooms(): Room[] {
-    if (!this.searchQuery) {
-      return this.rooms;
+    let filtered = this.rooms;
+
+    if (this.filterType === FilterType.UNREAD) {
+      filtered = filtered.filter(room => room.unreadCount && room.unreadCount > 0);
+    } else if (this.filterType === FilterType.DM) {
+      filtered = filtered.filter(room => room.isDirect === true);
+    } else if (this.filterType === FilterType.ROOM) {
+      filtered = filtered.filter(room => room.isDirect !== true);
     }
-    const query = this.searchQuery.toLowerCase();
-    return this.rooms.filter(room =>
-    room.name?.toLowerCase().includes(query) ||
-    room.displayName?.toLowerCase().includes(query) ||
-    room.id.toLowerCase().includes(query)
-    );
+
+    if (this.searchQuery) {
+      const query = this.searchQuery.toLowerCase();
+      filtered = filtered.filter(room =>
+        room.name?.toLowerCase().includes(query) ||
+        room.displayName?.toLowerCase().includes(query) ||
+        room.id.toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
   }
 
   async createRoom() {
@@ -119,6 +140,8 @@ struct RoomListPage {
         roomId: room.id,
         roomName: room.getDisplayName()
       }
+    }).catch(() => {
+      // TODO: Implement error handling.
     });
   }
 

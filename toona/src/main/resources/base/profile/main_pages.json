@@ -3,7 +3,9 @@
     "pages/LoginPage",
     "pages/RegisterPage",
     "pages/MainPage",
-    "pages/RoomListPage",
-    "pages/RoomDetailPage"
+    "pages/RoomDetailPage",
+    "pages/SearchPage",
+    "pages/JoinRoomPage",
+    "pages/SpacePage"
   ]
 }

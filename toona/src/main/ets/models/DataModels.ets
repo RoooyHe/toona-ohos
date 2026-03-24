@@ -3,46 +3,25 @@ import {
   Room as MatrixRoom,
   MessageStatus,
   Event,
-  LoginResponse,
   RoomSummary,
   UnreadNotifications
 } from '../models/MatrixTypes';
 
-interface LoginResponseData {
-  user_id: string;
-  home_server: string;
-  device_id: string;
-}
-
-interface GeneratedTypeLiteralInterface_1 {
+interface StateEventList {
   events: Event[];
 }
 
-interface GeneratedTypeLiteralInterface_2 {
+interface TimelineEvents {
   events: Event[];
   limited?: boolean;
   prev_batch?: string;
 }
 
-interface RoomStateData {
+interface SyncRoomState {
   summary?: RoomSummary;
-  state?: GeneratedTypeLiteralInterface_1;
-  timeline?: GeneratedTypeLiteralInterface_2;
+  state: StateEventList;
+  timeline: TimelineEvents;
   unread_notifications?: UnreadNotifications;
-}
-
-interface PresenceEventContent {
-  presence?: string;
-  status_msg?: string;
-  last_active_ago?: number;
-  currently_active?: boolean;
-  avatar_url?: string;
-  displayname?: string;
-}
-
-interface PresenceEvent {
-  sender: string;
-  content?: PresenceEventContent;
 }
 
 interface ProfileData {
@@ -58,23 +37,28 @@ export class Session {
   isGuest: boolean = false;
   nextBatch: string = '';
 
-  static fromLoginResponse(response: LoginResponse | LoginResponseData, accessToken: string): Session {
+  static fromLoginResponse(
+    userId: string,
+    accessToken: string,
+    homeServer: string,
+    deviceId: string
+  ): Session {
     const session = new Session();
-    session.userId = response.user_id;
+    session.userId = userId;
     session.accessToken = accessToken;
-    session.homeServer = response.home_server;
-    session.deviceId = response.device_id;
+    session.homeServer = homeServer;
+    session.deviceId = deviceId;
     return session;
   }
 
   toJSON(): Record<string, string> {
     return {
-      "userId": this.userId,
-      "accessToken": this.accessToken,
-      "homeServer": this.homeServer,
-      "deviceId": this.deviceId,
-      "isGuest": this.isGuest.toString(),
-      "nextBatch": this.nextBatch
+      'userId': this.userId,
+      'accessToken': this.accessToken,
+      'homeServer': this.homeServer,
+      'deviceId': this.deviceId,
+      'isGuest': this.isGuest.toString(),
+      'nextBatch': this.nextBatch
     };
   }
 
@@ -109,12 +93,12 @@ export class Room implements MatrixRoom {
     this.id = roomId;
   }
 
-  static fromMatrixRoomState(roomId: string, state: RoomStateData): Room {
+  static fromMatrixRoomState(roomId: string, state: SyncRoomState): Room {
     const room = new Room(roomId);
     room.myMembership = 'join';
 
     if (state.summary) {
-      const summary = state.summary;
+      const summary: RoomSummary = state.summary;
       if (summary.joined_member_count !== undefined) {
         room.memberCount = summary.joined_member_count;
       }
@@ -123,46 +107,57 @@ export class Room implements MatrixRoom {
       }
     }
 
-    const stateEvents = state.state?.events || [];
-    for (const event of stateEvents) {
-      const content = event.content as Record<string, string | object>;
+    const stateEvents: Event[] = state.state?.events || [];
+    for (let i = 0; i < stateEvents.length; i++) {
+      const event: Event = stateEvents[i];
+      const content: Record<string, string | object> = event.content as Record<string, string | object>;
       switch (event.type) {
         case 'm.room.name':
-          const nameVal = content['name'];
+          const nameVal: string | object | undefined = content['name'];
           if (nameVal !== undefined) {
             room.name = String(nameVal);
             room.displayName = String(nameVal);
           }
           break;
         case 'm.room.topic':
-          const topicVal = content['topic'];
+          const topicVal: string | object | undefined = content['topic'];
           if (topicVal !== undefined) {
             room.topic = String(topicVal);
           }
           break;
         case 'm.room.avatar':
-          const avatarVal = content['url'];
+          const avatarVal: string | object | undefined = content['url'];
           if (avatarVal !== undefined) {
             room.avatarUrl = String(avatarVal);
           }
           break;
         case 'm.room.canonical_alias':
-          const aliasVal = content['alias'];
+          const aliasVal: string | object | undefined = content['alias'];
           if (aliasVal !== undefined) {
             room.name = String(aliasVal);
+          }
+          break;
+        case 'm.room.create':
+          const isDirectVal: string | object | undefined = content['is_direct'];
+          if (isDirectVal !== undefined) {
+            room.isDirect = isDirectVal === 'true';
           }
           break;
       }
     }
 
     if (state.timeline?.events && state.timeline.events.length > 0) {
-      room.lastEvent = state.timeline.events[state.timeline.events.length - 1];
-      room.lastEventTime = room.lastEvent?.origin_server_ts;
+      const timelineEvents: Event[] = state.timeline.events;
+      room.lastEvent = timelineEvents[timelineEvents.length - 1];
+      if (room.lastEvent) {
+        room.lastEventTime = room.lastEvent.origin_server_ts;
+      }
     }
 
     if (state.unread_notifications) {
-      room.unreadCount = state.unread_notifications.notification_count;
-      room.highlightCount = state.unread_notifications.highlight_count;
+      const notifications: UnreadNotifications = state.unread_notifications;
+      room.unreadCount = notifications.notification_count;
+      room.highlightCount = notifications.highlight_count;
     }
 
     return room;
@@ -192,16 +187,22 @@ export class User implements MatrixUser {
     this.userId = userId;
   }
 
-  static fromPresenceEvent(event: PresenceEvent): User {
-    const user = new User(event.sender);
-    if (event.content) {
-      user.presence = event.content.presence;
-      user.statusMsg = event.content.status_msg;
-      user.lastActiveAgo = event.content.last_active_ago;
-      user.currentlyActive = event.content.currently_active;
-      user.avatarUrl = event.content.avatar_url;
-      user.displayName = event.content.displayname;
-    }
+  static fromPresenceEvent(
+    sender: string,
+    presence?: string,
+    statusMsg?: string,
+    lastActiveAgo?: number,
+    currentlyActive?: boolean,
+    avatarUrl?: string,
+    displayname?: string
+  ): User {
+    const user = new User(sender);
+    user.presence = presence;
+    user.statusMsg = statusMsg;
+    user.lastActiveAgo = lastActiveAgo;
+    user.currentlyActive = currentlyActive;
+    user.avatarUrl = avatarUrl;
+    user.displayName = displayname;
     return user;
   }
 
@@ -248,15 +249,22 @@ export class Message {
   }
 
   static fromEvent(event: Event, currentUserId: string): Message {
-    const isOutgoing = event.sender === currentUserId;
+    const isOutgoing: boolean = event.sender === currentUserId;
     return new Message(event, isOutgoing);
   }
 
-  static createPendingMessage(roomId: string, content: Record<string, string | object>): Message {
-    const msg = new Message({
+  static createPendingMessage(
+    roomId: string,
+    content: Record<string, string | object>
+  ): Message {
+    const pendingEvent: Event = {
       type: 'm.room.message',
-      content: content
-    } as Event, true);
+      content: content,
+      event_id: '',
+      sender: '',
+      origin_server_ts: 0
+    };
+    const msg: Message = new Message(pendingEvent, true);
     msg.eventId = 'temp_' + Date.now();
     msg.roomId = roomId;
     msg.status = MessageStatus.SENDING;
@@ -264,7 +272,7 @@ export class Message {
   }
 
   getMessageBody(): string {
-    const body = this.content?.['body'];
+    const body: string | object | undefined = this.content?.['body'];
     if (body !== undefined) {
       return String(body);
     }
@@ -272,7 +280,7 @@ export class Message {
   }
 
   getMessageType(): string {
-    const msgtype = this.content?.['msgtype'];
+    const msgtype: string | object | undefined = this.content?.['msgtype'];
     if (msgtype !== undefined) {
       return String(msgtype);
     }

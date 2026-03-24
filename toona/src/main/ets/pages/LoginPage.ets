@@ -10,22 +10,7 @@ struct LoginPage {
   @State password: string = '';
   @State isLoading: boolean = false;
   @State errorMessage: string = '';
-  @State hasSession: boolean = false;
-
   private authManager: AuthManager = AuthManager.getInstance();
-
-  async aboutToAppear() {
-    try {
-      await this.authManager.init(getContext(this));
-      const session = await this.authManager.restoreSession();
-      if (session) {
-        this.hasSession = true;
-        router.replaceUrl({ url: 'pages/MainPage' });
-      }
-    } catch (error) {
-      console.error('Init failed:', error);
-    }
-  }
 
   async handleLogin() {
     if (!this.homeserver || !this.userId || !this.password) {
@@ -44,23 +29,24 @@ struct LoginPage {
 
     try {
       await this.authManager.setHomeserver(serverUrl);
-      
+
       const isValidServer = await this.authManager.checkHomeserverVersion();
       if (!isValidServer) {
         this.errorMessage = '无法连接到服务器';
+        this.isLoading = false;
         return;
       }
 
-      const normalizedUserId = this.userId.startsWith('@') ? this.userId : `@${this.userId}`;
-      
-      const session = await this.authManager.login(normalizedUserId, this.password);
-      
+      const session = await this.authManager.login(this.userId, this.password);
+
       promptAction.showToast({
         message: '登录成功',
         duration: 2000
       });
-      
-      router.replaceUrl({ url: 'pages/MainPage' });
+
+      router.replaceUrl({ url: 'pages/MainPage' }).catch(() => {
+        // Ignore router error
+      });
     } catch (error) {
       console.error('Login failed:', error);
       const errorMsg: string = error instanceof Error ? error.message : String(error);
@@ -80,7 +66,9 @@ struct LoginPage {
   }
 
   handleRegister() {
-    router.pushUrl({ url: 'pages/RegisterPage' });
+    router.pushUrl({ url: 'pages/RegisterPage' }).catch(() => {
+      // Ignore router error
+    });
   }
 
   build() {
@@ -91,7 +79,7 @@ struct LoginPage {
           .fontWeight(FontWeight.Bold)
           .fontColor('#10a37f')
           .margin({ bottom: 10 });
-        
+
         Text('Matrix 客户端')
           .fontSize(16)
           .fontColor('#666666')

@@ -1,14 +1,19 @@
 import { Event, PresEvent } from '../models/MatrixTypes';
-import { User, Room } from '../models/DataModels';
+import { User, Room, Message } from '../models/DataModels';
 import { LocalDatabase } from '../database/LocalDatabase';
 
 export interface SyncListener {
   onSyncSuccess(): void;
+
   onSyncError(error: Error): void;
+
   onRoomUpdated(room: Room): void;
+
   onRoomInvited(room: Room): void;
+
   onRoomLeft(roomId: string): void;
-  onNewMessages(roomId: string, messages: Room[]): void;
+
+  onNewMessages(roomId: string, messages: Message[]): void;
 }
 
 interface ProcessedMessageEvent {
@@ -81,7 +86,16 @@ type SyncErrorCallback = (error: Error) => void;
 type RoomUpdatedCallback = (room: Room) => void;
 type RoomInvitedCallback = (room: Room) => void;
 type RoomLeftCallback = (roomId: string) => void;
-type NewMessagesCallback = (roomId: string, messages: Room[]) => void;
+type NewMessagesCallback = (roomId: string, messages: Message[]) => void;
+
+interface GeneratedTypeLiteralInterface_1 {
+  onSyncSuccess?: SyncSuccessCallback;
+  onSyncError?: SyncErrorCallback;
+  onRoomUpdated?: RoomUpdatedCallback;
+  onRoomInvited?: RoomInvitedCallback;
+  onRoomLeft?: RoomLeftCallback;
+  onNewMessages?: NewMessagesCallback;
+}
 
 export class SimpleSyncListener implements SyncListener {
   private onSyncSuccessCb?: SyncSuccessCallback;
@@ -91,14 +105,7 @@ export class SimpleSyncListener implements SyncListener {
   private onRoomLeftCb?: RoomLeftCallback;
   private onNewMessagesCb?: NewMessagesCallback;
 
-  constructor(config: {
-    onSyncSuccess?: SyncSuccessCallback;
-    onSyncError?: SyncErrorCallback;
-    onRoomUpdated?: RoomUpdatedCallback;
-    onRoomInvited?: RoomInvitedCallback;
-    onRoomLeft?: RoomLeftCallback;
-    onNewMessages?: NewMessagesCallback;
-  }) {
+  constructor(config: GeneratedTypeLiteralInterface_1) {
     this.onSyncSuccessCb = config.onSyncSuccess;
     this.onSyncErrorCb = config.onSyncError;
     this.onRoomUpdatedCb = config.onRoomUpdated;
@@ -137,7 +144,7 @@ export class SimpleSyncListener implements SyncListener {
     }
   }
 
-  onNewMessages(roomId: string, messages: Room[]): void {
+  onNewMessages(roomId: string, messages: Message[]): void {
     if (this.onNewMessagesCb) {
       this.onNewMessagesCb(roomId, messages);
     }
@@ -159,18 +166,29 @@ export class EventProcessor {
     return EventProcessor.instance;
   }
 
-  async processPresenceEvents(events: Event[]): Promise<void> {
+  async processPresenceEvents(events: PresEvent[]): Promise<void> {
     for (const event of events) {
-      if (event.type === 'm.presence') {
-        await this.processPresenceEvent(event);
-      }
+      await this.processPresenceEvent(event);
     }
   }
 
-  private async processPresenceEvent(event: Event): Promise<void> {
-    if (!event.sender) return;
+  private async processPresenceEvent(event: PresEvent): Promise<void> {
+    if (!event.sender) {
+      return;
+    }
 
-    const user = User.fromPresenceEvent(event);
+    const presenceContent = event.content as Record<string, string | object>;
+
+    const user = User.fromPresenceEvent(
+      event.sender,
+      presenceContent['presence'] as string | undefined,
+      presenceContent['status_msg'] as string | undefined,
+      typeof presenceContent['last_active_ago'] === 'number' ? presenceContent['last_active_ago'] as number : undefined,
+      typeof presenceContent['currently_active'] === 'boolean' ? presenceContent['currently_active'] as boolean :
+        undefined,
+      presenceContent['avatar_url'] as string | undefined,
+      presenceContent['displayname'] as string | undefined
+    );
     await this.localDatabase.saveUser(user);
   }
 
@@ -224,7 +242,7 @@ export class EventProcessor {
   private processMemberEvent(event: Event): ProcessedMemberEvent {
     const content = event.content as Record<string, string | object>;
     const prevContent = event.unsigned?.prev_content as Record<string, string | object> | undefined;
-    
+
     return {
       eventId: event.event_id,
       roomId: event.room_id,
@@ -254,7 +272,7 @@ export class EventProcessor {
       sender: event.sender,
       type: event.type,
       content: {
-        name: event.content['name']
+        "name": event.content['name']
       },
       timestamp: event.origin_server_ts
     };
@@ -267,7 +285,7 @@ export class EventProcessor {
       sender: event.sender,
       type: event.type,
       content: {
-        topic: event.content['topic']
+        "topic": event.content['topic']
       },
       timestamp: event.origin_server_ts
     };
@@ -280,53 +298,57 @@ export class EventProcessor {
       sender: event.sender,
       type: event.type,
       content: {
-        url: event.content['url']
+        "url": event.content['url']
       },
       timestamp: event.origin_server_ts
     };
   }
 
   private processRedactionEvent(event: Event): ProcessedRedactionEvent {
+    const reasonValue = event.content['reason'];
+    const contentRecord: Record<string, string | object> = {
+      "reason": reasonValue !== undefined ? reasonValue : ''
+    };
     return {
       eventId: event.event_id,
       roomId: event.room_id,
       sender: event.sender,
       type: event.type,
-      content: {
-        reason: event.content['reason']
-      },
+      content: contentRecord,
       redacts: event.redacts,
       timestamp: event.origin_server_ts
     };
   }
 
   private processEncryptedEvent(event: Event): ProcessedEncryptedEvent {
+    const contentRecord: Record<string, string | object> = {
+      "algorithm": event.content['algorithm'],
+      "ciphertext": event.content['ciphertext'],
+      "deviceId": event.content['device_id'],
+      "sessionId": event.content['session_id']
+    };
     return {
       eventId: event.event_id,
       roomId: event.room_id,
       sender: event.sender,
       type: event.type,
-      content: {
-        algorithm: event.content['algorithm'],
-        ciphertext: event.content['ciphertext'],
-        deviceId: event.content['device_id'],
-        sessionId: event.content['session_id']
-      },
+      content: contentRecord,
       timestamp: event.origin_server_ts
     };
   }
 
   private processStickerEvent(event: Event): ProcessedStickerEvent {
+    const contentRecord: Record<string, string | object> = {
+      "body": event.content['body'],
+      "info": event.content['info'],
+      "url": event.content['url']
+    };
     return {
       eventId: event.event_id,
       roomId: event.room_id,
       sender: event.sender,
       type: event.type,
-      content: {
-        body: event.content['body'],
-        info: event.content['info'],
-        url: event.content['url']
-      },
+      content: contentRecord,
       timestamp: event.origin_server_ts
     };
   }

@@ -3,6 +3,7 @@ import promptAction from '@ohos.promptAction';
 import { AuthManager } from '../services/AuthManager';
 
 @Entry
+@Component
 struct RegisterPage {
   @State homeserver: string = '';
   @State username: string = '';
@@ -54,13 +55,15 @@ struct RegisterPage {
       }
 
       const session = await this.authManager.register(this.username, this.password);
-      
+
       promptAction.showToast({
         message: '注册成功',
         duration: 2000
       });
       
-      router.replaceUrl({ url: 'pages/MainPage' });
+      router.replaceUrl({ url: 'pages/MainPage' }).catch(() => {
+        // TODO: Implement error handling.
+      });
     } catch (error) {
       console.error('Registration failed:', error);
       const errorMsg: string = error instanceof Error ? error.message : String(error);

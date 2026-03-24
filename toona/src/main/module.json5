@@ -9,6 +9,11 @@
     ],
     "deliveryWithInstall": true,
     "installationFree": false,
+    "requestPermissions": [
+      {
+        "name": "ohos.permission.INTERNET"
+      }
+    ],
     "pages": "$profile:main_pages",
     "abilities": [
       {
@@ -17,7 +22,7 @@
         "description": "$string:ToonaAbility_desc",
         "icon": "$media:layered_image",
         "label": "$string:ToonaAbility_label",
-        "startWindowIcon": "$media:startIcon",
+        "startWindowIcon": "$media:1024",
         "startWindowBackground": "$color:start_window_background",
         "exported": true,
         "skills": [

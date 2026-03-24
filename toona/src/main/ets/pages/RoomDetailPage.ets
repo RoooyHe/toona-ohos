@@ -1,11 +1,12 @@
 import router from '@ohos.router';
 import promptAction from '@ohos.promptAction';
 import { RoomManager } from '../services/RoomManager';
-import { Message, Room } from '../models/DataModels';
+import { Message } from '../models/DataModels';
 import { SyncManager } from '../services/SyncManager';
 import { MessageStatus } from '../models/MatrixTypes';
 
 @Entry
+@Component
 struct RoomDetailPage {
   @State roomId: string = '';
   @State roomName: string = '';
@@ -27,12 +28,16 @@ struct RoomDetailPage {
 
     this.syncManager.setRoomLeftCallback((leftRoomId: string) => {
       if (leftRoomId === this.roomId) {
-        promptAction.showToast({ message: '已离开房间' });
+        try {
+          promptAction.showToast({ message: '已离开房间' });
+        } catch (error) {
+          // TODO: Implement error handling.
+        }
         router.back();
       }
     });
 
-    this.syncManager.setNewMessagesCallback((msgRoomId: string, newMessages: Room[]) => {
+    this.syncManager.setNewMessagesCallback((msgRoomId: string) => {
       if (msgRoomId === this.roomId) {
         this.loadMessages();
       }

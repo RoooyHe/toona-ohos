@@ -1,8 +1,8 @@
 import { MatrixHttpClient } from '../network/MatrixHttpClient';
-import { SendMessageResult, TextMessageContent } from '../models/MatrixTypes';
+import { SendMessageResult } from '../models/MatrixTypes';
 import { AuthManager } from './AuthManager';
 import { LocalDatabase } from '../database/LocalDatabase';
-import { Message, MessageStatus } from '../models/DataModels';
+import { Message } from '../models/DataModels';
 
 interface PendingMessage {
   roomId: string;
@@ -17,8 +17,6 @@ export class MessageManager {
   private httpClient: MatrixHttpClient;
   private authManager: AuthManager;
   private localDatabase: LocalDatabase;
-  
-  private pendingMessages: Map<string, PendingMessage> = new Map();
   private offlineQueue: PendingMessage[] = [];
 
   private constructor() {
@@ -35,27 +33,27 @@ export class MessageManager {
   }
 
   async sendTextMessage(roomId: string, text: string): Promise<string> {
-    const content: TextMessageContent = {
-      msgtype: 'm.text',
-      body: text
+    const content: Record<string, string | object> = {
+      "msgtype": 'm.text',
+      "body": text
     };
 
     return this.sendMessage(roomId, 'm.room.message', content);
   }
 
   async sendEmoteMessage(roomId: string, text: string): Promise<string> {
-    const content: TextMessageContent = {
-      msgtype: 'm.emote',
-      body: text
+    const content: Record<string, string | object> = {
+      "msgtype": 'm.emote',
+      "body": text
     };
 
     return this.sendMessage(roomId, 'm.room.message', content);
   }
 
   async sendNoticeMessage(roomId: string, text: string): Promise<string> {
-    const content: TextMessageContent = {
-      msgtype: 'm.notice',
-      body: text
+    const content: Record<string, string | object> = {
+      "msgtype": 'm.notice',
+      "body": text
     };
 
     return this.sendMessage(roomId, 'm.room.message', content);
@@ -80,12 +78,14 @@ export class MessageManager {
   }
 
   async sendReplyMessage(roomId: string, eventId: string, text: string): Promise<string> {
-    const content = {
-      'm.relates_to': {
-        'm.in_reply_to': {
-          'event_id': eventId
-        }
-      },
+    const inReplyTo: Record<string, string | object> = {
+      'event_id': eventId
+    };
+    const relatesTo: Record<string, string | object> = {
+      'm.in_reply_to': inReplyTo
+    };
+    const content: Record<string, string | object> = {
+      'm.relates_to': relatesTo,
       'msgtype': 'm.text',
       'body': text
     };
@@ -94,17 +94,19 @@ export class MessageManager {
   }
 
   async editMessage(roomId: string, eventId: string, newText: string): Promise<string> {
-    const content = {
+    const newContent: Record<string, string | object> = {
+      'msgtype': 'm.text',
+      'body': newText
+    };
+    const relatesTo: Record<string, string | object> = {
+      'event_id': eventId,
+      'rel_type': 'm.replace'
+    };
+    const content: Record<string, string | object> = {
       'msgtype': 'm.text',
       'body': newText,
-      'm.new_content': {
-        'msgtype': 'm.text',
-        'body': newText
-      },
-      'm.relates_to': {
-        'event_id': eventId,
-        'rel_type': 'm.replace'
-      }
+      'm.new_content': newContent,
+      'm.relates_to': relatesTo
     };
 
     const txnId = this.generateTransactionId();
@@ -129,9 +131,10 @@ export class MessageManager {
     const encodedEventId = encodeURIComponent(eventId);
 
     try {
-      await this.httpClient.put(`/rooms/${encodedRoomId}/redact/${encodedEventId}`, {
-        reason: reason
-      });
+      const redactContent: Record<string, string | object> = {
+        "reason": reason !== undefined ? reason : ''
+      };
+      await this.httpClient.put<object>(`/rooms/${encodedRoomId}/redact/${encodedEventId}`, redactContent);
     } catch (error) {
       console.error('Failed to delete message:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -148,7 +151,8 @@ export class MessageManager {
     return `m${Date.now()}${Math.random().toString(36).substring(2, 9)}`;
   }
 
-  queueOfflineMessage(roomId: string, content: Record<string, string | object>, resolve: (eventId: string) => void, reject: (error: Error) => void): void {
+  queueOfflineMessage(roomId: string, content: Record<string, string | object>, resolve: (eventId: string) => void,
+    reject: (error: Error) => void): void {
     const pending: PendingMessage = {
       roomId,
       content,

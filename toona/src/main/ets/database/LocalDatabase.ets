@@ -246,7 +246,15 @@ export class LocalDatabase {
     };
 
     try {
-      await this.store.insert(TABLES.ROOMS, valueBucket);
+      const predicates = new relationalStore.RdbPredicates(TABLES.ROOMS);
+      predicates.equalTo('room_id', room.id);
+      const existing = await this.store.query(predicates);
+      if (existing.goToFirstRow()) {
+        await this.store.update(valueBucket, predicates);
+      } else {
+        await this.store.insert(TABLES.ROOMS, valueBucket);
+      }
+      existing.close();
     } catch (error) {
       console.error('Failed to save room:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);

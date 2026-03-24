@@ -10,7 +10,7 @@ export interface MatrixResponse {
   error?: string;
 }
 
-interface GeneratedTypeLiteralInterface_1 {
+export interface LoginIdentifier {
   type: string;
   user?: string;
   medium?: string;
@@ -18,18 +18,18 @@ interface GeneratedTypeLiteralInterface_1 {
 }
 
 export interface LoginRequest {
-  identifier: GeneratedTypeLiteralInterface_1;
+  identifier: LoginIdentifier;
   password: string;
   device_id?: string;
   initial_device_display_name?: string;
 }
 
-interface GeneratedTypeLiteralInterface_3 {
+export interface HomeServerInfo {
   base_url: string;
 }
 
-interface GeneratedTypeLiteralInterface_2 {
-  'm.homeserver'?: GeneratedTypeLiteralInterface_3;
+export interface WellKnownInfo {
+  'm.homeserver'?: HomeServerInfo;
 }
 
 export interface LoginResponse {
@@ -37,10 +37,10 @@ export interface LoginResponse {
   access_token: string;
   home_server: string;
   device_id: string;
-  well_known?: GeneratedTypeLiteralInterface_2;
+  well_known?: WellKnownInfo;
 }
 
-interface GeneratedTypeLiteralInterface_4 {
+export interface AuthSession {
   session?: string;
   flows?: AuthenticationFlow[];
 }
@@ -50,7 +50,7 @@ export interface RegisterRequest {
   password: string;
   device_id?: string;
   initial_device_display_name?: string;
-  auth?: GeneratedTypeLiteralInterface_4;
+  auth?: AuthSession;
 }
 
 export interface RegisterResponse {
@@ -69,7 +69,6 @@ export interface WhoAmIResponse {
   user_id: string;
   device_id: string;
   is_guest: boolean;
-  rooms: Map<string, number>;
   successors: string[];
 }
 
@@ -87,88 +86,84 @@ export interface SyncRequest {
   room_event_certificate?: string;
 }
 
-interface GeneratedTypeLiteralInterface_5 {
+export interface RoomStateEvents {
+  events: Event[];
+}
+
+export interface TimelineEvents {
+  events: Event[];
+  limited?: boolean;
+  prev_batch?: string;
+}
+
+export interface EphemeralEvents {
+  events: Event[];
+}
+
+export interface AccountDataEvents {
+  events: Event[];
+}
+
+export interface SyncRooms {
   join?: Record<string, RoomState>;
   invite?: Record<string, InvitedRoom>;
   leave?: Record<string, LeftRoom>;
 }
 
-interface GeneratedTypeLiteralInterface_6 {
+export interface PresenceEvents {
   events: PresEvent[];
 }
 
-interface GeneratedTypeLiteralInterface_7 {
+export interface ToDeviceEvents {
   events: Event[];
 }
 
-interface GeneratedTypeLiteralInterface_8 {
-  events: Event[];
-}
-
-interface GeneratedTypeLiteralInterface_9 {
+export interface DeviceListChanges {
   changed: string[];
   left: string[];
 }
 
 export interface SyncResponse {
   next_batch: string;
-  rooms?: GeneratedTypeLiteralInterface_5;
-  presence?: GeneratedTypeLiteralInterface_6;
-  account_data?: GeneratedTypeLiteralInterface_7;
-  to_device?: GeneratedTypeLiteralInterface_8;
-  device_lists?: GeneratedTypeLiteralInterface_9;
+  rooms?: SyncRooms;
+  presence?: PresenceEvents;
+  account_data?: AccountDataEvents;
+  to_device?: ToDeviceEvents;
+  device_lists?: DeviceListChanges;
   device_one_time_keys_count?: Record<string, number>;
   device_unused_fallback_key_types?: string[];
   rate_limited?: boolean;
   required_user_agent?: string;
 }
 
-interface GeneratedTypeLiteralInterface_10 {
-  events: Event[];
-}
-
-interface GeneratedTypeLiteralInterface_11 {
-  events: Event[];
-  limited?: boolean;
-  prev_batch?: string;
-}
-
-interface GeneratedTypeLiteralInterface_12 {
-  events: Event[];
-}
-
-interface GeneratedTypeLiteralInterface_13 {
-  events: Event[];
-}
-
 export interface RoomState {
-  state: GeneratedTypeLiteralInterface_10;
-  timeline: GeneratedTypeLiteralInterface_11;
-  ephemeral?: GeneratedTypeLiteralInterface_12;
-  account_data?: GeneratedTypeLiteralInterface_13;
+  state: RoomStateEvents;
+  timeline: TimelineEvents;
+  ephemeral?: EphemeralEvents;
+  account_data?: AccountDataEvents;
   unread_notifications?: UnreadNotifications;
   summary?: RoomSummary;
 }
 
-interface GeneratedTypeLiteralInterface_14 {
+export interface InviteState {
   events: Event[];
 }
 
 export interface InvitedRoom {
-  invite_state: GeneratedTypeLiteralInterface_14;
+  invite_state: InviteState;
 }
 
-interface GeneratedTypeLiteralInterface_15 {
+export interface LeftRoomState {
   events: Event[];
 }
 
-interface GeneratedTypeLiteralInterface_16 {
+export interface LeftRoomTimeline {
   events: Event[];
 }
 
 export interface LeftRoom {
-  state: GeneratedTypeLiteralInterface_15;
-  timeline: GeneratedTypeLiteralInterface_16;
+  state: LeftRoomState;
+  timeline: LeftRoomTimeline;
 }
 
 export interface UnreadNotifications {
@@ -177,7 +172,7 @@ export interface UnreadNotifications {
   full_screen_notification_types?: string[];
 }
 
-interface GeneratedTypeLiteralInterface_17 {
+export interface RoomMetadata {
   custom?: Record<string, number>;
 }
 
@@ -185,18 +180,24 @@ export interface RoomSummary {
   heroes?: string[];
   invited_member_count?: number;
   joined_member_count?: number;
-  metadata?: GeneratedTypeLiteralInterface_17;
+  metadata?: RoomMetadata;
 }
 
-interface GeneratedTypeLiteralInterface_18 {
+export interface EventUnsigned {
   age?: number;
   redact_reason?: string;
   transaction_id?: string;
   prev_content?: Record<string, string | object>;
 }
 
-interface GeneratedTypeLiteralInterface_19 {
+export interface EventHashes {
   sha256: string;
+}
+
+export interface EventMove {
+  event_id: string;
+  ts: number;
+  new_room_id: string;
 }
 
 export interface Event {
@@ -206,26 +207,21 @@ export interface Event {
   origin_server_ts?: number;
   state_key?: string;
   content: Record<string, string | object>;
-  unsigned?: GeneratedTypeLiteralInterface_18;
+  unsigned?: EventUnsigned;
   room_id?: string;
   membership?: string;
   prev_events?: [string, Event][];
   auth_events?: [string, Event][];
   depth?: number;
-  hashes?: GeneratedTypeLiteralInterface_19;
+  hashes?: EventHashes;
   signatures?: Record<string, Record<string, string>>;
   destination?: string;
   origin?: string;
   moves?: EventMove[];
+  redacts?: string;
 }
 
-export interface EventMove {
-  event_id: string;
-  ts: number;
-  new_room_id: string;
-}
-
-interface GeneratedTypeLiteralInterface_20 {
+export interface PresenceContent {
   presence?: string;
   status_msg?: string;
   last_active_ago?: number;
@@ -238,7 +234,7 @@ interface GeneratedTypeLiteralInterface_20 {
 export interface PresEvent {
   type: string;
   sender: string;
-  content: GeneratedTypeLiteralInterface_20;
+  content: PresenceContent;
 }
 
 export interface Room {
@@ -257,7 +253,7 @@ export interface Room {
   lastEventTime?: number;
 }
 
-interface GeneratedTypeLiteralInterface_21 {
+export interface InitialStateEvent {
   type: string;
   state_key?: string;
   content: Record<string, string | object>;
@@ -274,7 +270,7 @@ export interface RoomCreateContent {
   invite?: string[];
   invite_3pid?: Invite3pid[];
   room_alias_name?: string;
-  initial_state?: GeneratedTypeLiteralInterface_21[];
+  initial_state?: InitialStateEvent[];
   power_level_content_override?: Record<string, string | object>;
 }
 
@@ -312,7 +308,7 @@ export interface MessageInfo {
   'xyz.amorgan.blurhash'?: string;
 }
 
-interface GeneratedTypeLiteralInterface_22 {
+export interface EncryptionKey {
   alg: string;
   key: string;
   key_id: string;
@@ -321,7 +317,7 @@ interface GeneratedTypeLiteralInterface_22 {
 
 export interface EncryptedFile {
   url?: string;
-  key?: GeneratedTypeLiteralInterface_22;
+  key?: EncryptionKey;
   iv?: string;
   hashes?: Record<string, string>;
   file?: string;
@@ -412,7 +408,7 @@ export interface User {
   statusMsg?: string;
 }
 
-export interface Message {
+export interface RoomMessage {
   eventId: string;
   roomId: string;
   sender: string;
@@ -445,14 +441,14 @@ export interface RoomMessagesResponse {
   state?: Event[];
 }
 
-interface GeneratedTypeLiteralInterface_23 {
+export interface RoomMemberInfo {
   user_id: string;
   display_name?: string;
   avatar_url?: string;
 }
 
 export interface JoinedMembersResponse {
-  joined_members: GeneratedTypeLiteralInterface_23[];
+  joined_members: RoomMemberInfo[];
 }
 
 export interface RoomCreateResponse {

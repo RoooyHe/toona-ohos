@@ -2,11 +2,24 @@ import router from '@ohos.router';
 import { AuthManager } from '../services/AuthManager';
 import { SyncManager } from '../services/SyncManager';
 import { RoomListPage } from './RoomListPage';
+import { SpacePage } from './SpacePage';
+
+enum FilterType {
+  ALL = 'all',
+  UNREAD = 'unread',
+  DM = 'dm',
+  ROOM = 'room',
+  FAVORITE = 'favorite',
+  INVITE = 'invite'
+}
 
 @Entry
 @Component
 struct MainPage {
   @State currentIndex: number = 0;
+  @State userInitial: string = '';
+  @State showUserMenu: boolean = false;
+  @State currentFilter: FilterType = FilterType.ALL;
 
   private authManager: AuthManager = AuthManager.getInstance();
   private syncManager: SyncManager = SyncManager.getInstance();
@@ -15,6 +28,12 @@ struct MainPage {
     try {
       await this.syncManager.init(getContext(this));
       await this.syncManager.start();
+      const session = this.authManager.getSession();
+      if (session) {
+        const userId = session.userId;
+        const colonIndex = userId.indexOf(':');
+        this.userInitial = colonIndex > 0 ? userId.charAt(1).toUpperCase() : userId.charAt(0).toUpperCase();
+      }
     } catch (error) {
       console.error('Failed to init sync:', error);
     }
@@ -24,270 +43,267 @@ struct MainPage {
     await this.syncManager.stop();
   }
 
-  @Builder
-  TabBarBuilder(title: string, index: number) {
-    Column() {
-      Text(title)
-        .fontSize(14)
-        .fontColor(this.currentIndex === index ? '#10a37f' : '#999999')
-        .margin({ top: 4 });
-    }
-    .width('100%')
-    .height('100%')
-    .justifyContent(FlexAlign.Center);
-  }
-
-  build() {
-    Column() {
-      Tabs({ barPosition: BarPosition.End, controller: this.tabController }) {
-        TabContent() {
-          RoomListPage();
-        }
-        .tabBar(this.TabBarBuilder('消息', 0));
-
-        TabContent() {
-          ContactsPage();
-        }
-        .tabBar(this.TabBarBuilder('联系人', 1));
-
-        TabContent() {
-          SettingsPage();
-        }
-        .tabBar(this.TabBarBuilder('设置', 2));
-      }
-      .width('100%')
-      .height('100%')
-      .barHeight(60)
-      .onChange((index: number) => {
-        this.currentIndex = index;
-      });
-    }
-    .width('100%')
-    .height('100%');
-  }
-
-  private tabController: TabsController = new TabsController();
-}
-
-@Component
-struct ContactsPage {
-  @State searchQuery: string = '';
-  @State contacts: string[] = [];
-
-  build() {
-    Column() {
-      Text('联系人')
-        .fontSize(24)
-        .fontWeight(FontWeight.Bold)
-        .margin({ left: 20, top: 20, bottom: 15 })
-        .alignSelf(HorizontalAlign.Start);
-
-      TextInput({ placeholder: '搜索用户' })
-        .width('90%')
-        .height(44)
-        .fontSize(16)
-        .backgroundColor('#f5f5f5')
-        .borderRadius(10)
-        .margin({ bottom: 15 })
-        .onChange((value: string) => {
-          this.searchQuery = value;
-        });
-
-      if (this.contacts.length === 0) {
-        Column() {
-          Text('暂无联系人')
-            .fontSize(16)
-            .fontColor('#999999');
-          Text('通过房间添加联系人')
-            .fontSize(14)
-            .fontColor('#cccccc')
-            .margin({ top: 5 });
-        }
-        .width('100%')
-        .layoutWeight(1)
-        .justifyContent(FlexAlign.Center);
-      } else {
-        List() {
-          ForEach(this.contacts, (contact: string) => {
-            ListItem() {
-              Row() {
-                Text(contact.charAt(0).toUpperCase())
-                  .fontSize(18)
-                  .fontWeight(FontWeight.Bold)
-                  .fontColor('#ffffff')
-                  .width(40)
-                  .height(40)
-                  .borderRadius(20)
-                  .backgroundColor('#10a37f')
-                  .textAlign(TextAlign.Center);
-
-                Text(contact)
-                  .fontSize(16)
-                  .fontColor('#333333')
-                  .margin({ left: 12 });
-              }
-              .width('100%')
-              .padding({ top: 12, bottom: 12, left: 20, right: 20 });
-            };
-          });
-        }
-        .width('100%')
-        .layoutWeight(1);
-      }
-    }
-    .width('100%')
-    .height('100%')
-    .backgroundColor('#ffffff');
-  }
-}
-
-@Component
-struct SettingsPage {
-  @State userId: string = '';
-  @State homeserver: string = '';
-  @State showLogoutDialog: boolean = false;
-
-  private authManager: AuthManager = AuthManager.getInstance();
-
-  aboutToAppear() {
-    const session = this.authManager.getSession();
-    if (session) {
-      this.userId = session.userId;
-      this.homeserver = session.homeServer;
-    }
-  }
-
   async handleLogout() {
     try {
       await this.authManager.logout();
-      router.replaceUrl({ url: 'pages/LoginPage' });
+      router.replaceUrl({ url: 'pages/LoginPage' }).catch(() => {
+        // TODO: Implement error handling.
+      });
     } catch (error) {
       console.error('Logout failed:', error);
     }
   }
 
-  build() {
-    Column() {
-      Text('设置')
-        .fontSize(24)
-        .fontWeight(FontWeight.Bold)
-        .margin({ left: 20, top: 20, bottom: 20 })
-        .alignSelf(HorizontalAlign.Start);
+  navigateToSearch() {
+    router.pushUrl({ url: 'pages/SearchPage' }).catch(() => {
+      // TODO: Implement error handling.
+    });
+  }
 
-      Column() {
-        Row() {
-          Text('账号')
-            .fontSize(16)
-            .fontColor('#333333');
-          Blank();
-          Text(this.userId)
-            .fontSize(14)
-            .fontColor('#999999');
-        }
-        .width('100%')
-        .padding({ top: 15, bottom: 15 });
+  navigateToJoinRoom() {
+    router.pushUrl({ url: 'pages/JoinRoomPage' }).catch(() => {
+      // TODO: Implement error handling.
+    });
+  }
 
-        Divider().color('#f0f0f0');
+  setFilter(filter: FilterType) {
+    this.currentFilter = filter;
+  }
 
-        Row() {
-          Text('服务器')
-            .fontSize(16)
-            .fontColor('#333333');
-          Blank();
-          Text(this.homeserver)
-            .fontSize(14)
-            .fontColor('#999999');
-        }
-        .width('100%')
-        .padding({ top: 15, bottom: 15 });
-
-        Divider().color('#f0f0f0');
-
-        Row() {
-          Text('版本')
-            .fontSize(16)
-            .fontColor('#333333');
-          Blank();
-          Text('1.0.0')
-            .fontSize(14)
-            .fontColor('#999999');
-        }
-        .width('100%')
-        .padding({ top: 15, bottom: 15 });
+  @Builder
+  FilterBarBuilder() {
+    Row() {
+      if (this.currentFilter === FilterType.ALL) {
+        Text('全部消息')
+          .fontSize(14)
+          .fontColor('#10a37f')
+          .decoration({ type: TextDecorationType.Underline, color: '#10a37f' })
+          .padding({ bottom: 4 });
+      } else {
+        Text('全部消息')
+          .fontSize(14)
+          .fontColor('#999999')
+          .onClick(() => {
+            this.setFilter(FilterType.ALL);
+          });
       }
-      .width('90%')
-      .backgroundColor('#f8f8f8')
-      .borderRadius(12)
-      .padding({ left: 15, right: 15 });
 
-      Blank();
+      Blank().width(20);
 
-      Button('退出登录')
-        .fontSize(16)
-        .fontColor('#e53935')
-        .backgroundColor('#ffffff')
-        .width('90%')
-        .height(50)
-        .borderRadius(10)
-        .borderWidth(1)
-        .borderColor('#e53935')
-        .margin({ bottom: 30 })
-        .onClick(() => {
-          this.showLogoutDialog = true;
-        });
+      if (this.currentFilter === FilterType.UNREAD) {
+        Text('未读')
+          .fontSize(14)
+          .fontColor('#10a37f')
+          .decoration({ type: TextDecorationType.Underline, color: '#10a37f' })
+          .padding({ bottom: 4 });
+      } else {
+        Text('未读')
+          .fontSize(14)
+          .fontColor('#999999')
+          .onClick(() => {
+            this.setFilter(FilterType.UNREAD);
+          });
+      }
+
+      Blank().width(20);
+
+      if (this.currentFilter === FilterType.DM) {
+        Text('用户')
+          .fontSize(14)
+          .fontColor('#10a37f')
+          .decoration({ type: TextDecorationType.Underline, color: '#10a37f' })
+          .padding({ bottom: 4 });
+      } else {
+        Text('用户')
+          .fontSize(14)
+          .fontColor('#999999')
+          .onClick(() => {
+            this.setFilter(FilterType.DM);
+          });
+      }
+
+      Blank().width(20);
+
+      if (this.currentFilter === FilterType.ROOM) {
+        Text('聊天室')
+          .fontSize(14)
+          .fontColor('#10a37f')
+          .decoration({ type: TextDecorationType.Underline, color: '#10a37f' })
+          .padding({ bottom: 4 });
+      } else {
+        Text('聊天室')
+          .fontSize(14)
+          .fontColor('#999999')
+          .onClick(() => {
+            this.setFilter(FilterType.ROOM);
+          });
+      }
+
+      Blank().width(20);
+
+      if (this.currentFilter === FilterType.INVITE) {
+        Text('邀请')
+          .fontSize(14)
+          .fontColor('#10a37f')
+          .decoration({ type: TextDecorationType.Underline, color: '#10a37f' })
+          .padding({ bottom: 4 });
+      } else {
+        Text('邀请')
+          .fontSize(14)
+          .fontColor('#999999')
+          .onClick(() => {
+            this.setFilter(FilterType.INVITE);
+          });
+      }
     }
     .width('100%')
-    .height('100%')
+    .padding({ left: 20, right: 20, top: 10, bottom: 10 })
     .backgroundColor('#ffffff');
+  }
 
-    if (this.showLogoutDialog) {
+  @Builder
+  TabBarBuilder(index: number) {
+    if (index === 0) {
+      Row() {
+        Text('💬')
+          .fontSize(20);
+        Text('Matrix Room')
+          .fontSize(12)
+          .fontColor(this.currentIndex === index ? '#999999' : '#10a37f')
+          .margin({ left: 4 });
+      }
+      .padding({ left: 16, right: 16, top: 8, bottom: 8 })
+      .backgroundColor(this.currentIndex === index ? '#f0f0f0' : '#ffffff')
+      .borderRadius(20)
+      .onClick(() => {
+        this.currentIndex = index;
+      });
+    } else if (index === 1) {
+      Row() {
+        Text('🏠')
+          .fontSize(20);
+        Text('Matrix Space')
+          .fontSize(12)
+          .fontColor(this.currentIndex === index ? '#999999' : '#10a37f')
+          .margin({ left: 4 });
+      }
+      .padding({ left: 16, right: 16, top: 8, bottom: 8 })
+      .backgroundColor(this.currentIndex === index ? '#f0f0f0' : '#ffffff')
+      .borderRadius(20)
+      .onClick(() => {
+        this.currentIndex = index;
+      });
+    } else if (index === 2) {
+      Row() {
+        Text('+')
+          .fontSize(24)
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#ffffff');
+      }
+      .width(48)
+      .height(48)
+      .backgroundColor('#10a37f')
+      .borderRadius(12)
+      .justifyContent(FlexAlign.Center)
+      .onClick(() => {
+        this.navigateToJoinRoom();
+      });
+    }
+  }
+
+  build() {
+    Stack() {
       Column() {
-        Column() {
-          Text('确认退出')
-            .fontSize(18)
-            .fontWeight(FontWeight.Bold)
-            .margin({ bottom: 10 });
-
-          Text('确定要退出登录吗？')
-            .fontSize(14)
-            .fontColor('#666666')
-            .margin({ bottom: 20 });
-
-          Row() {
-            Button('取消')
-              .fontSize(16)
-              .backgroundColor('#f5f5f5')
-              .fontColor('#333333')
-              .width('45%')
-              .height(44)
-              .borderRadius(8)
-              .onClick(() => {
-                this.showLogoutDialog = false;
-              });
-
-            Button('退出')
-              .fontSize(16)
-              .backgroundColor('#e53935')
+        Row() {
+          if (this.userInitial) {
+            Text(this.userInitial)
+              .fontSize(18)
+              .fontWeight(FontWeight.Bold)
               .fontColor('#ffffff')
-              .width('45%')
-              .height(44)
-              .borderRadius(8)
+              .width(36)
+              .height(36)
+              .borderRadius(18)
+              .backgroundColor('#10a37f')
+              .textAlign(TextAlign.Center)
               .onClick(() => {
-                this.showLogoutDialog = false;
+                this.showUserMenu = !this.showUserMenu;
+              });
+          }
+
+          Text(this.currentIndex === 0 ? '全部消息' : '空间')
+            .fontSize(18)
+            .fontWeight(FontWeight.Medium)
+            .margin({ left: 12 });
+
+          Blank();
+
+          Button('🔍')
+            .fontSize(20)
+            .backgroundColor('transparent')
+            .width(44)
+            .height(44)
+            .onClick(() => {
+              this.navigateToSearch();
+            });
+        }
+        .width('100%')
+        .padding({ left: 20, right: 20, top: 10, bottom: 5 })
+        .backgroundColor('#ffffff');
+
+        this.FilterBarBuilder();
+
+        if (this.currentIndex === 0) {
+          RoomListPage({ filterType: this.currentFilter });
+        } else {
+          SpacePage();
+        }
+      }
+      .width('100%')
+      .height('100%');
+
+      Row() {
+        Blank();
+        this.TabBarBuilder(0);
+        Blank();
+        this.TabBarBuilder(1);
+        Blank();
+        this.TabBarBuilder(2);
+        Blank();
+      }
+      .width('100%')
+      .padding({ left: 20, right: 20, bottom: 20 })
+      .alignItems(VerticalAlign.Bottom);
+
+      if (this.showUserMenu) {
+        Column() {
+          Column() {
+            Text('退出登录')
+              .fontSize(16)
+              .fontColor('#e53935')
+              .width('100%')
+              .height(44)
+              .textAlign(TextAlign.Center)
+              .onClick(() => {
+                this.showUserMenu = false;
                 this.handleLogout();
               });
           }
-          .width('100%');
+          .width(160)
+          .backgroundColor('#ffffff')
+          .borderRadius(8)
+          .shadow({
+            radius: 10,
+            color: 'rgba(0, 0, 0, 0.15)',
+            offsetX: 0,
+            offsetY: 2
+          });
         }
-        .width('80%')
-        .padding(20)
-        .backgroundColor('#ffffff')
-        .borderRadius(16);
+        .width('100%')
+        .justifyContent(FlexAlign.End)
+        .padding({ right: 20, top: 60 });
       }
-      .width('100%')
-      .height('100%')
-      .backgroundColor('rgba(0, 0, 0, 0.5)')
-      .justifyContent(FlexAlign.Center);
     }
+    .width('100%')
+    .height('100%');
   }
 }
