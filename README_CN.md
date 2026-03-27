@@ -1,6 +1,10 @@
 # Toona - HarmonyOS Matrix 客户端
 
 <p align="center">
+  <img src="../AppScope/resources/base/media/1024.jpg" alt="Toona Logo" width="128" height="128" style="border-radius: 24px;">
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/Platform-HarmonyOS-000000?style=flat-square&logo=huawei" alt="Platform">
   <img src="https://img.shields.io/badge/Language-ArkTS-blue?style=flat-square" alt="Language">
   <img src="https://img.shields.io/badge/Matrix-v3-green?style=flat-square&logo=matrix" alt="Matrix">
