@@ -84,6 +84,7 @@ export class Room implements MatrixRoom {
   joinedMembers?: string[];
   myMembership?: string;
   isDirect?: boolean;
+  isSpace?: boolean;
   unreadCount?: number;
   highlightCount?: number;
   lastEvent?: Event;
@@ -141,6 +142,10 @@ export class Room implements MatrixRoom {
           const isDirectVal: string | object | undefined = content['is_direct'];
           if (isDirectVal !== undefined) {
             room.isDirect = isDirectVal === 'true';
+          }
+          const typeVal: string | object | undefined = content['type'];
+          if (typeVal === 'm.space') {
+            room.isSpace = true;
           }
           break;
       }

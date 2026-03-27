@@ -30,6 +30,7 @@ export interface CreateRoomOptions {
   isDirect?: boolean;
   inviteUsers?: string[];
   roomAlias?: string;
+  visibility?: 'public' | 'private';
 }
 
 export class RoomManager {
@@ -78,12 +79,14 @@ export class RoomManager {
       content.room_alias_name = options.roomAlias;
     }
 
-    if (options?.isDirect && options?.inviteUsers && options.inviteUsers.length > 0) {
+    if (options?.visibility === 'public') {
+      content.preset = 'public_chat';
+    } else if (options?.isDirect && options?.inviteUsers && options.inviteUsers.length > 0) {
       content.preset = 'trusted_private_chat';
     } else if (options?.inviteUsers && options.inviteUsers.length > 0) {
       content.preset = 'private_chat';
     } else {
-      content.preset = 'public_chat';
+      content.preset = 'private_chat';
     }
 
     try {

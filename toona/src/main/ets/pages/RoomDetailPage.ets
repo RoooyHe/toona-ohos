@@ -131,12 +131,10 @@ struct RoomDetailPage {
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .layoutWeight(1);
 
-        Button('⋮')
-          .fontSize(20)
-          .backgroundColor('transparent')
-          .fontColor('#333333')
-          .width(44)
-          .height(44)
+        Image($r('app.media.menu'))
+          .width(24)
+          .height(24)
+          .objectFit(ImageFit.Contain)
           .onClick(() => {
             this.showMenu = !this.showMenu;
           });

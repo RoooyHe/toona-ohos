@@ -165,8 +165,10 @@ struct MainPage {
   TabBarBuilder(index: number) {
     if (index === 0) {
       Row() {
-        Text('💬')
-          .fontSize(20);
+        Image($r('app.media.message'))
+          .width(24)
+          .height(24)
+          .objectFit(ImageFit.Contain);
         Text('Matrix Room')
           .fontSize(12)
           .fontColor(this.currentIndex === index ? '#999999' : '#10a37f')
@@ -180,8 +182,10 @@ struct MainPage {
       });
     } else if (index === 1) {
       Row() {
-        Text('🏠')
-          .fontSize(20);
+        Image($r('app.media.space'))
+          .width(24)
+          .height(24)
+          .objectFit(ImageFit.Contain);
         Text('Matrix Space')
           .fontSize(12)
           .fontColor(this.currentIndex === index ? '#999999' : '#10a37f')
@@ -192,21 +196,6 @@ struct MainPage {
       .borderRadius(20)
       .onClick(() => {
         this.currentIndex = index;
-      });
-    } else if (index === 2) {
-      Row() {
-        Text('+')
-          .fontSize(24)
-          .fontWeight(FontWeight.Bold)
-          .fontColor('#ffffff');
-      }
-      .width(48)
-      .height(48)
-      .backgroundColor('#10a37f')
-      .borderRadius(12)
-      .justifyContent(FlexAlign.Center)
-      .onClick(() => {
-        this.navigateToJoinRoom();
       });
     }
   }
@@ -237,11 +226,10 @@ struct MainPage {
 
           Blank();
 
-          Button('🔍')
-            .fontSize(20)
-            .backgroundColor('transparent')
-            .width(44)
-            .height(44)
+          Image($r('app.media.search'))
+            .width(24)
+            .height(24)
+            .objectFit(ImageFit.Contain)
             .onClick(() => {
               this.navigateToSearch();
             });
@@ -261,18 +249,36 @@ struct MainPage {
       .width('100%')
       .height('100%');
 
-      Row() {
-        Blank();
-        this.TabBarBuilder(0);
-        Blank();
-        this.TabBarBuilder(1);
-        Blank();
-        this.TabBarBuilder(2);
-        Blank();
+      Column() {
+        Row() {
+          this.TabBarBuilder(0);
+          Blank();
+          Row() {
+            Image($r('app.media.add'))
+              .width(24)
+              .height(24)
+              .objectFit(ImageFit.Contain);
+          }
+          .width(48)
+          .height(48)
+          .backgroundColor('#10a37f')
+          .borderRadius(24)
+          .justifyContent(FlexAlign.Center)
+          .alignItems(VerticalAlign.Center)
+          .onClick(() => {
+            this.navigateToJoinRoom();
+          });
+          Blank();
+          this.TabBarBuilder(1);
+        }
+        .width('100%')
+        .height(48)
+        .padding({ left: 20, right: 20 })
+        .alignItems(VerticalAlign.Bottom);
       }
       .width('100%')
-      .padding({ left: 20, right: 20, bottom: 20 })
-      .alignItems(VerticalAlign.Bottom);
+      .position({ x: 0, y: '100%' })
+      .translate({ x: 0, y: -48 });
 
       if (this.showUserMenu) {
         Column() {

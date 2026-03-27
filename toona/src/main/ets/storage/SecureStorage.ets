@@ -168,7 +168,8 @@ export class SecureStorage {
       console.info('SecureStorage: Session saved successfully');
     } catch (error) {
       console.error('SecureStorage: Failed to save session', error);
-      throw error;
+      const errMsg: string = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to save session: ${errMsg}`);
     }
   }
 
@@ -178,16 +179,18 @@ export class SecureStorage {
       throw new Error('SecureStorage not initialized');
     }
     try {
-      const encrypted = await this.preferences.get(SESSION_KEY, '');
+      const encryptedVal = await this.preferences.get(SESSION_KEY, '');
+      const encrypted: string = typeof encryptedVal === 'string' ? encryptedVal : String(encryptedVal);
       if (!encrypted || encrypted === '') {
         console.info('SecureStorage: No session found');
         return null;
       }
       console.info('SecureStorage: Session loaded, encrypted length: ' + encrypted.length);
-      return this.simpleDecrypt(encrypted as string);
+      return this.simpleDecrypt(encrypted);
     } catch (error) {
       console.error('SecureStorage: Failed to load session', error);
-      throw error;
+      const errMsg: string = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to load session: ${errMsg}`);
     }
   }
 

@@ -166,6 +166,7 @@ export class SyncManager {
 
       if (response.rooms.invite) {
         const inviteEntries = Object.entries(response.rooms.invite);
+        const currentUserId = this.authManager.getSession()?.userId || '';
         for (let i = 0; i < inviteEntries.length; i++) {
           const entry = inviteEntries[i];
           const roomId = entry[0];
@@ -183,6 +184,27 @@ export class SyncManager {
               room.name = String(content['alias'] || '');
             } else if (event.type === 'm.room.avatar') {
               room.avatarUrl = String(content['url'] || '');
+            } else if (event.type === 'm.room.create') {
+              const isDirectVal = content['is_direct'];
+              if (isDirectVal !== undefined) {
+                room.isDirect = isDirectVal === 'true';
+              }
+              const typeVal = content['type'];
+              if (typeVal === 'm.space') {
+                room.isSpace = true;
+              }
+            } else if (event.type === 'm.room.member') {
+              const stateKey = event.state_key;
+              if (stateKey && stateKey !== currentUserId) {
+                const displaynameVal = content['displayname'];
+                if (displaynameVal !== undefined) {
+                  room.displayName = String(displaynameVal);
+                }
+                const avatarVal = content['avatar_url'];
+                if (avatarVal !== undefined) {
+                  room.avatarUrl = String(avatarVal);
+                }
+              }
             }
           }
           await this.localDatabase.saveRoom(room);
@@ -228,6 +250,7 @@ export class SyncManager {
     }
 
     const stateEvents = roomState.state?.events || [];
+    const currentUserId = this.authManager.getSession()?.userId || '';
     for (let i = 0; i < stateEvents.length; i++) {
       const event = stateEvents[i];
       const content = event.content as Record<string, string | object>;
@@ -251,6 +274,27 @@ export class SyncManager {
         const aliasVal = content['alias'];
         if (aliasVal !== undefined) {
           room.name = String(aliasVal);
+        }
+      } else if (event.type === 'm.room.create') {
+        const isDirectVal = content['is_direct'];
+        if (isDirectVal !== undefined) {
+          room.isDirect = isDirectVal === 'true';
+        }
+        const typeVal = content['type'];
+        if (typeVal === 'm.space') {
+          room.isSpace = true;
+        }
+      } else if (event.type === 'm.room.member') {
+        const stateKey = event.state_key;
+        if (stateKey && stateKey !== currentUserId) {
+          const displaynameVal = content['displayname'];
+          if (displaynameVal !== undefined) {
+            room.displayName = String(displaynameVal);
+          }
+          const avatarVal = content['avatar_url'];
+          if (avatarVal !== undefined) {
+            room.avatarUrl = String(avatarVal);
+          }
         }
       }
     }

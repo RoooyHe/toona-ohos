@@ -247,6 +247,7 @@ export interface Room {
   joinedMembers?: string[];
   myMembership?: string;
   isDirect?: boolean;
+  isSpace?: boolean;
   unreadCount?: number;
   highlightCount?: number;
   lastEvent?: Event;

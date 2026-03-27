@@ -6,6 +6,7 @@
     "pages/RoomDetailPage",
     "pages/SearchPage",
     "pages/JoinRoomPage",
-    "pages/SpacePage"
+    "pages/SpacePage",
+    "pages/SpaceDetailPage"
   ]
 }

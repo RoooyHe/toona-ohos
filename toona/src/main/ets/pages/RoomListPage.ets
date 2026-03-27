@@ -1,5 +1,5 @@
 import router from '@ohos.router';
-import { RoomManager, CreateRoomOptions } from '../services/RoomManager';
+import { RoomManager } from '../services/RoomManager';
 import { Room, Message } from '../models/DataModels';
 import { SyncManager } from '../services/SyncManager';
 
@@ -9,7 +9,8 @@ enum FilterType {
   DM = 'dm',
   ROOM = 'room',
   FAVORITE = 'favorite',
-  INVITE = 'invite'
+  INVITE = 'invite',
+  SPACE = "SPACE"
 }
 
 @Component
@@ -17,9 +18,6 @@ struct RoomListPage {
   @Prop filterType: FilterType = FilterType.ALL;
   @State rooms: Room[] = [];
   @State isLoading: boolean = true;
-  @State searchQuery: string = '';
-  @State showCreateDialog: boolean = false;
-  @State newRoomName: string = '';
   private roomManager: RoomManager = RoomManager.getInstance();
   private syncManager: SyncManager = SyncManager.getInstance();
 
@@ -95,54 +93,41 @@ struct RoomListPage {
     let filtered = this.rooms;
 
     if (this.filterType === FilterType.UNREAD) {
-      filtered = filtered.filter(room => room.unreadCount && room.unreadCount > 0);
+      filtered = filtered.filter(room => (room.unreadCount && room.unreadCount > 0) && room.isSpace !== true);
     } else if (this.filterType === FilterType.DM) {
       filtered = filtered.filter(room => room.isDirect === true);
     } else if (this.filterType === FilterType.ROOM) {
-      filtered = filtered.filter(room => room.isDirect !== true);
-    }
-
-    if (this.searchQuery) {
-      const query = this.searchQuery.toLowerCase();
-      filtered = filtered.filter(room =>
-        room.name?.toLowerCase().includes(query) ||
-        room.displayName?.toLowerCase().includes(query) ||
-        room.id.toLowerCase().includes(query)
-      );
+      filtered = filtered.filter(room => room.isDirect !== true && room.isSpace !== true);
+    } else if (this.filterType === FilterType.SPACE) {
+      filtered = filtered.filter(room => room.isSpace === true);
+    } else {
+      filtered = filtered.filter(room => room.isSpace !== true);
     }
 
     return filtered;
   }
 
-  async createRoom() {
-    if (!this.newRoomName.trim()) {
-      return;
-    }
-
-    const roomOptions: CreateRoomOptions = {
-      name: this.newRoomName.trim()
-    };
-
-    try {
-      await this.roomManager.createRoom(roomOptions);
-      this.showCreateDialog = false;
-      this.newRoomName = '';
-      this.loadRooms();
-    } catch (error) {
-      console.error('Failed to create room:', error);
-    }
-  }
-
   navigateToRoom(room: Room) {
-    router.pushUrl({
-      url: 'pages/RoomDetailPage',
-      params: {
-        roomId: room.id,
-        roomName: room.getDisplayName()
-      }
-    }).catch(() => {
-      // TODO: Implement error handling.
-    });
+    if (room.isSpace === true) {
+      router.pushUrl({
+        url: 'pages/SpacePage',
+        params: {
+          spaceId: room.id
+        }
+      }).catch(() => {
+        // Ignore error
+      });
+    } else {
+      router.pushUrl({
+        url: 'pages/RoomDetailPage',
+        params: {
+          roomId: room.id,
+          roomName: room.getDisplayName()
+        }
+      }).catch(() => {
+        // Ignore error
+      });
+    }
   }
 
   formatTimestamp(timestamp: number | undefined): string {
@@ -181,39 +166,6 @@ struct RoomListPage {
   build() {
     Stack() {
       Column() {
-        Row() {
-          Text('消息')
-            .fontSize(24)
-            .fontWeight(FontWeight.Bold)
-            .margin({ left: 20 });
-
-          Blank();
-
-          Button('+')
-            .fontSize(28)
-            .fontWeight(FontWeight.Normal)
-            .backgroundColor('transparent')
-            .fontColor('#10a37f')
-            .width(44)
-            .height(44)
-            .onClick(() => {
-              this.showCreateDialog = true;
-            });
-        }
-        .width('100%')
-        .padding({ top: 20, bottom: 15 });
-
-        TextInput({ placeholder: '搜索房间' })
-          .width('90%')
-          .height(44)
-          .fontSize(16)
-          .backgroundColor('#f5f5f5')
-          .borderRadius(10)
-          .margin({ bottom: 15 })
-          .onChange((value: string) => {
-            this.searchQuery = value;
-          });
-
         if (this.isLoading) {
           Column() {
             LoadingProgress()
@@ -225,13 +177,14 @@ struct RoomListPage {
               .margin({ top: 10 });
           }
           .width('100%')
-          .layoutWeight(1);
+          .layoutWeight(1)
+          .justifyContent(FlexAlign.Center);
         } else if (this.getFilteredRooms().length === 0) {
           Column() {
             Text('暂无房间')
               .fontSize(16)
               .fontColor('#999999');
-            Text('点击 + 创建新房间')
+            Text('点击上方 + 创建新房间')
               .fontSize(14)
               .fontColor('#cccccc')
               .margin({ top: 5 });
@@ -334,62 +287,6 @@ struct RoomListPage {
       .width('100%')
       .height('100%')
       .backgroundColor('#ffffff');
-
-      if (this.showCreateDialog) {
-        Column() {
-          Column() {
-            Text('创建房间')
-              .fontSize(18)
-              .fontWeight(FontWeight.Bold)
-              .margin({ bottom: 20 });
-
-            TextInput({ placeholder: '房间名称' })
-              .width('100%')
-              .height(44)
-              .fontSize(16)
-              .backgroundColor('#f5f5f5')
-              .borderRadius(8)
-              .onChange((value: string) => {
-                this.newRoomName = value;
-              });
-
-            Row() {
-              Button('取消')
-                .fontSize(16)
-                .backgroundColor('#f5f5f5')
-                .fontColor('#333333')
-                .width('45%')
-                .height(44)
-                .borderRadius(8)
-                .onClick(() => {
-                  this.showCreateDialog = false;
-                  this.newRoomName = '';
-                });
-
-              Button('创建')
-                .fontSize(16)
-                .backgroundColor('#10a37f')
-                .fontColor('#ffffff')
-                .width('45%')
-                .height(44)
-                .borderRadius(8)
-                .onClick(() => {
-                  this.createRoom();
-                });
-            }
-            .width('100%')
-            .margin({ top: 20 });
-          }
-          .width('85%')
-          .padding(20)
-          .backgroundColor('#ffffff')
-          .borderRadius(16);
-        }
-        .width('100%')
-        .height('100%')
-        .backgroundColor('rgba(0, 0, 0, 0.5)')
-        .justifyContent(FlexAlign.Center);
-      }
     }
     .width('100%')
     .height('100%');

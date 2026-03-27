@@ -24,6 +24,7 @@ struct JoinRoomPage {
   @State isJoining: boolean = false;
   @State showCreateDialog: boolean = false;
   @State newRoomName: string = '';
+  @State isPublicRoom: boolean = false;
   private roomManager: RoomManager = RoomManager.getInstance();
   private authManager: AuthManager = AuthManager.getInstance();
   private httpClient: MatrixHttpClient | null = null;
@@ -108,8 +109,14 @@ struct JoinRoomPage {
     }
 
     try {
+      const options: CreateRoomOptions = {
+        name: this.newRoomName.trim(),
+        visibility: this.isPublicRoom ? 'public' : 'private'
+      };
+      await this.roomManager.createRoom(options);
       this.showCreateDialog = false;
       this.newRoomName = '';
+      this.isPublicRoom = false;
       promptAction.showToast({ message: '创建成功' });
       router.back();
     } catch (error) {
@@ -293,6 +300,20 @@ struct JoinRoomPage {
               .onChange((value: string) => {
                 this.newRoomName = value;
               });
+
+            Row() {
+              Text('设为公开房间')
+                .fontSize(14)
+                .fontColor('#333333');
+              Blank();
+              Toggle({ type: ToggleType.Switch, isOn: this.isPublicRoom })
+                .selectedColor('#10a37f')
+                .onChange((isOn: boolean) => {
+                  this.isPublicRoom = isOn;
+                });
+            }
+            .width('100%')
+            .margin({ top: 12 });
 
             Row() {
               Button('取消')

@@ -15,7 +15,8 @@ struct SpaceListItem {
   @ObjectLink item: SpaceItem;
   @State isExpanded: boolean = false;
   onToggle: (roomId: string) => void = () => {};
-  onNavigate: (room: Room) => void = () => {};
+  onNavigateToSpace: (space: Room) => void = () => {};
+  onNavigateToRoom: (room: Room) => void = () => {};
 
   aboutToAppear() {
     this.isExpanded = this.item.isExpanded;
@@ -32,7 +33,11 @@ struct SpaceListItem {
           Text(this.isExpanded ? '▼' : '▶')
             .fontSize(12)
             .fontColor('#999999')
-            .width(20);
+            .width(20)
+            .onClick(() => {
+              this.isExpanded = !this.isExpanded;
+              this.onToggle(this.item.room.id);
+            });
         } else {
           Blank().width(20);
         }
@@ -66,11 +71,11 @@ struct SpaceListItem {
       .padding({ top: 12, bottom: 12, left: 20, right: 20 })
       .backgroundColor(this.item.level === 0 ? '#ffffff' : '#fafafa')
       .onClick(() => {
-        if (this.item.children.length > 0) {
-          this.isExpanded = !this.isExpanded;
-          this.onToggle(this.item.room.id);
+        if (this.item.room.isSpace === true) {
+          this.onNavigateToSpace(this.item.room);
+        } else {
+          this.onNavigateToRoom(this.item.room);
         }
-        this.onNavigate(this.item.room);
       });
 
       if (this.isExpanded && this.item.children.length > 0) {
@@ -78,7 +83,8 @@ struct SpaceListItem {
           SpaceListItem({
             item: child,
             onToggle: this.onToggle,
-            onNavigate: this.onNavigate
+            onNavigateToSpace: this.onNavigateToSpace,
+            onNavigateToRoom: this.onNavigateToRoom
           });
         });
       }
@@ -118,10 +124,7 @@ struct SpacePage {
     const spaceMap: Map<string, SpaceItem> = new Map();
     const rootSpaces: SpaceItem[] = [];
 
-    const spaceRooms = rooms.filter(room => {
-      const content = room.lastEvent?.content as Record<string, string | object>;
-      return content?.type === 'm.space' || room.name?.toLowerCase().includes('space');
-    });
+    const spaceRooms = rooms.filter(room => room.isSpace === true);
 
     for (const room of spaceRooms) {
       const item: SpaceItem = {
@@ -190,6 +193,18 @@ struct SpacePage {
     }
   }
 
+  navigateToSpaceDetail(space: Room) {
+    router.pushUrl({
+      url: 'pages/SpaceDetailPage',
+      params: {
+        spaceId: space.id,
+        spaceName: space.getDisplayName()
+      }
+    }).catch(() => {
+      // Ignore error
+    });
+  }
+
   navigateToRoom(room: Room) {
     router.pushUrl({
       url: 'pages/RoomDetailPage',
@@ -198,7 +213,7 @@ struct SpacePage {
         roomName: room.getDisplayName()
       }
     }).catch(() => {
-      // TODO: Implement error handling.
+      // Ignore error
     });
   }
 
@@ -243,7 +258,7 @@ struct SpacePage {
             Text('暂无空间')
               .fontSize(16)
               .fontColor('#999999');
-            Text('点击右下角创建空间')
+            Text('点击下方创建空间')
               .fontSize(14)
               .fontColor('#cccccc')
               .margin({ top: 5 });
@@ -260,7 +275,10 @@ struct SpacePage {
                   onToggle: (roomId: string) => {
                     this.onToggleSpace(roomId);
                   },
-                  onNavigate: (room: Room) => {
+                  onNavigateToSpace: (space: Room) => {
+                    this.navigateToSpaceDetail(space);
+                  },
+                  onNavigateToRoom: (room: Room) => {
                     this.navigateToRoom(room);
                   }
                 });
@@ -270,29 +288,22 @@ struct SpacePage {
           .width('100%')
           .layoutWeight(1);
         }
+
+        Row() {
+          Text('创建空间')
+            .fontSize(16)
+            .fontColor('#10a37f')
+            .onClick(() => {
+              this.showCreateDialog = true;
+            });
+        }
+        .width('90%')
+        .padding({ top: 15, bottom: 15 })
+        .justifyContent(FlexAlign.Center);
       }
       .width('100%')
       .height('100%')
       .backgroundColor('#ffffff');
-
-      Button('+')
-        .fontSize(28)
-        .fontWeight(FontWeight.Bold)
-        .fontColor('#ffffff')
-        .width(56)
-        .height(56)
-        .backgroundColor('#10a37f')
-        .borderRadius(28)
-        .position({ x: '80%', y: '85%' })
-        .shadow({
-          radius: 10,
-          color: 'rgba(0, 0, 0, 0.2)',
-          offsetX: 0,
-          offsetY: 4
-        })
-        .onClick(() => {
-          this.showCreateDialog = true;
-        });
 
       if (this.showCreateDialog) {
         Column() {
