@@ -6,6 +6,8 @@
   <img src="https://img.shields.io/badge/Matrix-v3-green?style=flat-square&logo=matrix" alt="Matrix">
 </p>
 
+[中文版](./README_CN.md) | English
+
 A Matrix client application for HarmonyOS (鸿蒙OS), modeled after ElementX/Element Android client architecture.
 
 ## Features

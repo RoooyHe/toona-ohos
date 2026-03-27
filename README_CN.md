@@ -6,6 +6,8 @@
   <img src="https://img.shields.io/badge/Matrix-v3-green?style=flat-square&logo=matrix" alt="Matrix">
 </p>
 
+[English](./README.md) | 中文版
+
 Toona 是一款基于 HarmonyOS（鸿蒙OS）开发的 Matrix 客户端应用，参考 ElementX/Element Android 客户端架构设计。
 
 ## 功能特性
