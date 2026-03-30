@@ -110,13 +110,13 @@
 ### 房间名称
 | 方法 | 端点 | 状态 |
 |------|------|------|
-| GET | `/_matrix/client/v3/rooms/{roomId}/state/m.room.name` | ❌ 未实现 |
+| GET | `/_matrix/client/v3/rooms/{roomId}/state/m.room.name` | ✅ 通过 Sync |
 | PUT | `/_matrix/client/v3/rooms/{roomId}/state/m.room.name` | ✅ 已实现 |
 
 ### 房间主题
 | 方法 | 端点 | 状态 |
 |------|------|------|
-| GET | `/_matrix/client/v3/rooms/{roomId}/state/m.room.topic` | ❌ 未实现 |
+| GET | `/_matrix/client/v3/rooms/{roomId}/state/m.room.topic` | ✅ 通过 Sync |
 | PUT | `/_matrix/client/v3/rooms/{roomId}/state/m.room.topic` | ✅ 已实现 |
 
 ### 房间头像
@@ -261,7 +261,7 @@
 ### 获取空间层级
 | 方法 | 端点 | 状态 |
 |------|------|------|
-| GET | `/_matrix/client/v1/rooms/{roomId}/spaces` | ✅ 已实现 |
+| GET | `/_matrix/client/v1/rooms/{roomId}/hierarchy` | ❌ 未实现 |
 
 ---
 

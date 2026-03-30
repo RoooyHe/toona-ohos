@@ -110,13 +110,13 @@ This document lists all Matrix Client-Server API endpoints as defined in the [Ma
 ### Room Name
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| GET | `/_matrix/client/v3/rooms/{roomId}/state/m.room.name` | ❌ Not Implemented |
+| GET | `/_matrix/client/v3/rooms/{roomId}/state/m.room.name` | ✅ Via Sync |
 | PUT | `/_matrix/client/v3/rooms/{roomId}/state/m.room.name` | ✅ Implemented |
 
 ### Room Topic
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| GET | `/_matrix/client/v3/rooms/{roomId}/state/m.room.topic` | ❌ Not Implemented |
+| GET | `/_matrix/client/v3/rooms/{roomId}/state/m.room.topic` | ✅ Via Sync |
 | PUT | `/_matrix/client/v3/rooms/{roomId}/state/m.room.topic` | ✅ Implemented |
 
 ### Room Avatar
@@ -261,7 +261,7 @@ This document lists all Matrix Client-Server API endpoints as defined in the [Ma
 ### Get Space Hierarchy
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| GET | `/_matrix/client/v1/rooms/{roomId}/spaces` | ✅ Implemented |
+| GET | `/_matrix/client/v1/rooms/{roomId}/hierarchy` | ❌ Not Implemented |
 
 ---
 
