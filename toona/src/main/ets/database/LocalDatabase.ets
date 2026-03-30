@@ -1,9 +1,10 @@
 import relationalStore from '@ohos.data.relationalStore';
 import { Message, Room, User, MessageStatus } from '../models/DataModels';
 import { Context } from '@kit.AbilityKit';
+import { ParsedRoomState } from '../models/MatrixTypes';
 
 const DATABASE_NAME = 'toona_matrix.db';
-const DATABASE_VERSION = 1;
+const DATABASE_VERSION = 2;
 
 interface TableNames {
   MESSAGES: string;
@@ -24,7 +25,8 @@ export class LocalDatabase {
   private store: relationalStore.RdbStore | null = null;
   private isInitialized: boolean = false;
 
-  private constructor() {}
+  private constructor() {
+  }
 
   static getInstance(): LocalDatabase {
     if (!LocalDatabase.instance) {
@@ -46,16 +48,122 @@ export class LocalDatabase {
     try {
       this.store = await relationalStore.getRdbStore(context, config);
       await this.createTables();
+      await this.runMigrations();
       this.isInitialized = true;
-          } catch (error) {
+    } catch (error) {
       console.error('Failed to initialize LocalDatabase:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to initialize LocalDatabase: ${errMsg}`);
     }
   }
 
+  private async runMigrations(): Promise<void> {
+    if (!this.store) {
+      return;
+    }
+
+    try {
+      const schemaVersionExists = await this.tableExists('schema_version');
+      let currentVersion = 0;
+
+      if (schemaVersionExists) {
+        currentVersion = await this.getSchemaVersion();
+      }
+
+      if (currentVersion < DATABASE_VERSION) {
+        await this.migrateDatabase(currentVersion, DATABASE_VERSION);
+      }
+    } catch (error) {
+      console.info('No schema_version table found, will create tables');
+    }
+  }
+
+  private tableExists(tableName: string): Promise<boolean> {
+    const store: relationalStore.RdbStore | null = this.store;
+    if (!store) {
+      return Promise.resolve(false);
+    }
+    const predicates: relationalStore.RdbPredicates = new relationalStore.RdbPredicates(tableName);
+    return new Promise((resolve) => {
+      store.query(predicates, (err: Error, resultSet: relationalStore.ResultSet) => {
+        if (err || !resultSet) {
+          resolve(false);
+          return;
+        }
+        const exists: boolean = resultSet.goToFirstRow();
+        resultSet.close();
+        resolve(exists);
+      });
+    });
+  }
+
+  private getSchemaVersion(): Promise<number> {
+    const store: relationalStore.RdbStore | null = this.store;
+    if (!store) {
+      return Promise.resolve(0);
+    }
+    const predicates: relationalStore.RdbPredicates = new relationalStore.RdbPredicates('schema_version');
+    return new Promise((resolve) => {
+      store.query(predicates, (err: Error, resultSet: relationalStore.ResultSet) => {
+        if (err || !resultSet) {
+          resolve(0);
+          return;
+        }
+        if (resultSet.goToFirstRow()) {
+          const version: number = resultSet.getLong(resultSet.getColumnIndex('version'));
+          resultSet.close();
+          resolve(version);
+        } else {
+          resultSet.close();
+          resolve(0);
+        }
+      });
+    });
+  }
+
+  private async migrateDatabase(fromVersion: number, toVersion: number): Promise<void> {
+    if (!this.store) {
+      return;
+    }
+
+    console.info(`Migrating database from version ${fromVersion} to ${toVersion}`);
+
+    if (fromVersion < 2 && toVersion >= 2) {
+      const migrations = [
+        'ALTER TABLE rooms ADD COLUMN canonical_alias TEXT',
+        'ALTER TABLE rooms ADD COLUMN join_rule TEXT',
+        'ALTER TABLE rooms ADD COLUMN history_visibility TEXT',
+        'ALTER TABLE rooms ADD COLUMN create_time INTEGER',
+        'ALTER TABLE rooms ADD COLUMN creator TEXT',
+        'ALTER TABLE rooms ADD COLUMN is_space INTEGER DEFAULT 0'
+      ];
+
+      for (const migration of migrations) {
+        try {
+          await this.store.executeSql(migration);
+          console.info(`Migration succeeded: ${migration}`);
+        } catch (error) {
+          console.error(`Migration failed: ${migration}`, error);
+        }
+      }
+    }
+
+    try {
+      await this.store.executeSql(
+        'CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY)'
+      );
+      await this.store.executeSql('DELETE FROM schema_version');
+      await this.store.executeSql(`INSERT INTO schema_version (version) VALUES (${toVersion})`);
+      console.info(`Database migration to version ${toVersion} completed`);
+    } catch (error) {
+      console.error('Failed to update schema_version:', error);
+    }
+  }
+
   private async createTables(): Promise<void> {
-    if (!this.store) return;
+    if (!this.store) {
+      return;
+    }
 
     const createMessagesTable = `
       CREATE TABLE IF NOT EXISTS ${TABLES.MESSAGES} (
@@ -87,6 +195,12 @@ export class LocalDatabase {
         highlight_count INTEGER DEFAULT 0,
         last_event_id TEXT,
         last_event_time INTEGER,
+        canonical_alias TEXT,
+        join_rule TEXT,
+        history_visibility TEXT,
+        create_time INTEGER,
+        creator TEXT,
+        is_space INTEGER DEFAULT 0,
         UNIQUE(room_id)
       )
     `;
@@ -206,7 +320,8 @@ export class LocalDatabase {
 
   private resultSetToMessage(resultSet: relationalStore.ResultSet): Message {
     const contentStr = resultSet.getString(resultSet.getColumnIndex('content'));
-    const content: Record<string, string | object> = contentStr ? JSON.parse(contentStr) as Record<string, string | object> : {} as Record<string, string | object>;
+    const content: Record<string, string | object> =
+      contentStr ? JSON.parse(contentStr) as Record<string, string | object> : {} as Record<string, string | object>;
 
     const message = new Message({
       event_id: resultSet.getString(resultSet.getColumnIndex('event_id')),
@@ -242,7 +357,13 @@ export class LocalDatabase {
       unread_count: room.unreadCount || 0,
       highlight_count: room.highlightCount || 0,
       last_event_id: room.lastEvent?.event_id || null,
-      last_event_time: room.lastEventTime || null
+      last_event_time: room.lastEventTime || null,
+      canonical_alias: room.canonicalAlias || null,
+      join_rule: room.joinRule || null,
+      history_visibility: room.historyVisibility || null,
+      create_time: room.createTime || null,
+      creator: room.creator || null,
+      is_space: room.isSpace ? 1 : 0
     };
 
     try {
@@ -320,6 +441,69 @@ export class LocalDatabase {
     }
   }
 
+  async updateRoomState(roomId: string, state: ParsedRoomState): Promise<void> {
+    if (!this.store) {
+      throw new Error('Database not initialized');
+    }
+
+    const valueBucket: relationalStore.ValuesBucket = {
+      name: state.name || null,
+      display_name: state.name || null,
+      topic: state.topic || null,
+      avatar_url: state.avatarUrl || null,
+      canonical_alias: state.canonicalAlias || null,
+      join_rule: state.joinRule || null,
+      history_visibility: state.historyVisibility || null,
+      create_time: state.createTime || null,
+      creator: state.creator || null,
+      is_space: state.isSpace ? 1 : 0
+    };
+
+    try {
+      const predicates = new relationalStore.RdbPredicates(TABLES.ROOMS);
+      predicates.equalTo('room_id', roomId);
+      await this.store.update(valueBucket, predicates);
+    } catch (error) {
+      console.error('Failed to update room state:', error);
+      const errMsg: string = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to update room state: ${errMsg}`);
+    }
+  }
+
+  async getRoomState(roomId: string): Promise<ParsedRoomState | null> {
+    if (!this.store) {
+      throw new Error('Database not initialized');
+    }
+
+    const predicates = new relationalStore.RdbPredicates(TABLES.ROOMS);
+    predicates.equalTo('room_id', roomId);
+
+    try {
+      const resultSet = await this.store.query(predicates);
+      if (resultSet.goToFirstRow()) {
+        const state: ParsedRoomState = {
+          roomId: resultSet.getString(resultSet.getColumnIndex('room_id')),
+          name: resultSet.getString(resultSet.getColumnIndex('name')) || undefined,
+          topic: resultSet.getString(resultSet.getColumnIndex('topic')) || undefined,
+          avatarUrl: resultSet.getString(resultSet.getColumnIndex('avatar_url')) || undefined,
+          canonicalAlias: resultSet.getString(resultSet.getColumnIndex('canonical_alias')) || undefined,
+          joinRule: resultSet.getString(resultSet.getColumnIndex('join_rule')) || undefined,
+          historyVisibility: resultSet.getString(resultSet.getColumnIndex('history_visibility')) || undefined,
+          createTime: resultSet.getLong(resultSet.getColumnIndex('create_time')) || undefined,
+          creator: resultSet.getString(resultSet.getColumnIndex('creator')) || undefined,
+          isSpace: resultSet.getLong(resultSet.getColumnIndex('is_space')) === 1
+        };
+        resultSet.close();
+        return state;
+      }
+      resultSet.close();
+      return null;
+    } catch (error) {
+      console.error('Failed to get room state:', error);
+      return null;
+    }
+  }
+
   private resultSetToRoom(resultSet: relationalStore.ResultSet): Room {
     const roomId = resultSet.getString(resultSet.getColumnIndex('room_id'));
     const room = new Room(roomId);
@@ -333,6 +517,18 @@ export class LocalDatabase {
     room.isDirect = resultSet.getLong(resultSet.getColumnIndex('is_direct')) === 1;
     room.unreadCount = resultSet.getLong(resultSet.getColumnIndex('unread_count')) || 0;
     room.highlightCount = resultSet.getLong(resultSet.getColumnIndex('highlight_count')) || 0;
+    room.canonicalAlias = resultSet.getString(resultSet.getColumnIndex('canonical_alias')) || undefined;
+    room.joinRule = resultSet.getString(resultSet.getColumnIndex('join_rule')) || undefined;
+    room.historyVisibility = resultSet.getString(resultSet.getColumnIndex('history_visibility')) || undefined;
+    const createTimeCol = resultSet.getColumnIndex('create_time');
+    if (createTimeCol >= 0) {
+      room.createTime = resultSet.getLong(createTimeCol) || undefined;
+    }
+    room.creator = resultSet.getString(resultSet.getColumnIndex('creator')) || undefined;
+    const isSpaceCol = resultSet.getColumnIndex('is_space');
+    if (isSpaceCol >= 0) {
+      room.isSpace = resultSet.getLong(isSpaceCol) === 1;
+    }
 
     return room;
   }

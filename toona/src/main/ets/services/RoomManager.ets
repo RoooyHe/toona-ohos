@@ -5,7 +5,9 @@ import {
   JoinedMembersResponse,
   DirectoryRoomResponse,
   RoomMessagesResponse,
-  InitialStateEvent
+  InitialStateEvent,
+  ParsedRoomState,
+  Event
 } from '../models/MatrixTypes';
 import { AuthManager } from './AuthManager';
 import { LocalDatabase } from '../database/LocalDatabase';
@@ -249,6 +251,53 @@ export class RoomManager {
     }
   }
 
+  async getRoomState(roomId: string): Promise<ParsedRoomState> {
+    const encodedRoomId = encodeURIComponent(roomId);
+
+    try {
+      const response = await this.httpClient.get<RoomCreateResponse>(
+        `/rooms/${encodedRoomId}/state`
+      );
+      const state = this.parseRoomStateEvents(roomId, response.events);
+      await this.localDatabase.updateRoomState(roomId, state);
+      return state;
+    } catch (error) {
+      console.error('Failed to get room state:', error);
+      const errMsg: string = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to get room state: ${errMsg}`);
+    }
+  }
+
+  async getRoomName(roomId: string): Promise<string | null> {
+    const encodedRoomId = encodeURIComponent(roomId);
+
+    try {
+      const response = await this.httpClient.get<Record<string, string | object>>(
+        `/rooms/${encodedRoomId}/state/m.room.name`
+      );
+      const nameVal = response['name'];
+      return nameVal !== undefined ? String(nameVal) : null;
+    } catch (error) {
+      console.error('Failed to get room name:', error);
+      return null;
+    }
+  }
+
+  async getRoomTopic(roomId: string): Promise<string | null> {
+    const encodedRoomId = encodeURIComponent(roomId);
+
+    try {
+      const response = await this.httpClient.get<Record<string, string | object>>(
+        `/rooms/${encodedRoomId}/state/m.room.topic`
+      );
+      const topicVal = response['topic'];
+      return topicVal !== undefined ? String(topicVal) : null;
+    } catch (error) {
+      console.error('Failed to get room topic:', error);
+      return null;
+    }
+  }
+
   async forgetRoom(roomId: string): Promise<void> {
     const encodedRoomId = encodeURIComponent(roomId);
     const emptyContent: Record<string, string | object> = {};
@@ -409,6 +458,136 @@ export class RoomManager {
       console.error('Failed to remove child from space:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed: ${errMsg}`);
+    }
+  }
+
+  private stringContent(event: Event): string {
+    const content = event.content as Record<string, string | object>;
+    if (content && typeof content.body === 'string') {
+      return content.body;
+    }
+    return '';
+  }
+
+  private parseRoomStateEvents(roomId: string, stateEvents: Event[]): ParsedRoomState {
+    let roomName: string = '';
+    let roomTopic: string = '';
+    let joinRule: string = '';
+    let historyVisibility: string = '';
+    let canonicalAlias: string = '';
+    let creator: string = '';
+
+    for (let i: number = 0; i < stateEvents.length; i++) {
+      const event: Event = stateEvents[i];
+      switch (event.type) {
+        case 'm.room.name':
+          roomName = this.stringContent(event);
+          break;
+        case 'm.room.topic':
+          roomTopic = this.stringContent(event);
+          break;
+        case 'm.room.join_rules':
+          const joinRulesContent = event.content as Record<string, string | object>;
+          if (joinRulesContent && typeof joinRulesContent.join_rule === 'string') {
+            joinRule = joinRulesContent.join_rule;
+          }
+          break;
+        case 'm.room.history_visibility':
+          const historyContent = event.content as Record<string, string | object>;
+          if (historyContent && typeof historyContent.history_visibility === 'string') {
+            historyVisibility = historyContent.history_visibility;
+          }
+          break;
+        case 'm.room.canonical_alias':
+          const canonicalContent = event.content as Record<string, string | object>;
+          if (canonicalContent && typeof canonicalContent.alias === 'string') {
+            canonicalAlias = canonicalContent.alias;
+          }
+          break;
+        case 'm.room.create':
+          const createContent = event.content as Record<string, string | object>;
+          if (createContent && typeof createContent.room_version === 'string') {
+          }
+          if (createContent && typeof createContent.creator === 'string') {
+            creator = createContent.creator;
+          }
+          break;
+      }
+    }
+
+    return {
+      roomId: roomId,
+      name: roomName,
+      topic: roomTopic,
+      joinRule: joinRule,
+      historyVisibility: historyVisibility,
+      canonicalAlias: canonicalAlias,
+      creator: creator
+    };
+  }
+
+  async startTyping(roomId: string, timeout: number = 10000): Promise<void> {
+    const userId: string = this.authManager.getSession()?.userId || '';
+    if (!userId) {
+      throw new Error('Not logged in');
+    }
+
+    try {
+      await this.httpClient.putTyping(roomId, userId, true, timeout);
+    } catch (error) {
+      console.error('Failed to start typing:', error);
+      const errMsg: string = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to start typing: ${errMsg}`);
+    }
+  }
+
+  async stopTyping(roomId: string): Promise<void> {
+    const userId: string = this.authManager.getSession()?.userId || '';
+    if (!userId) {
+      throw new Error('Not logged in');
+    }
+
+    try {
+      await this.httpClient.putTyping(roomId, userId, false);
+    } catch (error) {
+      console.error('Failed to stop typing:', error);
+      const errMsg: string = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to stop typing: ${errMsg}`);
+    }
+  }
+
+  async getTypingUsers(roomId: string): Promise<string[]> {
+    const userId: string = this.authManager.getSession()?.userId || '';
+    if (!userId) {
+      throw new Error('Not logged in');
+    }
+
+    try {
+      return await this.httpClient.getTypingUsers(roomId, userId);
+    } catch (error) {
+      console.error('Failed to get typing users:', error);
+      const errMsg: string = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to get typing users: ${errMsg}`);
+    }
+  }
+
+  async sendReadReceipt(roomId: string, eventId: string, threadId?: string): Promise<void> {
+    try {
+      await this.httpClient.postReceipt(roomId, 'm.read', eventId, threadId);
+    } catch (error) {
+      console.error('Failed to send read receipt:', error);
+      const errMsg: string = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to send read receipt: ${errMsg}`);
+    }
+  }
+
+  async sendPrivateReadReceipt(roomId: string, eventId: string, threadId?: string): Promise<void> {
+    try {
+      await this.httpClient.postReceipt(roomId, 'm.read.private', eventId, threadId);
+    } catch (error) {
+      console.error('Failed to send private read receipt:', error);
+      const errMsg: string = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to send private read receipt: ${errMsg}`);
     }
   }
 }

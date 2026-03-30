@@ -89,6 +89,11 @@ export class Room implements MatrixRoom {
   highlightCount?: number;
   lastEvent?: Event;
   lastEventTime?: number;
+  canonicalAlias?: string;
+  joinRule?: string;
+  historyVisibility?: string;
+  createTime?: number;
+  creator?: string;
 
   constructor(roomId: string) {
     this.id = roomId;

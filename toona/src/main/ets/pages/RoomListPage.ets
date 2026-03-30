@@ -1,7 +1,10 @@
 import router from '@ohos.router';
 import { RoomManager } from '../services/RoomManager';
+import { RoomTagManager } from '../services/RoomTagManager';
 import { Room, Message } from '../models/DataModels';
 import { SyncManager } from '../services/SyncManager';
+import ConfigurationConstant from '@ohos.app.ability.ConfigurationConstant';
+import PullToRefresh from '@ohos.pullToRefresh';
 
 enum FilterType {
   ALL = 'all',
@@ -18,14 +21,25 @@ struct RoomListPage {
   @Prop filterType: FilterType = FilterType.ALL;
   @State rooms: Room[] = [];
   @State isLoading: boolean = true;
+  @State isRefreshing: boolean = false;
+  @State searchQuery: string = '';
+  @State showSearch: boolean = false;
+  @State isDarkMode: boolean = false;
+  @State favoriteRoomIds: string[] = [];
   private roomManager: RoomManager = RoomManager.getInstance();
+  private roomTagManager: RoomTagManager = RoomTagManager.getInstance();
   private syncManager: SyncManager = SyncManager.getInstance();
+  private scroller: Scroller = new Scroller();
 
-  async aboutToAppear() {
-    await this.loadRooms();
+  aboutToAppear() {
+    const colorMode = AppStorage.get<number>('colorMode');
+    this.isDarkMode = colorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
+    this.loadRooms();
+    this.loadFavoriteRooms();
 
     this.syncManager.setSyncSuccessCallback(() => {
       this.loadRooms();
+      this.loadFavoriteRooms();
     });
 
     this.syncManager.setSyncErrorCallback((error: Error) => {
@@ -53,6 +67,36 @@ struct RoomListPage {
     this.syncManager.clearAllCallbacks();
   }
 
+  getThemeColors() {
+    return {
+      bg: this.isDarkMode ? '#1a1a1a' : '#ffffff',
+      text: this.isDarkMode ? '#ffffff' : '#333333',
+      textSecondary: this.isDarkMode ? '#999999' : '#666666',
+      inputBg: this.isDarkMode ? '#2a2a2a' : '#f5f5f5',
+      primary: '#10a37f',
+      divider: this.isDarkMode ? '#3a3a3a' : '#f0f0f0'
+    };
+  }
+
+  async loadFavoriteRooms() {
+    try {
+      this.favoriteRoomIds = [];
+      const rooms = await this.roomManager.getRooms();
+      for (let i = 0; i < rooms.length; i++) {
+        const room = rooms[i];
+        if (room.isSpace) {
+          continue;
+        }
+        const isFav = await this.roomTagManager.isFavorite(room.id);
+        if (isFav) {
+          this.favoriteRoomIds.push(room.id);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load favorite rooms:', error);
+    }
+  }
+
   async loadRooms() {
     try {
       this.rooms = await this.roomManager.getRooms();
@@ -65,7 +109,143 @@ struct RoomListPage {
       console.error('Failed to load rooms:', error);
     } finally {
       this.isLoading = false;
+      this.isRefreshing = false;
     }
+  }
+
+  async onRefresh() {
+    this.isRefreshing = true;
+    await this.loadRooms();
+    await this.loadFavoriteRooms();
+    this.isRefreshing = false;
+  }
+
+  onRefreshPromise(): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
+      this.loadRooms().then(() => {
+        this.loadFavoriteRooms().then(() => {
+          this.isRefreshing = false;
+          resolve('success');
+        }).catch(() => {
+          this.isRefreshing = false;
+          resolve('fail');
+        });
+      }).catch(() => {
+        this.isRefreshing = false;
+        resolve('fail');
+      });
+    });
+  }
+
+  @Builder
+  buildRoomListContent() {
+    List({ scroller: this.scroller }) {
+      ForEach(this.getFilteredRooms(), (room: Room) => {
+        ListItem() {
+          Row() {
+            Stack() {
+              if (room.avatarUrl) {
+                Image(room.avatarUrl)
+                  .width(50)
+                  .height(50)
+                  .borderRadius(25);
+              } else {
+                Text(room.getDisplayName().charAt(0).toUpperCase())
+                  .fontSize(20)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor('#ffffff')
+                  .width(50)
+                  .height(50)
+                  .borderRadius(25)
+                  .backgroundColor(this.getThemeColors().primary)
+                  .textAlign(TextAlign.Center);
+              }
+
+              if (this.favoriteRoomIds.includes(room.id)) {
+                Text('★')
+                  .fontSize(14)
+                  .fontColor('#FF9800')
+                  .position({ x: 35, y: -3 });
+              }
+            }
+            .width(50)
+            .margin({ right: 12 });
+
+            Column() {
+              Row() {
+                Text(room.getDisplayName())
+                  .fontSize(16)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor(this.getThemeColors().text)
+                  .maxLines(1)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
+                  .layoutWeight(1);
+
+                Text(this.formatTimestamp(room.lastEventTime))
+                  .fontSize(12)
+                  .fontColor(this.getThemeColors().textSecondary);
+              }
+              .width('100%');
+
+              if (room.unreadCount && room.unreadCount > 0) {
+                Row() {
+                  Text(this.getMessageBodyFromContent(room.lastEvent?.content) || '')
+                    .fontSize(14)
+                    .fontColor(this.getThemeColors().textSecondary)
+                    .maxLines(1)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                    .layoutWeight(1);
+
+                  Text(room.unreadCount > 99 ? '99+' : room.unreadCount.toString())
+                    .fontSize(12)
+                    .fontColor('#ffffff')
+                    .backgroundColor(room.unreadCount > 0 ? this.getThemeColors().primary : '#cccccc')
+                    .borderRadius(10)
+                    .padding({
+                      left: room.unreadCount > 99 ? 4 : 8,
+                      right: room.unreadCount > 99 ? 4 : 8,
+                      top: 2,
+                      bottom: 2
+                    });
+                }
+                .width('100%')
+                .margin({ top: 4 });
+              } else {
+                Text(this.getMessageBodyFromContent(room.lastEvent?.content) || '')
+                  .fontSize(14)
+                  .fontColor(this.getThemeColors().textSecondary)
+                  .opacity(0.7)
+                  .maxLines(1)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
+                  .margin({ top: 4 });
+              }
+            }
+            .layoutWeight(1);
+          }
+          .width('100%')
+          .padding({
+            top: 12,
+            bottom: 12,
+            left: 20,
+            right: 20
+          })
+          .backgroundColor(this.getThemeColors().bg)
+          .onClick(() => {
+            this.navigateToRoom(room);
+          });
+
+          Divider()
+            .color(this.getThemeColors().divider)
+            .padding({ left: 82 });
+        };
+      });
+    }
+    .width('100%')
+    .backgroundColor(this.getThemeColors().bg)
+    .onReachStart(() => {
+    })
+    .onReachEnd(() => {
+    });
   }
 
   updateRoomInList(room: Room) {
@@ -98,10 +278,21 @@ struct RoomListPage {
       filtered = filtered.filter(room => room.isDirect === true);
     } else if (this.filterType === FilterType.ROOM) {
       filtered = filtered.filter(room => room.isDirect !== true && room.isSpace !== true);
+    } else if (this.filterType === FilterType.FAVORITE) {
+      filtered = filtered.filter(room => this.favoriteRoomIds.includes(room.id) && room.isSpace !== true);
     } else if (this.filterType === FilterType.SPACE) {
       filtered = filtered.filter(room => room.isSpace === true);
     } else {
       filtered = filtered.filter(room => room.isSpace !== true);
+    }
+
+    if (this.searchQuery.trim()) {
+      const query = this.searchQuery.toLowerCase();
+      filtered = filtered.filter(room => {
+        const name = room.getDisplayName().toLowerCase();
+        const topic = (room.topic || '').toLowerCase();
+        return name.includes(query) || topic.includes(query);
+      });
     }
 
     return filtered;
@@ -115,7 +306,6 @@ struct RoomListPage {
           spaceId: room.id
         }
       }).catch(() => {
-        // Ignore error
       });
     } else {
       router.pushUrl({
@@ -125,7 +315,6 @@ struct RoomListPage {
           roomName: room.getDisplayName()
         }
       }).catch(() => {
-        // Ignore error
       });
     }
   }
@@ -163,17 +352,56 @@ struct RoomListPage {
     return '';
   }
 
+  toggleSearch() {
+    this.showSearch = !this.showSearch;
+    if (!this.showSearch) {
+      this.searchQuery = '';
+    }
+  }
+
   build() {
     Stack() {
       Column() {
+        if (this.showSearch) {
+          Row() {
+            TextInput({ placeholder: '搜索房间...', text: this.searchQuery })
+              .width('100%')
+              .height(40)
+              .fontSize(16)
+              .backgroundColor(this.getThemeColors().inputBg)
+              .borderRadius(20)
+              .padding({ left: 15, right: 40 })
+              .onChange((value: string) => {
+                this.searchQuery = value;
+              })
+              .onSubmit(() => {
+              });
+
+            Button('✕')
+              .fontSize(14)
+              .backgroundColor('transparent')
+              .fontColor(this.getThemeColors().textSecondary)
+              .width(30)
+              .height(30)
+              .position({ x: '85%', y: 5 })
+              .onClick(() => {
+                this.toggleSearch();
+              });
+          }
+          .width('100%')
+          .padding({ left: 20, right: 20, top: 10, bottom: 10 })
+          .backgroundColor(this.getThemeColors().bg);
+        }
+
         if (this.isLoading) {
           Column() {
             LoadingProgress()
               .width(40)
-              .height(40);
+              .height(40)
+              .color(this.getThemeColors().primary);
             Text('加载中...')
               .fontSize(14)
-              .fontColor('#999999')
+              .fontColor(this.getThemeColors().textSecondary)
               .margin({ top: 10 });
           }
           .width('100%')
@@ -181,112 +409,69 @@ struct RoomListPage {
           .justifyContent(FlexAlign.Center);
         } else if (this.getFilteredRooms().length === 0) {
           Column() {
-            Text('暂无房间')
+            Text(this.searchQuery ? '没有找到房间' : '暂无房间')
               .fontSize(16)
-              .fontColor('#999999');
-            Text('点击上方 + 创建新房间')
+              .fontColor(this.getThemeColors().textSecondary);
+            Text(this.searchQuery ? '尝试其他关键词' : '点击上方 + 创建新房间')
               .fontSize(14)
-              .fontColor('#cccccc')
+              .fontColor(this.getThemeColors().textSecondary)
+              .opacity(0.6)
               .margin({ top: 5 });
           }
           .width('100%')
           .layoutWeight(1)
           .justifyContent(FlexAlign.Center);
         } else {
-          List() {
-            ForEach(this.getFilteredRooms(), (room: Room) => {
-              ListItem() {
-                Row() {
-                  Column() {
-                    if (room.avatarUrl) {
-                      Image(room.avatarUrl)
-                        .width(50)
-                        .height(50)
-                        .borderRadius(25);
-                    } else {
-                      Text(room.getDisplayName().charAt(0).toUpperCase())
-                        .fontSize(20)
-                        .fontWeight(FontWeight.Bold)
-                        .fontColor('#ffffff')
-                        .width(50)
-                        .height(50)
-                        .borderRadius(25)
-                        .backgroundColor('#10a37f')
-                        .textAlign(TextAlign.Center);
-                    }
-                  }
-                  .width(50)
-                  .margin({ right: 12 });
-
-                  Column() {
-                    Row() {
-                      Text(room.getDisplayName())
-                        .fontSize(16)
-                        .fontWeight(FontWeight.Medium)
-                        .maxLines(1)
-                        .textOverflow({ overflow: TextOverflow.Ellipsis })
-                        .layoutWeight(1);
-
-                      Text(this.formatTimestamp(room.lastEventTime))
-                        .fontSize(12)
-                        .fontColor('#999999');
-                    }
-                    .width('100%');
-
-                    if (room.unreadCount && room.unreadCount > 0) {
-                      Row() {
-                        Text(this.getMessageBodyFromContent(room.lastEvent?.content) || '')
-                          .fontSize(14)
-                          .fontColor('#666666')
-                          .maxLines(1)
-                          .textOverflow({ overflow: TextOverflow.Ellipsis })
-                          .layoutWeight(1);
-
-                        Text(room.unreadCount.toString())
-                          .fontSize(12)
-                          .fontColor('#ffffff')
-                          .backgroundColor('#10a37f')
-                          .borderRadius(10)
-                          .padding({
-                            left: 8,
-                            right: 8,
-                            top: 2,
-                            bottom: 2
-                          });
-                      }
-                      .width('100%')
-                      .margin({ top: 4 });
-                    } else {
-                      Text(this.getMessageBodyFromContent(room.lastEvent?.content) || '')
-                        .fontSize(14)
-                        .fontColor('#999999')
-                        .maxLines(1)
-                        .textOverflow({ overflow: TextOverflow.Ellipsis })
-                        .margin({ top: 4 });
-                    }
-                  }
-                  .layoutWeight(1);
-                }
-                .width('100%')
-                .padding({
-                  top: 12,
-                  bottom: 12,
-                  left: 20,
-                  right: 20
-                })
-                .onClick(() => {
-                  this.navigateToRoom(room);
-                });
-              };
-            });
-          }
+          PullToRefresh({
+            scroller: this.scroller,
+            refresh: this.isRefreshing,
+            builder: () => {
+              this.buildRoomListContent();
+            },
+            onRefresh: () => {
+              return this.onRefreshPromise();
+            }
+          })
           .width('100%')
           .layoutWeight(1);
         }
       }
       .width('100%')
       .height('100%')
-      .backgroundColor('#ffffff');
+      .backgroundColor(this.getThemeColors().bg);
+
+      Column() {
+        Row() {
+          Button('搜索')
+            .fontSize(12)
+            .backgroundColor(this.getThemeColors().bg)
+            .fontColor(this.getThemeColors().primary)
+            .borderRadius(20)
+            .height(32)
+            .onClick(() => {
+              this.toggleSearch();
+            });
+        }
+        .width(50)
+        .height(50)
+        .backgroundColor(this.getThemeColors().bg)
+        .borderRadius(25)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(VerticalAlign.Center)
+        .shadow({
+          radius: 6,
+          color: 'rgba(0, 0, 0, 0.1)',
+          offsetX: 0,
+          offsetY: 2
+        })
+        .onClick(() => {
+          this.toggleSearch();
+        });
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.End)
+      .alignItems(VerticalAlign.Bottom)
+      .padding({ right: 20, bottom: 20 });
     }
     .width('100%')
     .height('100%');

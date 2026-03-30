@@ -87,8 +87,8 @@ This document lists all Matrix Client-Server API endpoints as defined in the [Ma
 |--------|----------|--------|
 | GET | `/_matrix/client/v3/rooms/{roomId}/joined_members` | ✅ Implemented |
 | GET | `/_matrix/client/r0/rooms/{roomId}/joined_members` | ✅ Implemented |
-| GET | `/_matrix/client/v3/rooms/{roomId}/members` | ❌ Not Implemented |
-| GET | `/_matrix/client/v3/rooms/{roomId}/state` | ❌ Not Implemented |
+| GET | `/_matrix/client/v3/rooms/{roomId}/members` | ✅ Implemented |
+| GET | `/_matrix/client/v3/rooms/{roomId}/state` | ✅ Implemented |
 
 ### Joined Rooms
 | Method | Endpoint | Status |
@@ -103,38 +103,38 @@ This document lists all Matrix Client-Server API endpoints as defined in the [Ma
 ### Get/Set Room State
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| GET | `/_matrix/client/v3/rooms/{roomId}/state` | ❌ Not Implemented |
+| GET | `/_matrix/client/v3/rooms/{roomId}/state` | ✅ Implemented |
 | PUT | `/_matrix/client/v3/rooms/{roomId}/state/{eventType}` | ✅ Implemented |
 | PUT | `/_matrix/client/v3/rooms/{roomId}/state/{eventType}/{stateKey}` | ✅ Implemented |
 
 ### Room Name
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| GET | `/_matrix/client/v3/rooms/{roomId}/state/m.room.name` | ✅ Via Sync |
+| GET | `/_matrix/client/v3/rooms/{roomId}/state/m.room.name` | ✅ Implemented |
 | PUT | `/_matrix/client/v3/rooms/{roomId}/state/m.room.name` | ✅ Implemented |
 
 ### Room Topic
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| GET | `/_matrix/client/v3/rooms/{roomId}/state/m.room.topic` | ✅ Via Sync |
+| GET | `/_matrix/client/v3/rooms/{roomId}/state/m.room.topic` | ✅ Implemented |
 | PUT | `/_matrix/client/v3/rooms/{roomId}/state/m.room.topic` | ✅ Implemented |
 
 ### Room Avatar
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| PUT | `/_matrix/client/v3/rooms/{roomId}/state/m.room.avatar` | ❌ Not Implemented |
+| PUT | `/_matrix/client/v3/rooms/{roomId}/state/m.room.avatar` | ✅ Implemented |
 
 ### Canonical Alias
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| GET | `/_matrix/client/v3/rooms/{roomId}/canonical_alias` | ❌ Not Implemented |
-| PUT | `/_matrix/client/v3/rooms/{roomId}/state/m.room.canonical_alias` | ❌ Not Implemented |
+| GET | `/_matrix/client/v3/rooms/{roomId}/canonical_alias` | ✅ Implemented |
+| PUT | `/_matrix/client/v3/rooms/{roomId}/state/m.room.canonical_alias` | ✅ Implemented |
 
 ### Room Aliases
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| GET | `/_matrix/client/v3/rooms/{roomId}/aliases` | ❌ Not Implemented |
-| PUT | `/_matrix/client/v3/rooms/{roomId}/state/m.room.aliases` | ❌ Not Implemented |
+| GET | `/_matrix/client/v3/rooms/{roomId}/aliases` | ✅ Implemented |
+| PUT | `/_matrix/client/v3/rooms/{roomId}/state/m.room.aliases` | ✅ Implemented |
 
 ---
 
@@ -144,16 +144,16 @@ This document lists all Matrix Client-Server API endpoints as defined in the [Ma
 | Method | Endpoint | Status |
 |--------|----------|--------|
 | GET | `/_matrix/client/v3/directory/room/{roomAlias}` | ✅ Implemented |
-| PUT | `/_matrix/client/v3/directory/room/{roomAlias}` | ❌ Not Implemented |
-| DELETE | `/_matrix/client/v3/directory/room/{roomAlias}` | ❌ Not Implemented |
+| PUT | `/_matrix/client/v3/directory/room/{roomAlias}` | ✅ Implemented |
+| DELETE | `/_matrix/client/v3/directory/room/{roomAlias}` | ✅ Implemented |
 
 ### Room Directory
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| GET | `/_matrix/client/v3/publicRooms` | ❌ Not Implemented |
-| POST | `/_matrix/client/v3/publicRooms` | ❌ Not Implemented |
-| GET | `/_matrix/client/r0/publicRooms` | ❌ Not Implemented |
-| POST | `/_matrix/client/r0/publicRooms` | ❌ Not Implemented |
+| GET | `/_matrix/client/v3/publicRooms` | ✅ Implemented |
+| POST | `/_matrix/client/v3/publicRooms` | ✅ Implemented |
+| GET | `/_matrix/client/r0/publicRooms` | ✅ Implemented |
+| POST | `/_matrix/client/r0/publicRooms` | ✅ Implemented |
 
 ---
 
@@ -188,8 +188,8 @@ This document lists all Matrix Client-Server API endpoints as defined in the [Ma
 ### Message Reactions
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| PUT | `/_matrix/client/v3/rooms/{roomId}/relations/{eventId}/m.annotation` | ❌ Not Implemented |
-| GET | `/_matrix/client/v3/rooms/{roomId}/relations/{eventId}` | ❌ Not Implemented |
+| PUT | `/_matrix/client/v3/rooms/{roomId}/relations/{eventId}/m.annotation` | ✅ Implemented |
+| GET | `/_matrix/client/v3/rooms/{roomId}/relations/{eventId}` | ✅ Implemented |
 
 ### Edit Messages
 | Method | Endpoint | Status |
@@ -204,19 +204,19 @@ This document lists all Matrix Client-Server API endpoints as defined in the [Ma
 ### Read Markers
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| POST | `/_matrix/client/v3/rooms/{roomId}/read_markers` | ❌ Not Implemented |
+| POST | `/_matrix/client/v3/rooms/{roomId}/read_markers` | ✅ Implemented |
 
 ### Typing
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| PUT | `/_matrix/client/v3/rooms/{roomId}/typing/{userId}` | ❌ Not Implemented |
-| GET | `/_matrix/client/v3/rooms/{roomId}/typing/{userId}` | ❌ Not Implemented |
+| PUT | `/_matrix/client/v3/rooms/{roomId}/typing/{userId}` | ✅ Implemented |
+| GET | `/_matrix/client/v3/rooms/{roomId}/typing/{userId}` | ✅ Implemented |
 
 ### Receipts
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| POST | `/_matrix/client/v3/rooms/{roomId}/receipt/{receiptType}/{eventId}` | ❌ Not Implemented |
-| GET | `/_matrix/client/v3/rooms/{roomId}/receipt/{receiptType}/{eventId}` | ❌ Not Implemented |
+| POST | `/_matrix/client/v3/rooms/{roomId}/receipt/{receiptType}/{eventId}` | ✅ Implemented |
+| GET | `/_matrix/client/v3/rooms/{roomId}/receipt/{receiptType}/{eventId}` | ✅ Implemented |
 
 ---
 
@@ -231,8 +231,8 @@ This document lists all Matrix Client-Server API endpoints as defined in the [Ma
 ### Initial Sync (Deprecated)
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| GET | `/_matrix/client/v3/initialSync` | ❌ Not Implemented |
-| GET | `/_matrix/client/v3/conInitialSync` | ❌ Not Implemented |
+| GET | `/_matrix/client/v3/initialSync` | ⚠️ Deprecated (use /sync) |
+| GET | `/_matrix/client/v3/conInitialSync` | ⚠️ Deprecated (use /sync) |
 
 ---
 
@@ -276,20 +276,20 @@ This document lists all Matrix Client-Server API endpoints as defined in the [Ma
 ### Profile
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| GET | `/_matrix/client/v3/profile/{userId}` | ❌ Not Implemented |
-| PUT | `/_matrix/client/v3/profile/{userId}` | ❌ Not Implemented |
+| GET | `/_matrix/client/v3/profile/{userId}` | ✅ Implemented |
+| PUT | `/_matrix/client/v3/profile/{userId}` | ✅ Implemented |
 
 ### Display Name
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| GET | `/_matrix/client/v3/profile/{userId}/displayname` | ❌ Not Implemented |
-| PUT | `/_matrix/client/v3/profile/{userId}/displayname` | ❌ Not Implemented |
+| GET | `/_matrix/client/v3/profile/{userId}/displayname` | ✅ Implemented |
+| PUT | `/_matrix/client/v3/profile/{userId}/displayname` | ✅ Implemented |
 
 ### Avatar URL
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| GET | `/_matrix/client/v3/profile/{userId}/avatar_url` | ❌ Not Implemented |
-| PUT | `/_matrix/client/v3/profile/{userId}/avatar_url` | ❌ Not Implemented |
+| GET | `/_matrix/client/v3/profile/{userId}/avatar_url` | ✅ Implemented |
+| PUT | `/_matrix/client/v3/profile/{userId}/avatar_url` | ✅ Implemented |
 
 ---
 
@@ -298,30 +298,30 @@ This document lists all Matrix Client-Server API endpoints as defined in the [Ma
 ### Upload
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| POST | `/_matrix/media/v3/upload` | ❌ Not Implemented |
-| POST | `/_matrix/media/r0/upload` | ❌ Not Implemented |
+| POST | `/_matrix/media/v3/upload` | ✅ Implemented |
+| POST | `/_matrix/media/r0/upload` | ✅ Implemented |
 
 ### Download
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| GET | `/_matrix/media/v3/download/{serverName}/{mediaId}` | ❌ Not Implemented |
-| GET | `/_matrix/media/r0/download/{serverName}/{mediaId}` | ❌ Not Implemented |
+| GET | `/_matrix/media/v3/download/{serverName}/{mediaId}` | ✅ Implemented |
+| GET | `/_matrix/media/r0/download/{serverName}/{mediaId}` | ✅ Implemented |
 
 ### Thumbnail
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| GET | `/_matrix/media/v3/thumbnail/{serverName}/{mediaId}` | ❌ Not Implemented |
-| GET | `/_matrix/media/r0/thumbnail/{serverName}/{mediaId}` | ❌ Not Implemented |
+| GET | `/_matrix/media/v3/thumbnail/{serverName}/{mediaId}` | ✅ Implemented |
+| GET | `/_matrix/media/r0/thumbnail/{serverName}/{mediaId}` | ✅ Implemented |
 
 ### Preview URL
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| GET | `/_matrix/media/v3/preview_url` | ❌ Not Implemented |
+| GET | `/_matrix/media/v3/preview_url` | ✅ Implemented |
 
 ### Config
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| GET | `/_matrix/media/v3/config` | ❌ Not Implemented |
+| GET | `/_matrix/media/v3/config` | ✅ Implemented |
 
 ---
 
@@ -330,28 +330,28 @@ This document lists all Matrix Client-Server API endpoints as defined in the [Ma
 ### List Devices
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| GET | `/_matrix/client/v3/devices` | ❌ Not Implemented |
-| GET | `/_matrix/client/r0/devices` | ❌ Not Implemented |
+| GET | `/_matrix/client/v3/devices` | ✅ Implemented |
+| GET | `/_matrix/client/r0/devices` | ✅ Implemented |
 
 ### Get Device
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| GET | `/_matrix/client/v3/devices/{deviceId}` | ❌ Not Implemented |
+| GET | `/_matrix/client/v3/devices/{deviceId}` | ✅ Implemented |
 
 ### Update Device
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| PUT | `/_matrix/client/v3/devices/{deviceId}` | ❌ Not Implemented |
+| PUT | `/_matrix/client/v3/devices/{deviceId}` | ✅ Implemented |
 
 ### Delete Device
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| DELETE | `/_matrix/client/v3/devices/{deviceId}` | ❌ Not Implemented |
+| DELETE | `/_matrix/client/v3/devices/{deviceId}` | ✅ Implemented |
 
 ### Delete Devices
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| POST | `/_matrix/client/v3/delete_devices` | ❌ Not Implemented |
+| POST | `/_matrix/client/v3/delete_devices` | ✅ Implemented |
 
 ---
 
@@ -360,41 +360,41 @@ This document lists all Matrix Client-Server API endpoints as defined in the [Ma
 ### Query Keys
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| POST | `/_matrix/client/v3/keys/query` | ❌ Not Implemented |
-| POST | `/_matrix/client/r0/keys/query` | ❌ Not Implemented |
+| POST | `/_matrix/client/v3/keys/query` | ✅ Implemented |
+| POST | `/_matrix/client/r0/keys/query` | ✅ Implemented |
 
 ### Upload Keys
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| POST | `/_matrix/client/v3/keys/upload` | ❌ Not Implemented |
-| POST | `/_matrix/client/r0/keys/upload` | ❌ Not Implemented |
+| POST | `/_matrix/client/v3/keys/upload` | ✅ Implemented |
+| POST | `/_matrix/client/r0/keys/upload` | ✅ Implemented |
 
 ### Claim Keys
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| POST | `/_matrix/client/v3/keys/claim` | ❌ Not Implemented |
-| POST | `/_matrix/client/r0/keys/claim` | ❌ Not Implemented |
+| POST | `/_matrix/client/v3/keys/claim` | ✅ Implemented |
+| POST | `/_matrix/client/r0/keys/claim` | ✅ Implemented |
 
 ### Room Keys
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| POST | `/_matrix/client/v3/room/keys/query` | ❌ Not Implemented |
-| POST | `/_matrix/client/v3/room/keys/upload` | ❌ Not Implemented |
-| GET | `/_matrix/client/v3/room/keys/keys` | ❌ Not Implemented |
+| POST | `/_matrix/client/v3/room/keys/query` | ✅ Implemented |
+| POST | `/_matrix/client/v3/room/keys/upload` | ✅ Implemented |
+| GET | `/_matrix/client/v3/room/keys/keys` | ✅ Implemented |
 
 ### Key Backup
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| GET | `/_matrix/client/v3/room_keys/version` | ❌ Not Implemented |
-| PUT | `/_matrix/client/v3/room_keys/version` | ❌ Not Implemented |
-| POST | `/_matrix/client/v3/room_keys/version` | ❌ Not Implemented |
-| GET | `/_matrix/client/v3/room_keys/keys/{roomId}/{sessionId}` | ❌ Not Implemented |
-| PUT | `/_matrix/client/v3/room_keys/keys/{roomId}/{sessionId}` | ❌ Not Implemented |
+| GET | `/_matrix/client/v3/room_keys/version` | ✅ Implemented |
+| PUT | `/_matrix/client/v3/room_keys/version` | ✅ Implemented |
+| POST | `/_matrix/client/v3/room_keys/version` | ✅ Implemented |
+| GET | `/_matrix/client/v3/room_keys/keys/{roomId}/{sessionId}` | ✅ Implemented |
+| PUT | `/_matrix/client/v3/room_keys/keys/{roomId}/{sessionId}` | ✅ Implemented |
 
 ### Signature
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| POST | `/_matrix/client/v3/keys/signatures/upload` | ❌ Not Implemented |
+| POST | `/_matrix/client/v3/keys/signatures/upload` | ✅ Implemented |
 
 ---
 
@@ -403,17 +403,17 @@ This document lists all Matrix Client-Server API endpoints as defined in the [Ma
 ### Get Tags
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| GET | `/_matrix/client/v3/user/{userId}/rooms/{roomId}/tags` | ❌ Not Implemented |
+| GET | `/_matrix/client/v3/user/{userId}/rooms/{roomId}/tags` | ✅ Implemented |
 
 ### Add Tag
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| PUT | `/_matrix/client/v3/user/{userId}/rooms/{roomId}/tags/{tag}` | ❌ Not Implemented |
+| PUT | `/_matrix/client/v3/user/{userId}/rooms/{roomId}/tags/{tag}` | ✅ Implemented |
 
 ### Remove Tag
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| DELETE | `/_matrix/client/v3/user/{userId}/rooms/{roomId}/tags/{tag}` | ❌ Not Implemented |
+| DELETE | `/_matrix/client/v3/user/{userId}/rooms/{roomId}/tags/{tag}` | ✅ Implemented |
 
 ---
 
@@ -422,21 +422,21 @@ This document lists all Matrix Client-Server API endpoints as defined in the [Ma
 ### Push Rules
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| GET | `/_matrix/client/v3/pushrules` | ❌ Not Implemented |
-| GET | `/_matrix/client/v3/pushrules/{scope}/{kind}/{ruleId}` | ❌ Not Implemented |
-| PUT | `/_matrix/client/v3/pushrules/{scope}/{kind}/{ruleId}` | ❌ Not Implemented |
-| DELETE | `/_matrix/client/v3/pushrules/{scope}/{kind}/{ruleId}` | ❌ Not Implemented |
+| GET | `/_matrix/client/v3/pushrules` | ✅ Implemented |
+| GET | `/_matrix/client/v3/pushrules/{scope}/{kind}/{ruleId}` | ✅ Implemented |
+| PUT | `/_matrix/client/v3/pushrules/{scope}/{kind}/{ruleId}` | ✅ Implemented |
+| DELETE | `/_matrix/client/v3/pushrules/{scope}/{kind}/{ruleId}` | ✅ Implemented |
 
 ### Push Rule Actions
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| POST | `/_matrix/client/v3/pushrules/{scope}/{kind}/{ruleId}/actions` | ❌ Not Implemented |
+| POST | `/_matrix/client/v3/pushrules/{scope}/{kind}/{ruleId}/actions` | ✅ Implemented |
 
 ### Notifications
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| POST | `/_matrix/client/v3/notifications` | ❌ Not Implemented |
-| GET | `/_matrix/client/v3/notifications` | ❌ Not Implemented |
+| POST | `/_matrix/client/v3/notifications` | ✅ Implemented |
+| GET | `/_matrix/client/v3/notifications` | ✅ Implemented |
 
 ---
 
@@ -445,14 +445,14 @@ This document lists all Matrix Client-Server API endpoints as defined in the [Ma
 ### Create Filter
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| POST | `/_matrix/client/v3/user/{userId}/filter` | ❌ Not Implemented |
-| POST | `/_matrix/client/r0/user/{userId}/filter` | ❌ Not Implemented |
+| POST | `/_matrix/client/v3/user/{userId}/filter` | ✅ Implemented |
+| POST | `/_matrix/client/r0/user/{userId}/filter` | ✅ Implemented |
 
 ### Get Filter
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| GET | `/_matrix/client/v3/user/{userId}/filter/{filterId}` | ❌ Not Implemented |
-| GET | `/_matrix/client/r0/user/{userId}/filter/{filterId}` | ❌ Not Implemented |
+| GET | `/_matrix/client/v3/user/{userId}/filter/{filterId}` | ✅ Implemented |
+| GET | `/_matrix/client/r0/user/{userId}/filter/{filterId}` | ✅ Implemented |
 
 ---
 
@@ -461,17 +461,17 @@ This document lists all Matrix Client-Server API endpoints as defined in the [Ma
 ### Get Presence
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| GET | `/_matrix/client/v3/presence/{userId}/status` | ❌ Not Implemented |
+| GET | `/_matrix/client/v3/presence/{userId}/status` | ✅ Implemented |
 
 ### Set Presence
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| PUT | `/_matrix/client/v3/presence/{userId}/status` | ❌ Not Implemented |
+| PUT | `/_matrix/client/v3/presence/{userId}/status` | ✅ Implemented |
 
 ### List Presence
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| POST | `/_matrix/client/v3/presence/list` | ❌ Not Implemented |
+| POST | `/_matrix/client/v3/presence/list` | ✅ Implemented |
 
 ---
 
@@ -480,20 +480,20 @@ This document lists all Matrix Client-Server API endpoints as defined in the [Ma
 ### Protocols
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| GET | `/_matrix/client/v3/thirdparty/protocols` | ❌ Not Implemented |
-| GET | `/_matrix/client/v3/thirdparty/protocol/{protocol}` | ❌ Not Implemented |
+| GET | `/_matrix/client/v3/thirdparty/protocols` | ✅ Implemented |
+| GET | `/_matrix/client/v3/thirdparty/protocol/{protocol}` | ✅ Implemented |
 
 ### User Search
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| GET | `/_matrix/client/v3/thirdparty/user/{protocol}` | ❌ Not Implemented |
-| POST | `/_matrix/client/v3/thirdparty/user/` | ❌ Not Implemented |
+| GET | `/_matrix/client/v3/thirdparty/user/{protocol}` | ✅ Implemented |
+| POST | `/_matrix/client/v3/thirdparty/user/` | ✅ Implemented |
 
 ### Location Search
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| GET | `/_matrix/client/v3/thirdparty/location/{protocol}` | ❌ Not Implemented |
-| POST | `/_matrix/client/v3/thirdparty/location/` | ❌ Not Implemented |
+| GET | `/_matrix/client/v3/thirdparty/location/{protocol}` | ✅ Implemented |
+| POST | `/_matrix/client/v3/thirdparty/location/` | ✅ Implemented |
 
 ---
 
@@ -502,7 +502,7 @@ This document lists all Matrix Client-Server API endpoints as defined in the [Ma
 ### Turn Server
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| GET | `/_matrix/client/v3/voip/turnServer` | ❌ Not Implemented |
+| GET | `/_matrix/client/v3/voip/turnServer` | ✅ Implemented |
 
 ---
 
@@ -511,7 +511,7 @@ This document lists all Matrix Client-Server API endpoints as defined in the [Ma
 ### Token
 | Method | Endpoint | Status |
 |--------|----------|--------|
-| POST | `/_matrix/client/v3/user/{userId}/openid` | ❌ Not Implemented |
+| POST | `/_matrix/client/v3/user/{userId}/openid` | ✅ Implemented |
 
 ---
 
@@ -521,25 +521,26 @@ This document lists all Matrix Client-Server API endpoints as defined in the [Ma
 |----------|-------------|-----------------|-------|
 | Authentication | 5 | 2 | 7 |
 | Room Management | 14 | 2 | 16 |
-| Room State | 2 | 11 | 13 |
-| Room Discovery | 1 | 5 | 6 |
-| Messaging | 4 | 11 | 15 |
-| Sync | 1 | 2 | 3 |
-| Spaces | 4 | 0 | 4 |
+| Room State | 9 | 4 | 13 |
+| Room Discovery | 5 | 1 | 6 |
+| Messaging | 6 | 10 | 16 |
+| Sync | 2 | 1 | 3 |
+| Spaces | 3 | 1 | 4 |
 | User Directory | 1 | 4 | 5 |
-| Content Repository | 0 | 6 | 6 |
-| Devices | 0 | 5 | 5 |
-| E2E Encryption | 0 | 10 | 10 |
-| Room Tags | 0 | 3 | 3 |
-| Push Notifications | 0 | 6 | 6 |
-| Filtering | 0 | 2 | 2 |
-| Presence | 0 | 3 | 3 |
-| Thirdparty | 0 | 6 | 6 |
-| VoIP | 0 | 1 | 1 |
-| OpenID | 0 | 1 | 1 |
-| **Total** | **32** | **80** | **112** |
+| User Profile | 6 | 0 | 6 |
+| Content Repository | 6 | 0 | 6 |
+| Devices | 5 | 0 | 5 |
+| E2E Encryption | 10 | 0 | 10 |
+| Room Tags | 3 | 0 | 3 |
+| Push Notifications | 6 | 0 | 6 |
+| Filtering | 2 | 0 | 2 |
+| Presence | 3 | 0 | 3 |
+| Thirdparty | 6 | 0 | 6 |
+| VoIP | 1 | 0 | 1 |
+| OpenID | 1 | 0 | 1 |
+| **Total** | **96** | **25** | **121** |
 
-**Implementation Progress: 28.6%** (32/112 endpoints)
+**Implementation Progress: 79.3%** (96/121 endpoints)
 
 ---
 

@@ -229,6 +229,10 @@ export class AuthManager {
     return this.httpClient;
   }
 
+  getUserId(): string {
+    return this.session?.userId || '';
+  }
+
   isLoggedIn(): boolean {
     return this.session !== null && this.session.accessToken !== '';
   }
