@@ -1,6 +1,7 @@
 import router from '@ohos.router';
 import { RoomManager } from '../services/RoomManager';
 import { Room } from '../models/DataModels';
+import { getThemeColors } from '../utils/ThemeManager';
 
 @Entry
 @Component
@@ -10,6 +11,9 @@ struct SearchPage {
   @State isSearching: boolean = false;
 
   private roomManager: RoomManager = RoomManager.getInstance();
+
+  aboutToAppear() {
+  }
 
   async onSearch() {
     if (!this.searchQuery.trim()) {
@@ -51,7 +55,7 @@ struct SearchPage {
         Button('←')
           .fontSize(24)
           .backgroundColor('transparent')
-          .fontColor('#333333')
+          .fontColor(getThemeColors().text)
           .width(44)
           .height(44)
           .onClick(() => {
@@ -62,8 +66,10 @@ struct SearchPage {
           .width('100%')
           .height(40)
           .fontSize(16)
-          .backgroundColor('#f5f5f5')
+          .backgroundColor(getThemeColors().inputBg)
           .borderRadius(10)
+          .fontColor(getThemeColors().text)
+          .placeholderColor(getThemeColors().textSecondary)
           .onChange((value: string) => {
             this.searchQuery = value;
           })
@@ -73,7 +79,7 @@ struct SearchPage {
 
         Button('搜索')
           .fontSize(14)
-          .backgroundColor('#10a37f')
+          .backgroundColor(getThemeColors().primary)
           .fontColor('#ffffff')
           .width(60)
           .height(40)
@@ -85,7 +91,9 @@ struct SearchPage {
       }
       .width('100%')
       .padding({ left: 10, right: 10, top: 10, bottom: 10 })
-      .backgroundColor('#ffffff');
+      .backgroundColor(getThemeColors().bg);
+
+      Divider().color(getThemeColors().divider);
 
       if (this.isSearching) {
         Column() {
@@ -94,7 +102,7 @@ struct SearchPage {
             .height(40);
           Text('搜索中...')
             .fontSize(14)
-            .fontColor('#999999')
+            .fontColor(getThemeColors().textSecondary)
             .margin({ top: 10 });
         }
         .width('100%')
@@ -104,10 +112,11 @@ struct SearchPage {
         Column() {
           Text('未找到房间')
             .fontSize(16)
-            .fontColor('#999999');
+            .fontColor(getThemeColors().textSecondary);
           Text('尝试输入完整的房间地址')
             .fontSize(14)
-            .fontColor('#cccccc')
+            .fontColor(getThemeColors().textSecondary)
+            .opacity(0.7)
             .margin({ top: 5 });
         }
         .width('100%')
@@ -117,10 +126,11 @@ struct SearchPage {
         Column() {
           Text('输入房间地址进行搜索')
             .fontSize(16)
-            .fontColor('#999999');
+            .fontColor(getThemeColors().textSecondary);
           Text('例如: #room:matrix.org')
             .fontSize(14)
-            .fontColor('#cccccc')
+            .fontColor(getThemeColors().textSecondary)
+            .opacity(0.7)
             .margin({ top: 5 });
         }
         .width('100%')
@@ -144,23 +154,24 @@ struct SearchPage {
                     .width(50)
                     .height(50)
                     .borderRadius(25)
-                    .backgroundColor('#10a37f')
+                    .backgroundColor(getThemeColors().primary)
                     .textAlign(TextAlign.Center);
                 }
 
                 Column() {
                   Text(room.getDisplayName())
                     .fontSize(16)
-                    .fontColor('#333333');
+                    .fontColor(getThemeColors().text);
                   Text(room.id)
                     .fontSize(12)
-                    .fontColor('#999999');
+                    .fontColor(getThemeColors().textSecondary);
                 }
                 .margin({ left: 12 })
                 .alignItems(HorizontalAlign.Start);
               }
               .width('100%')
               .padding({ top: 12, bottom: 12, left: 20, right: 20 })
+              .backgroundColor(getThemeColors().bg)
               .onClick(() => {
                 this.navigateToRoom(room);
               });
@@ -168,11 +179,12 @@ struct SearchPage {
           });
         }
         .width('100%')
-        .layoutWeight(1);
+        .layoutWeight(1)
+        .backgroundColor(getThemeColors().bg);
       }
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#ffffff');
+    .backgroundColor(getThemeColors().bg);
   }
 }

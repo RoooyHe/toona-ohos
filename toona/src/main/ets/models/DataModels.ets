@@ -29,6 +29,10 @@ interface ProfileData {
   avatar_url?: string;
 }
 
+export interface TagInfo {
+  order?: number;
+}
+
 export class Session {
   userId: string = '';
   accessToken: string = '';
@@ -94,6 +98,7 @@ export class Room implements MatrixRoom {
   historyVisibility?: string;
   createTime?: number;
   creator?: string;
+  tags?: Record<string, TagInfo>;
 
   constructor(roomId: string) {
     this.id = roomId;

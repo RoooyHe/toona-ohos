@@ -6,7 +6,7 @@ import { SyncManager } from '../services/SyncManager';
 import { RoomManager } from '../services/RoomManager';
 import { RoomListPage } from './RoomListPage';
 import { SpacePage } from './SpacePage';
-import ConfigurationConstant from '@ohos.app.ability.ConfigurationConstant';
+import { ThemeColors, getThemeColors } from '../utils/ThemeManager';
 
 enum FilterType {
   ALL = 'all',
@@ -17,14 +17,10 @@ enum FilterType {
   INVITE = 'invite'
 }
 
-interface UserProfile {
-  displayName: string | null;
-  avatarUrl: string | null;
-}
-
 @Entry
 @Component
 struct MainPage {
+  @StorageLink('colorMode') colorMode: number = 0;
   @State currentIndex: number = 0;
   @State userInitial: string = '';
   @State userDisplayName: string = '';
@@ -36,18 +32,13 @@ struct MainPage {
   @State unreadCountDm: number = 0;
   @State unreadCountRoom: number = 0;
   @State unreadCountInvite: number = 0;
-  @State isDarkMode: boolean = false;
   @State syncStatus: string = 'synced';
-  @State showCreateMenu: boolean = false;
 
   private authManager: AuthManager = AuthManager.getInstance();
   private syncManager: SyncManager = SyncManager.getInstance();
   private roomManager: RoomManager = RoomManager.getInstance();
 
   aboutToAppear() {
-    const colorMode = AppStorage.get<number>('colorMode');
-    this.isDarkMode = colorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
-
     this.syncStatus = 'syncing';
 
     this.syncManager.setSyncSuccessCallback(() => {
@@ -115,7 +106,8 @@ struct MainPage {
 
   async loadUserProfile() {
     try {
-      const profile: UserProfile = await UserManager.getUserProfile();
+      const userManager: UserManager = UserManager.getInstance();
+      const profile = await userManager.getUserProfile();
       this.userDisplayName = profile.displayName || '';
       this.userAvatarUrl = profile.avatarUrl || '';
       if (this.userDisplayName && !this.userInitial) {
@@ -126,23 +118,6 @@ struct MainPage {
     }
   }
 
-  getThemeColors() {
-    return {
-      bg: this.isDarkMode ? '#1a1a1a' : '#ffffff',
-      text: this.isDarkMode ? '#ffffff' : '#333333',
-      textSecondary: this.isDarkMode ? '#999999' : '#999999',
-      primary: '#10a37f',
-      tabBg: this.isDarkMode ? '#2a2a2a' : '#f0f0f0',
-      divider: this.isDarkMode ? '#3a3a3a' : '#f0f0f0'
-    };
-  }
-
-  toggleDarkMode() {
-    this.isDarkMode = !this.isDarkMode;
-    const newMode = this.isDarkMode ? ConfigurationConstant.ColorMode.COLOR_MODE_DARK : ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT;
-    AppStorage.setOrCreate('colorMode', newMode);
-  }
-
   getSyncStatusIcon(): Resource {
     if (this.syncStatus === 'syncing') {
       return $r('app.media.sync_indicator');
@@ -150,12 +125,6 @@ struct MainPage {
       return $r('app.media.error_indicator');
     }
     return $r('app.media.check_indicator');
-  }
-
-  navigateToCreateRoom() {
-    router.pushUrl({ url: 'pages/CreateRoomPage' }).catch(() => {
-    });
-    this.showCreateMenu = false;
   }
 
   async aboutToDisappear() {
@@ -181,6 +150,12 @@ struct MainPage {
 
   navigateToJoinRoom() {
     router.pushUrl({ url: 'pages/JoinRoomPage' }).catch(() => {
+      // TODO: Implement error handling.
+    });
+  }
+
+  navigateToSetting() {
+    router.pushUrl({ url: 'pages/SettingsPage' }).catch(() => {
       // TODO: Implement error handling.
     });
   }
@@ -216,7 +191,7 @@ struct MainPage {
     }
     .width('100%')
     .padding({ left: 20, right: 20, top: 10, bottom: 10 })
-    .backgroundColor(this.getThemeColors().bg);
+    .backgroundColor(getThemeColors().bg);
   }
 
   @Builder
@@ -226,13 +201,13 @@ struct MainPage {
         if (this.currentFilter === filter) {
           Text(label)
             .fontSize(14)
-            .fontColor(this.getThemeColors().primary)
-            .decoration({ type: TextDecorationType.Underline, color: this.getThemeColors().primary })
+            .fontColor(getThemeColors().primary)
+            .decoration({ type: TextDecorationType.Underline, color: getThemeColors().primary })
             .padding({ bottom: 4 });
         } else {
           Text(label)
             .fontSize(14)
-            .fontColor(this.getThemeColors().textSecondary)
+            .fontColor(getThemeColors().textSecondary)
             .onClick(() => {
               this.setFilter(filter);
             });
@@ -267,13 +242,9 @@ struct MainPage {
           .width(24)
           .height(24)
           .objectFit(ImageFit.Contain);
-        Text('Matrix Room')
-          .fontSize(12)
-          .fontColor(this.currentIndex === index ? this.getThemeColors().textSecondary : this.getThemeColors().primary)
-          .margin({ left: 4 });
       }
       .padding({ left: 16, right: 16, top: 8, bottom: 8 })
-      .backgroundColor(this.currentIndex === index ? this.getThemeColors().tabBg : this.getThemeColors().bg)
+      .backgroundColor(this.currentIndex === index ? getThemeColors().tabBg : getThemeColors().bg)
       .borderRadius(20)
       .onClick(() => {
         this.currentIndex = index;
@@ -284,13 +255,9 @@ struct MainPage {
           .width(24)
           .height(24)
           .objectFit(ImageFit.Contain);
-        Text('Matrix Space')
-          .fontSize(12)
-          .fontColor(this.currentIndex === index ? this.getThemeColors().textSecondary : this.getThemeColors().primary)
-          .margin({ left: 4 });
       }
       .padding({ left: 16, right: 16, top: 8, bottom: 8 })
-      .backgroundColor(this.currentIndex === index ? this.getThemeColors().tabBg : this.getThemeColors().bg)
+      .backgroundColor(this.currentIndex === index ? getThemeColors().tabBg : getThemeColors().bg)
       .borderRadius(20)
       .onClick(() => {
         this.currentIndex = index;
@@ -310,17 +277,15 @@ struct MainPage {
               .width(36)
               .height(36)
               .borderRadius(18)
-              .backgroundColor(this.getThemeColors().primary)
+              .backgroundColor(getThemeColors().primary)
               .textAlign(TextAlign.Center)
-              .onClick(() => {
-                this.showUserMenu = !this.showUserMenu;
-              });
+              .onClick(() => this.navigateToSetting);
           }
 
           Text(this.currentIndex === 0 ? '全部消息' : '空间')
             .fontSize(18)
             .fontWeight(FontWeight.Medium)
-            .fontColor(this.getThemeColors().text)
+            .fontColor(getThemeColors().text)
             .margin({ left: 12 });
 
           Blank();
@@ -330,10 +295,10 @@ struct MainPage {
               LoadingProgress()
                 .width(20)
                 .height(20)
-                .color(this.getThemeColors().primary);
+                .color(getThemeColors().primary);
               Text('同步中')
                 .fontSize(12)
-                .fontColor(this.getThemeColors().textSecondary)
+                .fontColor(getThemeColors().textSecondary)
                 .margin({ left: 4 });
             }
             .margin({ right: 12 });
@@ -363,7 +328,7 @@ struct MainPage {
         }
         .width('100%')
         .padding({ left: 20, right: 20, top: 10, bottom: 5 })
-        .backgroundColor(this.getThemeColors().bg);
+        .backgroundColor(getThemeColors().bg);
 
         this.FilterBarBuilder();
 
@@ -378,77 +343,96 @@ struct MainPage {
 
       Column() {
         Row() {
-          this.TabBarBuilder(0);
           Blank();
-          Column() {
-            if (this.showCreateMenu) {
-              Row() {
-                Text('创建聊天室')
-                  .fontSize(12)
-                  .fontColor(this.getThemeColors().text)
-                  .padding({ left: 12, right: 12, top: 8, bottom: 8 });
-              }
-              .backgroundColor(this.getThemeColors().bg)
-              .borderRadius(8)
-              .shadow({
-                radius: 4,
-                color: 'rgba(0, 0, 0, 0.1)',
-                offsetX: 0,
-                offsetY: 2
-              })
-              .margin({ bottom: 8 })
-              .onClick(() => {
-                this.showCreateMenu = false;
-                this.navigateToCreateRoom();
-              });
 
-              Row() {
-                Text('加入聊天室')
-                  .fontSize(12)
-                  .fontColor(this.getThemeColors().text)
-                  .padding({ left: 12, right: 12, top: 8, bottom: 8 });
+          Row() {
+            Stack() {
+              if (this.currentIndex === 0) {
+                Row()
+                  .width(64)
+                  .height(40)
+                  .borderRadius(20)
+                  .backgroundColor(getThemeColors().tabBg);
               }
-              .backgroundColor(this.getThemeColors().bg)
-              .borderRadius(8)
-              .shadow({
-                radius: 4,
-                color: 'rgba(0, 0, 0, 0.1)',
-                offsetX: 0,
-                offsetY: 2
-              })
-              .onClick(() => {
-                this.showCreateMenu = false;
-                this.navigateToJoinRoom();
-              });
-            }
 
-            Row() {
-              Image($r('app.media.add'))
-                .width(24)
-                .height(24)
-                .objectFit(ImageFit.Contain);
+              Image($r('app.media.message'))
+                .width(36)
+                .height(36)
+                .objectFit(ImageFit.Contain)
+                .fillColor(this.currentIndex === 0 ? getThemeColors().primary : getThemeColors().textSecondary);
             }
             .width(48)
             .height(48)
-            .backgroundColor(this.getThemeColors().primary)
-            .borderRadius(24)
-            .justifyContent(FlexAlign.Center)
-            .alignItems(VerticalAlign.Center)
             .onClick(() => {
-              this.showCreateMenu = !this.showCreateMenu;
+              this.currentIndex = 0;
+            });
+
+            Stack() {
+              if (this.currentIndex === 1) {
+                Row()
+                  .width(64)
+                  .height(40)
+                  .borderRadius(20)
+                  .backgroundColor(getThemeColors().tabBg);
+              }
+
+              Image($r('app.media.space'))
+                .width(36)
+                .height(36)
+                .objectFit(ImageFit.Contain)
+                .fillColor(this.currentIndex === 1 ? getThemeColors().primary : getThemeColors().textSecondary);
+            }
+            .width(48)
+            .height(48)
+            .onClick(() => {
+              this.currentIndex = 1;
             });
           }
+          .height(48)
+          .backgroundColor(getThemeColors().bg)
+          .borderRadius(28)
+          .padding({ left: 10, right: 10, top: 4, bottom: 4 })
+          .shadow({
+            radius: 10,
+            color: 'rgba(0, 0, 0, 0.1)',
+            offsetX: 0,
+            offsetY: 3
+          });
+
+          Blank().width(24);
+
+          Row() {
+            Image($r('app.media.add'))
+              .width(36)
+              .height(36)
+              .objectFit(ImageFit.Contain);
+          }
+          .width(56)
+          .height(56)
+          .backgroundColor(getThemeColors().primary)
+          .borderRadius(28)
+          .justifyContent(FlexAlign.Center)
+          .alignItems(VerticalAlign.Center)
+          .shadow({
+            radius: 12,
+            color: 'rgba(0, 0, 0, 0.2)',
+            offsetX: 0,
+            offsetY: 4
+          })
+          .onClick(() => {
+            this.navigateToJoinRoom();
+          });
+
           Blank();
-          this.TabBarBuilder(1);
         }
         .width('100%')
-        .height(48)
-        .padding({ left: 20, right: 20 })
+        .height(64)
+        .padding({ left: 40, right: 40 })
         .alignItems(VerticalAlign.Bottom);
       }
       .width('100%')
       .position({ x: 0, y: '100%' })
-      .translate({ x: 0, y: -48 });
+      .translate({ x: 0, y: -64 });
 
       if (this.showUserMenu) {
         Column() {
@@ -467,17 +451,17 @@ struct MainPage {
                   .width(40)
                   .height(40)
                   .borderRadius(20)
-                  .backgroundColor(this.getThemeColors().primary)
+                  .backgroundColor(getThemeColors().primary)
                   .textAlign(TextAlign.Center);
               }
               Column() {
                 Text(this.userDisplayName || this.authManager.getSession()?.userId || '用户')
                   .fontSize(14)
                   .fontWeight(FontWeight.Medium)
-                  .fontColor(this.getThemeColors().text);
+                  .fontColor(getThemeColors().text);
                 Text(this.authManager.getSession()?.userId || '')
                   .fontSize(11)
-                  .fontColor(this.getThemeColors().textSecondary);
+                  .fontColor(getThemeColors().textSecondary);
               }
               .margin({ left: 10 })
               .alignItems(HorizontalAlign.Start);
@@ -485,24 +469,11 @@ struct MainPage {
             .width('100%')
             .padding({ left: 15, right: 15, top: 15, bottom: 10 });
 
-            Divider().color(this.getThemeColors().divider);
-
-            Text('深色模式')
-              .fontSize(14)
-              .fontColor(this.getThemeColors().text)
-              .width('100%')
-              .height(40)
-              .padding({ left: 15 })
-              .textAlign(TextAlign.Start)
-              .onClick(() => {
-                this.toggleDarkMode();
-              });
-
-            Divider().color(this.getThemeColors().divider);
+            Divider().color(getThemeColors().divider);
 
             Text('设置')
               .fontSize(14)
-              .fontColor(this.getThemeColors().text)
+              .fontColor(getThemeColors().text)
               .width('100%')
               .height(40)
               .padding({ left: 15 })
@@ -513,7 +484,7 @@ struct MainPage {
                 });
               });
 
-            Divider().color(this.getThemeColors().divider);
+            Divider().color(getThemeColors().divider);
 
             Text('退出登录')
               .fontSize(14)
@@ -528,7 +499,7 @@ struct MainPage {
               });
           }
           .width(220)
-          .backgroundColor(this.getThemeColors().bg)
+          .backgroundColor(getThemeColors().bg)
           .borderRadius(8)
           .shadow({
             radius: 10,

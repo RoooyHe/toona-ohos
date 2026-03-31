@@ -1,32 +1,36 @@
 import router from '@ohos.router';
 import promptAction from '@ohos.promptAction';
-import { RoomManager, CreateRoomOptions } from '../services/RoomManager';
+import { RoomManager } from '../services/RoomManager';
 import { AuthManager } from '../services/AuthManager';
 import { MatrixHttpClient } from '../network/MatrixHttpClient';
-import { getThemeColors } from '../utils/ThemeManager';
+import { ThemeColors, getThemeColors } from '../utils/ThemeManager';
 
-interface DirectoryUser {
-  user_id: string;
-  display_name?: string;
+interface PublicSpace {
+  room_id: string;
+  name?: string;
+  topic?: string;
   avatar_url?: string;
+  num_joined_members?: number;
 }
 
-interface GeneratedTypeLiteralInterface_1 {
-  results: DirectoryUser[];
+interface PublicRoomsResponse {
+  chunk: PublicSpace[];
+  next_batch?: string;
+  prev_batch?: string;
+  total_room_count_estimate?: number;
 }
 
 @Entry
 @Component
-struct JoinRoomPage {
+struct JoinSpacePage {
   @StorageLink('colorMode') colorMode: number = 0;
   @State searchQuery: string = '';
-  @State searchResults: DirectoryUser[] = [];
+  @State searchResults: PublicSpace[] = [];
   @State isSearching: boolean = false;
-  @State roomAddress: string = '';
+  @State spaceAddress: string = '';
   @State isJoining: boolean = false;
   @State showCreateDialog: boolean = false;
-  @State newRoomName: string = '';
-  @State isPublicRoom: boolean = false;
+  @State newSpaceName: string = '';
   private roomManager: RoomManager = RoomManager.getInstance();
   private authManager: AuthManager = AuthManager.getInstance();
   private httpClient: MatrixHttpClient | null = null;
@@ -35,94 +39,65 @@ struct JoinRoomPage {
     this.httpClient = this.authManager.getHttpClient();
   }
 
-  async searchUsers() {
+  async searchPublicSpaces() {
     if (!this.searchQuery.trim()) {
+      this.searchResults = [];
       return;
     }
 
     this.isSearching = true;
     try {
-      const response = await this.httpClient?.get<GeneratedTypeLiteralInterface_1>(
-        `/user_directory/search?name=${encodeURIComponent(this.searchQuery.trim())}`
+      const response = await this.httpClient?.get<PublicRoomsResponse>(
+        '/publicRooms',
+        { "limit": 20 }
       );
-      if (response && response.results) {
-        this.searchResults = response.results;
+      if (response && response.chunk) {
+        const query = this.searchQuery.toLowerCase();
+        this.searchResults = response.chunk.filter(space => {
+          const name = space.name?.toLowerCase() || '';
+          const topic = space.topic?.toLowerCase() || '';
+          return name.includes(query) || topic.includes(query);
+        });
       }
     } catch (error) {
-      console.error('Search users failed:', error);
+      console.error('Search spaces failed:', error);
       this.searchResults = [];
     } finally {
       this.isSearching = false;
     }
   }
 
-  async startDirectChat(userId: string) {
-    try {
-      const options: CreateRoomOptions = {
-        isDirect: true,
-        inviteUsers: [userId]
-      };
-      const roomId = await this.roomManager.createRoom(options);
-      router.pushUrl({
-        url: 'pages/RoomDetailPage',
-        params: {
-          roomId: roomId,
-          roomName: userId
-        }
-      }).catch(() => {
-        // TODO: Implement error handling.
-      });
-    } catch (error) {
-      console.error('Failed to start direct chat:', error);
-      promptAction.showToast({ message: '创建私聊失败' });
-    }
-  }
-
-  async joinRoom() {
-    if (!this.roomAddress.trim()) {
-      try {
-        promptAction.showToast({ message: '请输入房间地址' });
-      } catch (error) {
-        // TODO: Implement error handling.
-      }
-      return;
-    }
-
+  async joinSpace(spaceIdOrAlias: string) {
     this.isJoining = true;
     try {
-      let roomId = this.roomAddress.trim();
-      if (!roomId.startsWith('#') && !roomId.includes(':')) {
-        roomId = `#${roomId}:${this.authManager.getHomeserver()}`;
+      let spaceId = spaceIdOrAlias.trim();
+      if (!spaceId.startsWith('#') && !spaceId.includes(':')) {
+        spaceId = `#${spaceId}:${this.authManager.getHomeserver()}`;
       }
-      await this.roomManager.joinRoom(roomId);
+      await this.roomManager.joinRoom(spaceId);
       promptAction.showToast({ message: '加入成功' });
       router.back();
     } catch (error) {
-      console.error('Failed to join room:', error);
+      console.error('Failed to join space:', error);
       promptAction.showToast({ message: '加入失败' });
     } finally {
       this.isJoining = false;
     }
   }
 
-  async createRoom() {
-    if (!this.newRoomName.trim()) {
+  async createSpace() {
+    if (!this.newSpaceName.trim()) {
       return;
     }
 
     try {
-      const options: CreateRoomOptions = {
-        name: this.newRoomName.trim(),
-        visibility: this.isPublicRoom ? 'public' : 'private'
-      };
-      await this.roomManager.createRoom(options);
+      await this.roomManager.createSpace(this.newSpaceName.trim());
       this.showCreateDialog = false;
-      this.newRoomName = '';
-      this.isPublicRoom = false;
+      this.newSpaceName = '';
       promptAction.showToast({ message: '创建成功' });
       router.back();
     } catch (error) {
-      console.error('Failed to create room:', error);
+      console.error('Failed to create space:', error);
       promptAction.showToast({ message: '创建失败' });
     }
   }
@@ -141,7 +116,7 @@ struct JoinRoomPage {
               router.back();
             });
 
-          Text('加入房间')
+          Text('加入空间')
             .fontSize(18)
             .fontWeight(FontWeight.Medium)
             .fontColor(getThemeColors().text)
@@ -152,7 +127,7 @@ struct JoinRoomPage {
         .backgroundColor(getThemeColors().bg);
 
         Column() {
-          TextInput({ placeholder: '搜索用户进行私聊', text: this.searchQuery })
+          TextInput({ placeholder: '搜索公开空间', text: this.searchQuery })
             .width('100%')
             .height(44)
             .fontSize(16)
@@ -163,7 +138,7 @@ struct JoinRoomPage {
               this.searchQuery = value;
             })
             .onSubmit(() => {
-              this.searchUsers();
+              this.searchPublicSpaces();
             });
 
           Button('搜索')
@@ -174,7 +149,7 @@ struct JoinRoomPage {
             .height(40)
             .borderRadius(10)
             .onClick(() => {
-              this.searchUsers();
+              this.searchPublicSpaces();
             });
 
           if (this.isSearching) {
@@ -184,10 +159,10 @@ struct JoinRoomPage {
               .margin({ top: 10 });
           } else if (this.searchResults.length > 0) {
             List() {
-              ForEach(this.searchResults, (user: DirectoryUser) => {
+              ForEach(this.searchResults, (space: PublicSpace) => {
                 ListItem() {
                   Row() {
-                    Text(user.display_name?.charAt(0).toUpperCase() || user.user_id.charAt(0).toUpperCase())
+                    Text(space.name?.charAt(0).toUpperCase() || '#')
                       .fontSize(18)
                       .fontWeight(FontWeight.Bold)
                       .fontColor('#ffffff')
@@ -198,26 +173,41 @@ struct JoinRoomPage {
                       .textAlign(TextAlign.Center);
 
                     Column() {
-                      Text(user.display_name || user.user_id)
+                      Text(space.name || space.room_id)
                         .fontSize(16)
                         .fontColor(getThemeColors().text);
-                      Text(user.user_id)
-                        .fontSize(12)
-                        .fontColor(getThemeColors().textSecondary);
+                      if (space.topic) {
+                        Text(space.topic)
+                          .fontSize(12)
+                          .fontColor(getThemeColors().textSecondary)
+                          .maxLines(1)
+                          .textOverflow({ overflow: TextOverflow.Ellipsis });
+                      }
+                      if (space.num_joined_members !== undefined) {
+                        Text(`${space.num_joined_members} 成员`)
+                          .fontSize(11)
+                          .fontColor(getThemeColors().textSecondary);
+                      }
                     }
                     .margin({ left: 12 })
-                    .alignItems(HorizontalAlign.Start);
+                    .alignItems(HorizontalAlign.Start)
+                    .layoutWeight(1);
                   }
                   .width('100%')
                   .padding({ top: 10, bottom: 10 })
                   .onClick(() => {
-                    this.startDirectChat(user.user_id);
+                    this.joinSpace(space.room_id);
                   });
                 };
               });
             }
             .width('100%')
             .layoutWeight(1);
+          } else if (this.searchQuery.trim() && !this.isSearching) {
+            Text('未找到匹配的空间')
+              .fontSize(14)
+              .fontColor(getThemeColors().textSecondary)
+              .margin({ top: 20 });
           }
         }
         .width('90%')
@@ -227,7 +217,7 @@ struct JoinRoomPage {
 
         Column() {
           Row() {
-            Text('创建新聊天室')
+            Text('创建新空间')
               .fontSize(16)
               .fontColor(getThemeColors().text);
             Blank();
@@ -256,14 +246,14 @@ struct JoinRoomPage {
             .alignSelf(ItemAlign.Start)
             .margin({ bottom: 10 });
 
-          TextInput({ placeholder: '输入 room ID 或地址', text: this.roomAddress })
+          TextInput({ placeholder: '输入 space ID 或地址', text: this.spaceAddress })
             .width('100%')
             .height(44)
             .fontSize(16)
             .backgroundColor(getThemeColors().inputBg)
             .borderRadius(10)
             .onChange((value: string) => {
-              this.roomAddress = value;
+              this.spaceAddress = value;
             });
 
           Button(this.isJoining ? '加入中...' : '加入')
@@ -276,7 +266,7 @@ struct JoinRoomPage {
             .margin({ top: 10 })
             .enabled(!this.isJoining)
             .onClick(() => {
-              this.joinRoom();
+              this.joinSpace(this.spaceAddress);
             });
         }
         .width('90%')
@@ -289,35 +279,21 @@ struct JoinRoomPage {
       if (this.showCreateDialog) {
         Column() {
           Column() {
-            Text('创建聊天室')
+            Text('创建空间')
               .fontSize(18)
               .fontWeight(FontWeight.Bold)
               .fontColor(getThemeColors().text)
               .margin({ bottom: 20 });
 
-            TextInput({ placeholder: '房间名称' })
+            TextInput({ placeholder: '空间名称' })
               .width('100%')
               .height(44)
               .fontSize(16)
               .backgroundColor(getThemeColors().inputBg)
               .borderRadius(8)
               .onChange((value: string) => {
-                this.newRoomName = value;
+                this.newSpaceName = value;
               });
-
-            Row() {
-              Text('设为公开房间')
-                .fontSize(14)
-                .fontColor(getThemeColors().text);
-              Blank();
-              Toggle({ type: ToggleType.Switch, isOn: this.isPublicRoom })
-                .selectedColor(getThemeColors().primary)
-                .onChange((isOn: boolean) => {
-                  this.isPublicRoom = isOn;
-                });
-            }
-            .width('100%')
-            .margin({ top: 12 });
 
             Row() {
               Button('取消')
@@ -329,7 +305,7 @@ struct JoinRoomPage {
                 .borderRadius(8)
                 .onClick(() => {
                   this.showCreateDialog = false;
-                  this.newRoomName = '';
+                  this.newSpaceName = '';
                 });
 
               Button('创建')
@@ -340,7 +316,7 @@ struct JoinRoomPage {
                 .height(44)
                 .borderRadius(8)
                 .onClick(() => {
-                  this.createRoom();
+                  this.createSpace();
                 });
             }
             .width('100%')

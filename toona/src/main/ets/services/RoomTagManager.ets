@@ -1,12 +1,19 @@
 import { MatrixHttpClient, MatrixConfig } from '../network/MatrixHttpClient';
 import { RoomTags } from '../models/MatrixTypes';
 import { AuthManager } from './AuthManager';
+import { LocalDatabase } from '../database/LocalDatabase';
+
+interface GeneratedTypeLiteralInterface_1 {
+  order?: number;
+}
 
 export class RoomTagManager {
   private static instance: RoomTagManager;
   private httpClient: MatrixHttpClient | null = null;
+  private localDatabase: LocalDatabase;
 
   private constructor() {
+    this.localDatabase = LocalDatabase.getInstance();
   }
 
   static getInstance(): RoomTagManager {
@@ -29,16 +36,15 @@ export class RoomTagManager {
   }
 
   async getRoomTags(roomId: string): Promise<RoomTags> {
-    const userId: string = AuthManager.getInstance().getUserId();
-    if (!userId) {
-      throw new Error('Not logged in');
-    }
     try {
-      return await this.ensureHttpClient().getRoomTags(userId, roomId);
+      const room = await this.localDatabase.getRoom(roomId);
+      if (room && room.tags) {
+        return { tags: room.tags as Record<string, GeneratedTypeLiteralInterface_1> };
+      }
+      return { tags: {} };
     } catch (error) {
-      console.error('Failed to get room tags:', error);
-      const errMsg: string = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to get room tags: ${errMsg}`);
+      console.error('Failed to get room tags from local database:', error);
+      return { tags: {} };
     }
   }
 

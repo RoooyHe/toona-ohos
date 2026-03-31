@@ -1,10 +1,16 @@
 import router from '@ohos.router';
 import promptAction from '@ohos.promptAction';
 import { AuthManager } from '../services/AuthManager';
+import { ThemeColors, getThemeColors } from '../utils/ThemeManager';
+
+interface RegisterThemeColors extends ThemeColors {
+  error: string;
+}
 
 @Entry
 @Component
 struct RegisterPage {
+  @StorageLink('colorMode') colorMode: number = 0;
   @State homeserver: string = '';
   @State username: string = '';
   @State password: string = '';
@@ -16,6 +22,21 @@ struct RegisterPage {
 
   aboutToAppear() {
     this.homeserver = this.authManager.getHomeserver() || '';
+  }
+
+  getThemeColors(): RegisterThemeColors {
+    const colors = getThemeColors();
+    return {
+      bg: colors.bg,
+      text: colors.text,
+      textSecondary: colors.textSecondary,
+      inputBg: colors.inputBg,
+      primary: colors.primary,
+      divider: colors.divider,
+      surface: colors.surface,
+      tabBg: colors.tabBg,
+      error: '#e53935'
+    };
   }
 
   async handleRegister() {
@@ -88,10 +109,12 @@ struct RegisterPage {
         Button('← 返回')
           .fontSize(16)
           .backgroundColor('transparent')
-          .fontColor('#10a37f')
+          .fontColor(getThemeColors().primary)
           .onClick(() => {
             router.back();
           });
+
+        Blank();
       }
       .width('85%')
       .margin({ top: 20, bottom: 40 });
@@ -100,17 +123,19 @@ struct RegisterPage {
         Text('创建账号')
           .fontSize(28)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#333333')
+          .fontColor(getThemeColors().text)
           .margin({ bottom: 40 });
 
         TextInput({ placeholder: ' homeserver (如: matrix.org)' })
           .width('100%')
           .height(50)
           .fontSize(16)
-          .backgroundColor('#f5f5f5')
+          .backgroundColor(getThemeColors().inputBg)
           .borderRadius(10)
           .margin({ bottom: 15 })
           .textAlign(TextAlign.Start)
+          .fontColor(getThemeColors().text)
+          .placeholderColor(getThemeColors().textSecondary)
           .onChange((value: string) => {
             this.homeserver = value;
           });
@@ -119,9 +144,11 @@ struct RegisterPage {
           .width('100%')
           .height(50)
           .fontSize(16)
-          .backgroundColor('#f5f5f5')
+          .backgroundColor(getThemeColors().inputBg)
           .borderRadius(10)
           .margin({ bottom: 15 })
+          .fontColor(getThemeColors().text)
+          .placeholderColor(getThemeColors().textSecondary)
           .onChange((value: string) => {
             this.username = value;
           });
@@ -130,10 +157,12 @@ struct RegisterPage {
           .width('100%')
           .height(50)
           .fontSize(16)
-          .backgroundColor('#f5f5f5')
+          .backgroundColor(getThemeColors().inputBg)
           .borderRadius(10)
           .type(InputType.Password)
           .margin({ bottom: 15 })
+          .fontColor(getThemeColors().text)
+          .placeholderColor(getThemeColors().textSecondary)
           .onChange((value: string) => {
             this.password = value;
           });
@@ -142,10 +171,12 @@ struct RegisterPage {
           .width('100%')
           .height(50)
           .fontSize(16)
-          .backgroundColor('#f5f5f5')
+          .backgroundColor(getThemeColors().inputBg)
           .borderRadius(10)
           .type(InputType.Password)
           .margin({ bottom: 10 })
+          .fontColor(getThemeColors().text)
+          .placeholderColor(getThemeColors().textSecondary)
           .onChange((value: string) => {
             this.confirmPassword = value;
           });
@@ -153,7 +184,7 @@ struct RegisterPage {
         if (this.errorMessage) {
           Text(this.errorMessage)
             .fontSize(14)
-            .fontColor('#e53935')
+            .fontColor(getThemeColors().error)
             .margin({ bottom: 10 })
         }
 
@@ -162,7 +193,7 @@ struct RegisterPage {
           .height(50)
           .fontSize(18)
           .fontWeight(FontWeight.Medium)
-          .backgroundColor('#10a37f')
+          .backgroundColor(getThemeColors().primary)
           .borderRadius(10)
           .margin({ top: 20 })
           .enabled(!this.isLoading)
@@ -175,6 +206,6 @@ struct RegisterPage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#ffffff')
+    .backgroundColor(getThemeColors().bg)
   }
 }

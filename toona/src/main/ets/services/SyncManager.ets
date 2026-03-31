@@ -2,7 +2,7 @@ import { MatrixHttpClient } from '../network/MatrixHttpClient';
 import { SyncRequest, SyncResponse, Event, RoomState } from '../models/MatrixTypes';
 import { AuthManager } from './AuthManager';
 import { LocalDatabase } from '../database/LocalDatabase';
-import { Room, Message } from '../models/DataModels';
+import { Room, Message, TagInfo } from '../models/DataModels';
 import { EventProcessor, SyncListener } from './EventProcessor';
 import { Context } from '@kit.AbilityKit';
 
@@ -308,6 +308,33 @@ export class SyncManager {
     if (roomState.unread_notifications) {
       room.unreadCount = roomState.unread_notifications.notification_count;
       room.highlightCount = roomState.unread_notifications.highlight_count;
+    }
+
+    if (roomState.account_data?.events) {
+      for (const event of roomState.account_data.events) {
+        if (event.type === 'm.tag') {
+          const content = event.content as Record<string, object>;
+          const tagsContent = content['tags'];
+          if (tagsContent && typeof tagsContent === 'object') {
+            const tags: Record<string, TagInfo> = {};
+            const tagObj = tagsContent as Record<string, object>;
+            const tagKeys = Object.keys(tagObj);
+            for (let i = 0; i < tagKeys.length; i++) {
+              const tagName = tagKeys[i];
+              const tagData = tagObj[tagName];
+              if (tagData && typeof tagData === 'object') {
+                const tagDataObj = tagData as Record<string, object>;
+                const orderVal = tagDataObj['order'];
+                tags[tagName] = {
+                  order: typeof orderVal === 'number' ? orderVal : undefined
+                };
+              }
+            }
+            room.tags = tags;
+            console.info('SyncManager: Room ' + roomId + ' has tags:', Object.keys(tags).join(', '));
+          }
+        }
+      }
     }
 
     await this.localDatabase.saveRoom(room);

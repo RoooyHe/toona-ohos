@@ -1,7 +1,7 @@
 import router from '@ohos.router';
-import { RoomManager, CreateRoomOptions } from '../services/RoomManager';
+import { RoomManager } from '../services/RoomManager';
 import { Room } from '../models/DataModels';
-import promptAction from '@ohos.promptAction';
+import { getThemeColors } from '../utils/ThemeManager';
 
 interface SpaceItem {
   room: Room;
@@ -32,7 +32,7 @@ struct SpaceListItem {
         if (this.item.children.length > 0) {
           Text(this.isExpanded ? '▼' : '▶')
             .fontSize(12)
-            .fontColor('#999999')
+            .fontColor(getThemeColors().textSecondary)
             .width(20)
             .onClick(() => {
               this.isExpanded = !this.isExpanded;
@@ -49,27 +49,27 @@ struct SpaceListItem {
           .width(36)
           .height(36)
           .borderRadius(18)
-          .backgroundColor('#10a37f')
+          .backgroundColor(getThemeColors().primary)
           .textAlign(TextAlign.Center);
 
         Text(this.item.room.getDisplayName())
           .fontSize(16)
-          .fontColor('#333333')
+          .fontColor(getThemeColors().text)
           .margin({ left: 12 })
           .layoutWeight(1);
 
         if (this.item.children.length > 0) {
           Text(`${this.item.children.length}`)
             .fontSize(12)
-            .fontColor('#999999')
-            .backgroundColor('#f5f5f5')
+            .fontColor(getThemeColors().textSecondary)
+            .backgroundColor(getThemeColors().inputBg)
             .borderRadius(10)
             .padding({ left: 8, right: 8, top: 2, bottom: 2 });
         }
       }
       .width('100%')
       .padding({ top: 12, bottom: 12, left: 20, right: 20 })
-      .backgroundColor(this.item.level === 0 ? '#ffffff' : '#fafafa')
+      .backgroundColor(this.item.level === 0 ? getThemeColors().bg : getThemeColors().surface)
       .onClick(() => {
         if (this.item.room.isSpace === true) {
           this.onNavigateToSpace(this.item.room);
@@ -97,14 +97,12 @@ struct SpaceListItem {
 struct SpacePage {
   @State spaceItems: SpaceItem[] = [];
   @State isLoading: boolean = true;
-  @State showCreateDialog: boolean = false;
-  @State newSpaceName: string = '';
 
   private roomManager: RoomManager = RoomManager.getInstance();
   private expandedSpaces: Set<string> = new Set();
 
-  async aboutToAppear() {
-    await this.loadSpaces();
+  aboutToAppear() {
+    this.loadSpaces();
   }
 
   async loadSpaces() {
@@ -217,29 +215,19 @@ struct SpacePage {
     });
   }
 
-  async createSpace() {
-    if (!this.newSpaceName.trim()) {
-      return;
-    }
-
-    try {
-      const options: CreateRoomOptions = {
-        name: this.newSpaceName.trim()
-      };
-      await this.roomManager.createRoom(options);
-      this.showCreateDialog = false;
-      this.newSpaceName = '';
-      promptAction.showToast({ message: '创建成功' });
-      await this.loadSpaces();
-    } catch (error) {
-      console.error('Failed to create space:', error);
-      promptAction.showToast({ message: '创建失败' });
-    }
+  navigateToJoinSpace() {
+    router.pushUrl({
+      url: 'pages/JoinSpacePage'
+    }).catch(() => {
+      // Ignore error
+    });
   }
 
   build() {
     Stack() {
       Column() {
+        Divider().color(getThemeColors().divider);
+
         if (this.isLoading) {
           Column() {
             LoadingProgress()
@@ -247,7 +235,7 @@ struct SpacePage {
               .height(40);
             Text('加载中...')
               .fontSize(14)
-              .fontColor('#999999')
+              .fontColor(getThemeColors().textSecondary)
               .margin({ top: 10 });
           }
           .width('100%')
@@ -257,10 +245,11 @@ struct SpacePage {
           Column() {
             Text('暂无空间')
               .fontSize(16)
-              .fontColor('#999999');
+              .fontColor(getThemeColors().textSecondary);
             Text('点击下方创建空间')
               .fontSize(14)
-              .fontColor('#cccccc')
+              .fontColor(getThemeColors().textSecondary)
+              .opacity(0.7)
               .margin({ top: 5 });
           }
           .width('100%')
@@ -292,9 +281,9 @@ struct SpacePage {
         Row() {
           Text('创建空间')
             .fontSize(16)
-            .fontColor('#10a37f')
+            .fontColor(getThemeColors().primary)
             .onClick(() => {
-              this.showCreateDialog = true;
+              this.navigateToJoinSpace();
             });
         }
         .width('90%')
@@ -303,63 +292,7 @@ struct SpacePage {
       }
       .width('100%')
       .height('100%')
-      .backgroundColor('#ffffff');
-
-      if (this.showCreateDialog) {
-        Column() {
-          Column() {
-            Text('创建空间')
-              .fontSize(18)
-              .fontWeight(FontWeight.Bold)
-              .margin({ bottom: 20 });
-
-            TextInput({ placeholder: '空间名称' })
-              .width('100%')
-              .height(44)
-              .fontSize(16)
-              .backgroundColor('#f5f5f5')
-              .borderRadius(8)
-              .onChange((value: string) => {
-                this.newSpaceName = value;
-              });
-
-            Row() {
-              Button('取消')
-                .fontSize(16)
-                .backgroundColor('#f5f5f5')
-                .fontColor('#333333')
-                .width('45%')
-                .height(44)
-                .borderRadius(8)
-                .onClick(() => {
-                  this.showCreateDialog = false;
-                  this.newSpaceName = '';
-                });
-
-              Button('创建')
-                .fontSize(16)
-                .backgroundColor('#10a37f')
-                .fontColor('#ffffff')
-                .width('45%')
-                .height(44)
-                .borderRadius(8)
-                .onClick(() => {
-                  this.createSpace();
-                });
-            }
-            .width('100%')
-            .margin({ top: 20 });
-          }
-          .width('85%')
-          .padding(20)
-          .backgroundColor('#ffffff')
-          .borderRadius(16);
-        }
-        .width('100%')
-        .height('100%')
-        .backgroundColor('rgba(0, 0, 0, 0.5)')
-        .justifyContent(FlexAlign.Center);
-      }
+      .backgroundColor(getThemeColors().bg);
     }
     .width('100%')
     .height('100%');

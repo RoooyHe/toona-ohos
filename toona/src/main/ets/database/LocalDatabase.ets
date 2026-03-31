@@ -1,10 +1,10 @@
 import relationalStore from '@ohos.data.relationalStore';
-import { Message, Room, User, MessageStatus } from '../models/DataModels';
+import { Message, Room, User, MessageStatus, TagInfo } from '../models/DataModels';
 import { Context } from '@kit.AbilityKit';
 import { ParsedRoomState } from '../models/MatrixTypes';
 
 const DATABASE_NAME = 'toona_matrix.db';
-const DATABASE_VERSION = 2;
+const DATABASE_VERSION = 3;
 
 interface TableNames {
   MESSAGES: string;
@@ -148,6 +148,21 @@ export class LocalDatabase {
       }
     }
 
+    if (fromVersion < 3 && toVersion >= 3) {
+      const migrations = [
+        'ALTER TABLE rooms ADD COLUMN tags TEXT'
+      ];
+
+      for (const migration of migrations) {
+        try {
+          await this.store.executeSql(migration);
+          console.info(`Migration succeeded: ${migration}`);
+        } catch (error) {
+          console.error(`Migration failed: ${migration}`, error);
+        }
+      }
+    }
+
     try {
       await this.store.executeSql(
         'CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY)'
@@ -201,6 +216,7 @@ export class LocalDatabase {
         create_time INTEGER,
         creator TEXT,
         is_space INTEGER DEFAULT 0,
+        tags TEXT,
         UNIQUE(room_id)
       )
     `;
@@ -345,6 +361,15 @@ export class LocalDatabase {
       throw new Error('Database not initialized');
     }
 
+    let tagsJson: string | null = null;
+    if (room.tags) {
+      try {
+        tagsJson = JSON.stringify(room.tags);
+      } catch (error) {
+        console.error('Failed to stringify tags:', error);
+      }
+    }
+
     const valueBucket: relationalStore.ValuesBucket = {
       room_id: room.id,
       name: room.name || null,
@@ -363,7 +388,8 @@ export class LocalDatabase {
       history_visibility: room.historyVisibility || null,
       create_time: room.createTime || null,
       creator: room.creator || null,
-      is_space: room.isSpace ? 1 : 0
+      is_space: room.isSpace ? 1 : 0,
+      tags: tagsJson
     };
 
     try {
@@ -528,6 +554,18 @@ export class LocalDatabase {
     const isSpaceCol = resultSet.getColumnIndex('is_space');
     if (isSpaceCol >= 0) {
       room.isSpace = resultSet.getLong(isSpaceCol) === 1;
+    }
+
+    const tagsCol = resultSet.getColumnIndex('tags');
+    if (tagsCol >= 0) {
+      const tagsStr = resultSet.getString(tagsCol);
+      if (tagsStr) {
+        try {
+          room.tags = JSON.parse(tagsStr) as Record<string, TagInfo>;
+        } catch (error) {
+          console.error('Failed to parse tags:', error);
+        }
+      }
     }
 
     return room;

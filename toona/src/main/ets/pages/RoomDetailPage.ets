@@ -10,8 +10,7 @@ import { AuthManager } from '../services/AuthManager';
 import { MessageStatus, PresenceState } from '../models/MatrixTypes';
 import { picker } from '@kit.CoreFileKit';
 import { fileIo } from '@kit.CoreFileKit';
-import { LongPressGesture } from '@kit.BasicFeaturesKit';
-import ConfigurationConstant from '@ohos.app.ability.ConfigurationConstant';
+import { ThemeManager, getThemeColors } from '../utils/ThemeManager';
 
 interface MemberPresence {
   userId: string;
@@ -23,6 +22,32 @@ interface ReplyQuote {
   eventId: string;
   sender: string;
   body: string;
+}
+
+interface InReplyTo {
+  event_id: string;
+}
+
+interface ReferenceContent {
+  event_id: string;
+  sender: string;
+}
+
+interface RelatesTo {
+  'm.in_reply_to': InReplyTo;
+}
+
+interface RoomDetailThemeColors {
+  bg: string;
+  text: string;
+  textSecondary: string;
+  inputBg: string;
+  primary: string;
+  error: string;
+  divider: string;
+  headerBg: string;
+  messageBg: string;
+  outgoingBg: string;
 }
 
 @Entry
@@ -41,7 +66,6 @@ struct RoomDetailPage {
   @State showReplyMenu: boolean = false;
   @State selectedMessage: Message | null = null;
   @State roomTopic: string = '';
-  @State isDarkMode: boolean = false;
   @State showMessageAction: boolean = false;
   @State messageActionType: string = '';
   @State editingMessage: Message | null = null;
@@ -58,9 +82,6 @@ struct RoomDetailPage {
   private mediaManager: MediaManager = MediaManager.getInstance();
 
   aboutToAppear() {
-    const colorMode = AppStorage.get<number>('colorMode');
-    this.isDarkMode = colorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
-
     const params = router.getParams() as Record<string, string>;
     if (params) {
       this.roomId = params.roomId || '';
@@ -109,7 +130,7 @@ struct RoomDetailPage {
     if (this.presenceInterval) {
       clearInterval(this.presenceInterval);
     }
-    RoomManager.stopTyping(this.roomId).catch(() => {});
+    this.roomManager.stopTyping(this.roomId).catch(() => {});
   }
 
   async loadMemberPresences() {
@@ -145,7 +166,7 @@ struct RoomDetailPage {
 
   async loadRoomTopic() {
     try {
-      const room = await this.roomManager.getRoomById(this.roomId);
+      const room = await this.roomManager.getRoom(this.roomId);
       if (room) {
         this.roomTopic = room.topic || '';
         if (this.roomName === '聊天室' && room.displayName) {
@@ -185,11 +206,16 @@ struct RoomDetailPage {
   async pickAndUploadImage() {
     try {
       const photoPicker = new picker.PhotoViewPicker();
-      const result = await photoPicker.select(1);
-      if (result && result.length > 0) {
-        const photoUri = result[0].uri;
+      const result = await photoPicker.select({
+        MIMEType: picker.PhotoViewMIMETypes.IMAGE_TYPE,
+        maxSelectNumber: 1
+      });
+      if (result && result.photoUris && result.photoUris.length > 0) {
+        const photoUri = result.photoUris[0];
         const file = fileIo.openSync(photoUri, fileIo.OpenMode.READ_ONLY);
-        const buffer = fileIo.readSync(file.fd);
+        const fileInfo = fileIo.statSync(photoUri);
+        const buffer = new Uint8Array(fileInfo.size);
+        fileIo.readSync(file.fd, buffer);
         fileIo.closeSync(file);
         const fileName = 'image_' + Date.now() + '.jpg';
         const mxcUri = await this.mediaManager.uploadImage(buffer.buffer as ArrayBuffer, fileName);
@@ -254,16 +280,18 @@ struct RoomDetailPage {
     };
 
     if (this.replyQuote) {
-      const relatesTo: Record<string, string | object> = {
-        'm.in_reply_to': {
-          'event_id': this.replyQuote.eventId
-        }
+      const inReplyTo: InReplyTo = {
+        event_id: this.replyQuote.eventId
+      };
+      const relatesTo: RelatesTo = {
+        'm.in_reply_to': inReplyTo
       };
       msgContent['m.relates_to'] = relatesTo;
-      msgContent['m.reference'] = {
-        'event_id': this.replyQuote.eventId,
-        'sender': this.replyQuote.sender
+      const reference: ReferenceContent = {
+        event_id: this.replyQuote.eventId,
+        sender: this.replyQuote.sender
       };
+      msgContent['m.reference'] = reference;
     }
 
     const tempMessage: Message = Message.createPendingMessage(this.roomId, msgContent);
@@ -416,18 +444,19 @@ struct RoomDetailPage {
     return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
   }
 
-  getThemeColors() {
+  getRoomThemeColors(): RoomDetailThemeColors {
+    const base = getThemeColors();
     return {
-      bg: this.isDarkMode ? '#1a1a1a' : '#ffffff',
-      text: this.isDarkMode ? '#ffffff' : '#333333',
-      textSecondary: this.isDarkMode ? '#999999' : '#666666',
-      inputBg: this.isDarkMode ? '#2a2a2a' : '#f5f5f5',
-      primary: '#10a37f',
+      bg: base.bg,
+      text: base.text,
+      textSecondary: base.textSecondary,
+      inputBg: base.inputBg,
+      primary: base.primary,
       error: '#e53935',
-      divider: this.isDarkMode ? '#3a3a3a' : '#f0f0f0',
-      headerBg: this.isDarkMode ? '#2a2a2a' : '#f5f5f5',
-      messageBg: this.isDarkMode ? '#2a2a2a' : '#f0f0f0',
-      outgoingBg: this.isDarkMode ? '#1a5a4a' : '#10a37f'
+      divider: base.divider,
+      headerBg: base.surface,
+      messageBg: base.surface,
+      outgoingBg: '#10a37f'
     };
   }
 
@@ -464,7 +493,7 @@ struct RoomDetailPage {
           Button('←')
             .fontSize(24)
             .backgroundColor('transparent')
-            .fontColor(this.getThemeColors().text)
+            .fontColor(this.getRoomThemeColors().text)
             .width(44)
             .height(44)
             .onClick(() => {
@@ -477,13 +506,13 @@ struct RoomDetailPage {
               .fontWeight(FontWeight.Medium)
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
-              .fontColor(this.getThemeColors().text);
+              .fontColor(this.getRoomThemeColors().text);
             if (this.roomTopic) {
               Text(this.roomTopic)
                 .fontSize(12)
                 .maxLines(1)
                 .textOverflow({ overflow: TextOverflow.Ellipsis })
-                .fontColor(this.getThemeColors().textSecondary);
+                .fontColor(this.getRoomThemeColors().textSecondary);
             }
           }
           .layoutWeight(1)
@@ -492,7 +521,7 @@ struct RoomDetailPage {
           Button('👥')
             .fontSize(18)
             .backgroundColor('transparent')
-            .fontColor(this.getThemeColors().textSecondary)
+            .fontColor(this.getRoomThemeColors().textSecondary)
             .width(36)
             .height(36)
             .onClick(() => {
@@ -502,28 +531,18 @@ struct RoomDetailPage {
           Button('📞')
             .fontSize(16)
             .backgroundColor('transparent')
-            .fontColor(this.getThemeColors().textSecondary)
+            .fontColor(this.getRoomThemeColors().textSecondary)
             .width(36)
             .height(36)
             .onClick(() => {
               this.startVoiceCall();
             });
 
-          Button('📹')
-            .fontSize(16)
-            .backgroundColor('transparent')
-            .fontColor(this.getThemeColors().textSecondary)
-            .width(36)
-            .height(36)
-            .onClick(() => {
-              this.startVideoCall();
-            });
-
           Image($r('app.media.menu'))
             .width(24)
             .height(24)
             .objectFit(ImageFit.Contain)
-            .fillColor(this.getThemeColors().textSecondary)
+            .fillColor(this.getRoomThemeColors().textSecondary)
             .onClick(() => {
               this.showMenu = !this.showMenu;
             });
@@ -531,14 +550,14 @@ struct RoomDetailPage {
         .width('100%')
         .height(56)
         .padding({ left: 10, right: 10 })
-        .backgroundColor(this.getThemeColors().headerBg);
+        .backgroundColor(this.getRoomThemeColors().headerBg);
 
         if (this.showMenu) {
           Column() {
             Button('离开房间')
               .fontSize(16)
-              .backgroundColor(this.getThemeColors().bg)
-              .fontColor(this.getThemeColors().error)
+              .backgroundColor(this.getRoomThemeColors().bg)
+              .fontColor(this.getRoomThemeColors().error)
               .width('100%')
               .height(44)
               .onClick(() => {
@@ -547,7 +566,7 @@ struct RoomDetailPage {
               });
           }
           .width(160)
-          .backgroundColor(this.getThemeColors().bg)
+          .backgroundColor(this.getRoomThemeColors().bg)
           .borderRadius(8)
           .shadow({
             radius: 10,
@@ -565,11 +584,11 @@ struct RoomDetailPage {
           Row() {
             Text('对方正在输入...')
               .fontSize(12)
-              .fontColor(this.getThemeColors().textSecondary)
+              .fontColor(this.getRoomThemeColors().textSecondary)
               .margin({ left: 15, top: 5, bottom: 5 });
           }
           .width('100%')
-          .backgroundColor(this.getThemeColors().bg);
+          .backgroundColor(this.getRoomThemeColors().bg);
         }
 
         if (this.replyQuote) {
@@ -578,14 +597,14 @@ struct RoomDetailPage {
               Row() {
                 Text('回复: ')
                   .fontSize(12)
-                  .fontColor(this.getThemeColors().primary);
+                  .fontColor(this.getRoomThemeColors().primary);
                 Text(this.getReplySenderName(this.replyQuote.sender))
                   .fontSize(12)
-                  .fontColor(this.getThemeColors().textSecondary);
+                  .fontColor(this.getRoomThemeColors().textSecondary);
               }
               Text(this.replyQuote.body)
                 .fontSize(12)
-                .fontColor(this.getThemeColors().textSecondary)
+                .fontColor(this.getRoomThemeColors().textSecondary)
                 .maxLines(1)
                 .textOverflow({ overflow: TextOverflow.Ellipsis });
             }
@@ -595,7 +614,7 @@ struct RoomDetailPage {
             Button('✕')
               .fontSize(12)
               .backgroundColor('transparent')
-              .fontColor(this.getThemeColors().textSecondary)
+              .fontColor(this.getRoomThemeColors().textSecondary)
               .width(24)
               .height(24)
               .onClick(() => {
@@ -604,7 +623,7 @@ struct RoomDetailPage {
           }
           .width('100%')
           .padding({ left: 15, right: 10, top: 8, bottom: 8 })
-          .backgroundColor(this.getThemeColors().inputBg);
+          .backgroundColor(this.getRoomThemeColors().inputBg);
         }
 
         if (this.editingMessage) {
@@ -613,20 +632,20 @@ struct RoomDetailPage {
               Row() {
                 Text('编辑消息')
                   .fontSize(12)
-                  .fontColor(this.getThemeColors().primary);
+                  .fontColor(this.getRoomThemeColors().primary);
                 Text(': ')
                   .fontSize(12)
-                  .fontColor(this.getThemeColors().textSecondary);
+                  .fontColor(this.getRoomThemeColors().textSecondary);
                 Text(this.editingMessage.getMessageBody())
                   .fontSize(12)
-                  .fontColor(this.getThemeColors().textSecondary)
+                  .fontColor(this.getRoomThemeColors().textSecondary)
                   .maxLines(1)
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
                   .layoutWeight(1);
               }
               TextInput({ text: this.editText, placeholder: '输入修改后的消息' })
                 .fontSize(14)
-                .backgroundColor(this.getThemeColors().bg)
+                .backgroundColor(this.getRoomThemeColors().bg)
                 .borderRadius(8)
                 .height(36)
                 .margin({ top: 4 })
@@ -641,7 +660,7 @@ struct RoomDetailPage {
               Button('✕')
                 .fontSize(12)
                 .backgroundColor('transparent')
-                .fontColor(this.getThemeColors().textSecondary)
+                .fontColor(this.getRoomThemeColors().textSecondary)
                 .width(24)
                 .height(24)
                 .onClick(() => {
@@ -650,7 +669,7 @@ struct RoomDetailPage {
 
               Button('保存')
                 .fontSize(12)
-                .backgroundColor(this.getThemeColors().primary)
+                .backgroundColor(this.getRoomThemeColors().primary)
                 .fontColor('#ffffff')
                 .width(48)
                 .height(28)
@@ -665,7 +684,7 @@ struct RoomDetailPage {
           }
           .width('100%')
           .padding({ left: 15, right: 10, top: 8, bottom: 8 })
-          .backgroundColor(this.getThemeColors().inputBg);
+          .backgroundColor(this.getRoomThemeColors().inputBg);
         }
 
         if (this.isLoading) {
@@ -673,7 +692,7 @@ struct RoomDetailPage {
             LoadingProgress()
               .width(40)
               .height(40)
-              .color(this.getThemeColors().primary);
+              .color(this.getRoomThemeColors().primary);
           }
           .width('100%')
           .layoutWeight(1)
@@ -682,10 +701,10 @@ struct RoomDetailPage {
           Column() {
             Text('暂无消息')
               .fontSize(16)
-              .fontColor(this.getThemeColors().textSecondary);
+              .fontColor(this.getRoomThemeColors().textSecondary);
             Text('发送第一条消息')
               .fontSize(14)
-              .fontColor(this.getThemeColors().textSecondary)
+              .fontColor(this.getRoomThemeColors().textSecondary)
               .opacity(0.6)
               .margin({ top: 5 });
           }
@@ -700,7 +719,7 @@ struct RoomDetailPage {
                   if (this.shouldShowTimeGroup(index)) {
                     Text(this.getTimeGroupLabel(message.timestamp))
                       .fontSize(12)
-                      .fontColor(this.getThemeColors().textSecondary)
+                      .fontColor(this.getRoomThemeColors().textSecondary)
                       .padding({ top: 10, bottom: 5 });
                   }
                   if (message.isOutgoing) {
@@ -732,7 +751,7 @@ struct RoomDetailPage {
           if (!this.editingMessage) {
             TextInput({ placeholder: '输入消息...', text: this.inputText })
               .fontSize(16)
-              .backgroundColor(this.getThemeColors().inputBg)
+              .backgroundColor(this.getRoomThemeColors().inputBg)
               .borderRadius(20)
               .height(40)
               .layoutWeight(1)
@@ -747,7 +766,7 @@ struct RoomDetailPage {
           Button('📞')
             .fontSize(16)
             .backgroundColor('transparent')
-            .fontColor(this.getThemeColors().textSecondary)
+            .fontColor(this.getRoomThemeColors().textSecondary)
             .borderRadius(20)
             .width(36)
             .height(36)
@@ -760,7 +779,7 @@ struct RoomDetailPage {
             Button('📎')
               .fontSize(18)
               .backgroundColor('transparent')
-              .fontColor(this.getThemeColors().textSecondary)
+              .fontColor(this.getRoomThemeColors().textSecondary)
               .borderRadius(20)
               .width(40)
               .height(40)
@@ -770,10 +789,10 @@ struct RoomDetailPage {
               });
           }
 
-          Button('发送')
+          Button('Send')
             .fontSize(16)
             .fontColor('#ffffff')
-            .backgroundColor(this.getThemeColors().primary)
+            .backgroundColor(this.getRoomThemeColors().primary)
             .borderRadius(20)
             .width(60)
             .height(40)
@@ -790,11 +809,11 @@ struct RoomDetailPage {
           top: 10,
           bottom: 10
         })
-        .backgroundColor(this.getThemeColors().bg);
+        .backgroundColor(this.getRoomThemeColors().bg);
       }
       .width('100%')
       .height('100%')
-      .backgroundColor(this.getThemeColors().bg);
+      .backgroundColor(this.getRoomThemeColors().bg);
 
       if (this.showMembersPanel) {
         Column() {
@@ -802,12 +821,12 @@ struct RoomDetailPage {
             Text('成员列表')
               .fontSize(16)
               .fontWeight(FontWeight.Medium)
-              .fontColor(this.getThemeColors().text);
+              .fontColor(this.getRoomThemeColors().text);
             Blank();
             Button('✕')
               .fontSize(16)
               .backgroundColor('transparent')
-              .fontColor(this.getThemeColors().textSecondary)
+              .fontColor(this.getRoomThemeColors().textSecondary)
               .width(30)
               .height(30)
               .onClick(() => {
@@ -817,12 +836,12 @@ struct RoomDetailPage {
           .width('100%')
           .padding({ left: 15, right: 15, top: 12, bottom: 12 });
 
-          Divider().color(this.getThemeColors().divider);
+          Divider().color(this.getRoomThemeColors().divider);
 
           if (this.memberPresences.length === 0) {
             Text('暂无成员信息')
               .fontSize(14)
-              .fontColor(this.getThemeColors().textSecondary)
+              .fontColor(this.getRoomThemeColors().textSecondary)
               .padding(15);
           } else {
             Scroll() {
@@ -837,14 +856,14 @@ struct RoomDetailPage {
                         .width(36)
                         .height(36)
                         .borderRadius(18)
-                        .backgroundColor(this.getThemeColors().primary)
+                        .backgroundColor(this.getRoomThemeColors().primary)
                         .textAlign(TextAlign.Center);
 
                       Circle()
                         .width(10)
                         .height(10)
                         .fill(this.getPresenceColor(member.presence))
-                        .stroke(this.getThemeColors().bg)
+                        .stroke(this.getRoomThemeColors().bg)
                         .strokeWidth(1.5)
                         .position({ x: 26, y: 26 });
                     }
@@ -855,17 +874,17 @@ struct RoomDetailPage {
                     Column() {
                       Text(member.displayName)
                         .fontSize(14)
-                        .fontColor(this.getThemeColors().text);
+                        .fontColor(this.getRoomThemeColors().text);
                       Text(this.getPresenceText(member.presence))
                         .fontSize(12)
-                        .fontColor(this.getThemeColors().textSecondary);
+                        .fontColor(this.getRoomThemeColors().textSecondary);
                     }
                     .alignItems(HorizontalAlign.Start)
                     .layoutWeight(1);
 
                     Text(member.userId.split(':')[0].replace('@', ''))
                       .fontSize(11)
-                      .fontColor(this.getThemeColors().textSecondary);
+                      .fontColor(this.getRoomThemeColors().textSecondary);
                   }
                   .width('100%')
                   .padding({ left: 15, right: 15, top: 10, bottom: 10 });
@@ -878,7 +897,7 @@ struct RoomDetailPage {
         }
         .width('70%')
         .height('100%')
-        .backgroundColor(this.getThemeColors().bg)
+        .backgroundColor(this.getRoomThemeColors().bg)
         .shadow({
           radius: 10,
           color: 'rgba(0, 0, 0, 0.15)',
@@ -893,18 +912,18 @@ struct RoomDetailPage {
           Column() {
             Text('回复')
               .fontSize(14)
-              .fontColor(this.getThemeColors().text)
+              .fontColor(this.getRoomThemeColors().text)
               .width('100%')
               .padding({ left: 15, top: 12, bottom: 12 })
               .onClick(() => {
                 this.startReply(this.selectedMessage!);
               });
 
-            Divider().color(this.getThemeColors().divider);
+            Divider().color(this.getRoomThemeColors().divider);
 
             Text('复制')
               .fontSize(14)
-              .fontColor(this.getThemeColors().text)
+              .fontColor(this.getRoomThemeColors().text)
               .width('100%')
               .padding({ left: 15, top: 12, bottom: 12 })
               .onClick(() => {
@@ -912,22 +931,22 @@ struct RoomDetailPage {
               });
 
             if (this.selectedMessage.isOutgoing) {
-              Divider().color(this.getThemeColors().divider);
+              Divider().color(this.getRoomThemeColors().divider);
 
               Text('删除')
                 .fontSize(14)
-                .fontColor(this.getThemeColors().error)
+                .fontColor(this.getRoomThemeColors().error)
                 .width('100%')
                 .padding({ left: 15, top: 12, bottom: 12 })
                 .onClick(() => {
                   this.deleteMessage(this.selectedMessage!);
                 });
 
-              Divider().color(this.getThemeColors().divider);
+              Divider().color(this.getRoomThemeColors().divider);
 
               Text('编辑')
                 .fontSize(14)
-                .fontColor(this.getThemeColors().primary)
+                .fontColor(this.getRoomThemeColors().primary)
                 .width('100%')
                 .padding({ left: 15, top: 12, bottom: 12 })
                 .onClick(() => {
@@ -935,11 +954,11 @@ struct RoomDetailPage {
                 });
             }
 
-            Divider().color(this.getThemeColors().divider);
+            Divider().color(this.getRoomThemeColors().divider);
 
             Text('取消')
               .fontSize(14)
-              .fontColor(this.getThemeColors().textSecondary)
+              .fontColor(this.getRoomThemeColors().textSecondary)
               .width('100%')
               .padding({ left: 15, top: 12, bottom: 12 })
               .onClick(() => {
@@ -948,7 +967,7 @@ struct RoomDetailPage {
               });
           }
           .width(160)
-          .backgroundColor(this.getThemeColors().bg)
+          .backgroundColor(this.getRoomThemeColors().bg)
           .borderRadius(8)
           .shadow({
             radius: 10,
@@ -979,10 +998,10 @@ struct RoomDetailPage {
         Row() {
           Text('↳ ')
             .fontSize(12)
-            .fontColor(this.getThemeColors().primary);
+            .fontColor(this.getRoomThemeColors().primary);
           Text('回复消息')
             .fontSize(12)
-            .fontColor(this.getThemeColors().textSecondary);
+            .fontColor(this.getRoomThemeColors().textSecondary);
         }
         .width('100%')
         .padding({ left: 12, right: 12, top: 4 });
@@ -1011,7 +1030,7 @@ struct RoomDetailPage {
             .width(40)
             .height(40)
             .borderRadius(8)
-            .backgroundColor(this.getThemeColors().inputBg)
+            .backgroundColor(this.getRoomThemeColors().inputBg)
             .padding(8);
           Column() {
             Text(message.getMessageBody())
@@ -1026,7 +1045,7 @@ struct RoomDetailPage {
           .layoutWeight(1)
           .margin({ left: 8 });
         }
-        .backgroundColor(this.getThemeColors().outgoingBg)
+        .backgroundColor(this.getRoomThemeColors().outgoingBg)
         .borderRadius(18)
         .padding(12)
         .alignItems(VerticalAlign.Center)
@@ -1061,7 +1080,7 @@ struct RoomDetailPage {
               .margin({ right: 8 });
           }
         }
-        .backgroundColor(this.getThemeColors().outgoingBg)
+        .backgroundColor(this.getRoomThemeColors().outgoingBg)
         .borderRadius(18)
         .alignItems(VerticalAlign.Bottom)
         .gesture(
@@ -1075,7 +1094,7 @@ struct RoomDetailPage {
 
       Text(this.formatTime(message.timestamp))
         .fontSize(11)
-        .fontColor(this.getThemeColors().textSecondary)
+        .fontColor(this.getRoomThemeColors().textSecondary)
         .margin({ top: 2 });
     }
     .width('100%')
@@ -1090,10 +1109,10 @@ struct RoomDetailPage {
         Row() {
           Text('↳ ')
             .fontSize(12)
-            .fontColor(this.getThemeColors().primary);
+            .fontColor(this.getRoomThemeColors().primary);
           Text('回复消息')
             .fontSize(12)
-            .fontColor(this.getThemeColors().textSecondary);
+            .fontColor(this.getRoomThemeColors().textSecondary);
         }
         .width('100%')
         .padding({ left: 12, right: 12, top: 4 });
@@ -1122,22 +1141,22 @@ struct RoomDetailPage {
             .width(40)
             .height(40)
             .borderRadius(8)
-            .backgroundColor(this.getThemeColors().inputBg)
+            .backgroundColor(this.getRoomThemeColors().inputBg)
             .padding(8);
           Column() {
             Text(message.getMessageBody())
               .fontSize(14)
-              .fontColor(this.getThemeColors().text)
+              .fontColor(this.getRoomThemeColors().text)
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis });
             Text('文件')
               .fontSize(12)
-              .fontColor(this.getThemeColors().textSecondary);
+              .fontColor(this.getRoomThemeColors().textSecondary);
           }
           .layoutWeight(1)
           .margin({ left: 8 });
         }
-        .backgroundColor(this.getThemeColors().messageBg)
+        .backgroundColor(this.getRoomThemeColors().messageBg)
         .borderRadius(18)
         .padding(12)
         .alignItems(VerticalAlign.Center)
@@ -1152,7 +1171,7 @@ struct RoomDetailPage {
         Row() {
           Text(message.getMessageBody())
             .fontSize(16)
-            .fontColor(this.getThemeColors().text)
+            .fontColor(this.getRoomThemeColors().text)
             .margin({
               left: 12,
               right: 12,
@@ -1160,7 +1179,7 @@ struct RoomDetailPage {
               bottom: 8
             });
         }
-        .backgroundColor(this.getThemeColors().messageBg)
+        .backgroundColor(this.getRoomThemeColors().messageBg)
         .borderRadius(18)
         .alignItems(VerticalAlign.Bottom)
         .gesture(
@@ -1174,7 +1193,7 @@ struct RoomDetailPage {
 
       Text(this.formatTime(message.timestamp))
         .fontSize(11)
-        .fontColor(this.getThemeColors().textSecondary)
+        .fontColor(this.getRoomThemeColors().textSecondary)
         .margin({ top: 2 });
     }
     .width('100%')

@@ -13,12 +13,7 @@ import { PresenceState } from '../models/MatrixTypes';
 import { media } from '@kit.MediaKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { picker } from '@kit.CoreFileKit';
-import ConfigurationConstant from '@ohos.app.ability.ConfigurationConstant';
-
-interface UserProfile {
-  displayName: string | null;
-  avatarUrl: string | null;
-}
+import { ThemeManager, getThemeColors } from '../utils/ThemeManager';
 
 @Entry
 @Component
@@ -38,7 +33,6 @@ struct SettingsPage {
   @State showPresenceMenu: boolean = false;
   @State showRoomTagsMenu: boolean = false;
   @State selectedRoomForTags: Room | null = null;
-  @State isDarkMode: boolean = false;
   @State showAboutPage: boolean = false;
 
   private authManager: AuthManager = AuthManager.getInstance();
@@ -48,28 +42,25 @@ struct SettingsPage {
   private roomTagManager: RoomTagManager = RoomTagManager.getInstance();
   private roomManager: RoomManager = RoomManager.getInstance();
   private mediaManager: MediaManager = MediaManager.getInstance();
+  private themeManager: ThemeManager = ThemeManager.getInstance();
 
   aboutToAppear() {
     const session = this.authManager.getSession();
     if (session) {
       this.userId = session.userId;
     }
-    const colorMode = AppStorage.get<number>('colorMode');
-    this.isDarkMode = colorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
     this.loadUserData();
   }
 
   toggleDarkMode() {
-    this.isDarkMode = !this.isDarkMode;
-    const newMode = this.isDarkMode ? ConfigurationConstant.ColorMode.COLOR_MODE_DARK : ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT;
-    AppStorage.setOrCreate('colorMode', newMode);
-    promptAction.showToast({ message: this.isDarkMode ? '深色模式已开启' : '浅色模式已开启' });
+    this.themeManager.toggleDarkMode();
+    promptAction.showToast({ message: this.themeManager.getIsDarkMode() ? '深色模式已开启' : '浅色模式已开启' });
   }
 
   async loadUserData() {
     this.isLoading = true;
     try {
-      const profile: UserProfile = await this.userManager.getUserProfile();
+      const profile = await this.userManager.getUserProfile();
       this.displayName = profile.displayName || '';
       this.avatarUrl = profile.avatarUrl || '';
       this.editName = this.displayName;
@@ -152,11 +143,16 @@ struct SettingsPage {
   async pickAndUploadAvatar() {
     try {
       const photoPicker = new picker.PhotoViewPicker();
-      const result = await photoPicker.select(1);
-      if (result && result.length > 0) {
-        const photoUri = result[0].uri;
+      const result = await photoPicker.select({
+        MIMEType: picker.PhotoViewMIMETypes.IMAGE_TYPE,
+        maxSelectNumber: 1
+      });
+      if (result && result.photoUris && result.photoUris.length > 0) {
+        const photoUri = result.photoUris[0];
         const file = fileIo.openSync(photoUri, fileIo.OpenMode.READ_ONLY);
-        const buffer = fileIo.readSync(file.fd);
+        const fileInfo = fileIo.statSync(photoUri);
+        const buffer = new Uint8Array(fileInfo.size);
+        fileIo.readSync(file.fd, buffer);
         fileIo.closeSync(file);
         const fileName = 'avatar_' + Date.now() + '.jpg';
         const mxcUri = await this.mediaManager.uploadImage(buffer.buffer as ArrayBuffer, fileName);
@@ -260,27 +256,6 @@ struct SettingsPage {
     return 'U';
   }
 
-  getThemeColors() {
-    if (this.isDarkMode) {
-      return {
-        background: '#121212',
-        surface: '#1e1e1e',
-        text: '#ffffff',
-        textSecondary: '#b0b0b0',
-        divider: '#333333',
-        primary: '#10a37f'
-      };
-    }
-    return {
-      background: '#f5f5f5',
-      surface: '#ffffff',
-      text: '#333333',
-      textSecondary: '#666666',
-      divider: '#f0f0f0',
-      primary: '#10a37f'
-    };
-  }
-
   build() {
     Scroll() {
       Column() {
@@ -329,7 +304,7 @@ struct SettingsPage {
         }
       }
       .width('100%')
-      .backgroundColor(this.getThemeColors().background);
+      .backgroundColor(getThemeColors().bg);
     }
     .width('100%')
     .height('100%');
@@ -342,7 +317,7 @@ struct SettingsPage {
         Text('外观设置')
           .fontSize(16)
           .fontWeight(FontWeight.Medium)
-          .fontColor(this.getThemeColors().text);
+          .fontColor(getThemeColors().text);
       }
       .width('100%')
       .padding({ left: 20, right: 20, top: 15, bottom: 10 });
@@ -352,26 +327,28 @@ struct SettingsPage {
           Column() {
             Text('深色模式')
               .fontSize(14)
-              .fontColor(this.getThemeColors().text);
-            Text(this.isDarkMode ? '已开启' : '已关闭')
+              .fontColor(getThemeColors().text);
+            Text(this.themeManager.getIsDarkMode() ? '已开启' : '已关闭')
               .fontSize(12)
-              .fontColor(this.getThemeColors().textSecondary)
+              .fontColor(getThemeColors().textSecondary)
               .margin({ top: 2 });
           }
           .alignItems(HorizontalAlign.Start)
           .layoutWeight(1);
 
-          if (this.isDarkMode) {
-            Text('🌙')
-              .fontSize(20);
+          if (this.themeManager.getIsDarkMode()) {
+            Image($r('app.media.dark'))
+              .width(24)
+              .height(24);
           } else {
-            Text('☀️')
-              .fontSize(20);
+            Image($r('app.media.light'))
+              .width(24)
+              .height(24);
           }
 
           Blank().width(10);
 
-          Toggle({ type: ToggleType.Switch, isOn: this.isDarkMode })
+          Toggle({ type: ToggleType.Switch, isOn: this.themeManager.getIsDarkMode() })
             .selectedColor('#10a37f')
             .onChange((isOn: boolean) => {
               this.toggleDarkMode();
@@ -381,7 +358,7 @@ struct SettingsPage {
         .padding({ left: 20, right: 20, top: 12, bottom: 12 });
       }
       .width('100%')
-      .backgroundColor(this.getThemeColors().surface);
+      .backgroundColor(getThemeColors().surface);
     }
     .width('100%')
     .margin({ top: 10 });
@@ -394,7 +371,7 @@ struct SettingsPage {
         Text('用户资料')
           .fontSize(16)
           .fontWeight(FontWeight.Medium)
-          .fontColor(this.getThemeColors().text);
+          .fontColor(getThemeColors().text);
       }
       .width('100%')
       .padding({ left: 20, right: 20, top: 15, bottom: 10 });
@@ -459,7 +436,7 @@ struct SettingsPage {
                   .width(150)
                   .height(36)
                   .fontSize(16)
-                  .backgroundColor(this.getThemeColors().background)
+                  .backgroundColor(getThemeColors().bg)
                   .borderRadius(8)
                   .onChange((value: string) => {
                     this.editName = value;
@@ -479,8 +456,8 @@ struct SettingsPage {
 
                 Button('取消')
                   .fontSize(12)
-                  .backgroundColor(this.getThemeColors().background)
-                  .fontColor(this.getThemeColors().textSecondary)
+                  .backgroundColor(getThemeColors().bg)
+                  .fontColor(getThemeColors().textSecondary)
                   .width(50)
                   .height(30)
                   .borderRadius(6)
@@ -494,25 +471,25 @@ struct SettingsPage {
               Text(this.displayName || '未设置名称')
                 .fontSize(18)
                 .fontWeight(FontWeight.Medium)
-                .fontColor(this.getThemeColors().text)
+                .fontColor(getThemeColors().text)
                 .onClick(() => {
                   this.isEditingName = true;
                 });
 
               Text(this.userId)
                 .fontSize(12)
-                .fontColor(this.getThemeColors().textSecondary)
+                .fontColor(getThemeColors().textSecondary)
                 .margin({ top: 2 });
             }
           }
-          .alignItems(HorizontalAlign.Start);
+          .alignItems(HorizontalAlign.Start)
           .layoutWeight(1);
         }
         .width('100%')
         .padding({ left: 20, right: 20, top: 15, bottom: 15 });
       }
       .width('100%')
-      .backgroundColor(this.getThemeColors().surface);
+      .backgroundColor(getThemeColors().surface);
     }
     .width('100%');
   }
@@ -524,7 +501,7 @@ struct SettingsPage {
         Text('在线状态')
           .fontSize(16)
           .fontWeight(FontWeight.Medium)
-          .fontColor(this.getThemeColors().text);
+          .fontColor(getThemeColors().text);
       }
       .width('100%')
       .padding({ left: 20, right: 20, top: 15, bottom: 10 });
@@ -533,7 +510,7 @@ struct SettingsPage {
         Row() {
           Text('当前状态')
             .fontSize(14)
-            .fontColor(this.getThemeColors().textSecondary);
+            .fontColor(getThemeColors().textSecondary);
 
           Blank();
 
@@ -544,7 +521,7 @@ struct SettingsPage {
               .fill(this.getPresenceColor(this.presence));
             Text(this.getPresenceText(this.presence))
               .fontSize(14)
-              .fontColor(this.getThemeColors().text)
+              .fontColor(getThemeColors().text)
               .margin({ left: 6 });
           }
           .onClick(() => {
@@ -564,7 +541,7 @@ struct SettingsPage {
                   .fill(this.getPresenceColor(state));
                 Text(this.getPresenceText(state))
                   .fontSize(14)
-                  .fontColor(this.getThemeColors().text)
+                  .fontColor(getThemeColors().text)
                   .margin({ left: 8 });
                 Blank();
                 if (this.presence === state) {
@@ -581,15 +558,15 @@ struct SettingsPage {
             });
           }
           .width('100%')
-          .backgroundColor(this.getThemeColors().background);
+          .backgroundColor(getThemeColors().bg);
         }
 
-        Divider().color(this.getThemeColors().divider);
+        Divider().color(getThemeColors().divider);
 
         Row() {
           Text('状态消息')
             .fontSize(14)
-            .fontColor(this.getThemeColors().textSecondary);
+            .fontColor(getThemeColors().textSecondary);
         }
         .width('100%')
         .padding({ left: 20, right: 20, top: 12 });
@@ -598,7 +575,7 @@ struct SettingsPage {
           .width('calc(100% - 40)')
           .height(36)
           .fontSize(14)
-          .backgroundColor(this.getThemeColors().background)
+          .backgroundColor(getThemeColors().bg)
           .borderRadius(8)
           .margin({ left: 20, right: 20, top: 8, bottom: 12 })
           .onChange((value: string) => {
@@ -621,7 +598,7 @@ struct SettingsPage {
           });
       }
       .width('100%')
-      .backgroundColor(this.getThemeColors().surface);
+      .backgroundColor(getThemeColors().surface);
     }
     .width('100%')
     .margin({ top: 10 });
@@ -837,7 +814,7 @@ struct SettingsPage {
         Text('关于')
           .fontSize(16)
           .fontWeight(FontWeight.Medium)
-          .fontColor(this.getThemeColors().text);
+          .fontColor(getThemeColors().text);
       }
       .width('100%')
       .padding({ left: 20, right: 20, top: 15, bottom: 10 });
@@ -846,73 +823,73 @@ struct SettingsPage {
         Row() {
           Text('应用名称')
             .fontSize(14)
-            .fontColor(this.getThemeColors().textSecondary);
+            .fontColor(getThemeColors().textSecondary);
           Blank();
           Text('Toona')
             .fontSize(14)
-            .fontColor(this.getThemeColors().text);
+            .fontColor(getThemeColors().text);
         }
         .width('100%')
         .padding({ left: 20, right: 20, top: 12, bottom: 12 });
 
-        Divider().color(this.getThemeColors().divider);
+        Divider().color(getThemeColors().divider);
 
         Row() {
           Text('版本')
             .fontSize(14)
-            .fontColor(this.getThemeColors().textSecondary);
+            .fontColor(getThemeColors().textSecondary);
           Blank();
           Text('1.0.0')
             .fontSize(14)
-            .fontColor(this.getThemeColors().text);
+            .fontColor(getThemeColors().text);
         }
         .width('100%')
         .padding({ left: 20, right: 20, top: 12, bottom: 12 });
 
-        Divider().color(this.getThemeColors().divider);
+        Divider().color(getThemeColors().divider);
 
         Row() {
           Text('基于 Matrix 协议')
             .fontSize(14)
-            .fontColor(this.getThemeColors().textSecondary);
+            .fontColor(getThemeColors().textSecondary);
           Blank();
           Text('v1.11')
             .fontSize(14)
-            .fontColor(this.getThemeColors().text);
+            .fontColor(getThemeColors().text);
         }
         .width('100%')
         .padding({ left: 20, right: 20, top: 12, bottom: 12 });
 
-        Divider().color(this.getThemeColors().divider);
+        Divider().color(getThemeColors().divider);
 
         Row() {
           Text('开源许可')
             .fontSize(14)
-            .fontColor(this.getThemeColors().textSecondary);
+            .fontColor(getThemeColors().textSecondary);
           Blank();
           Text('Apache 2.0')
             .fontSize(14)
-            .fontColor(this.getThemeColors().text);
+            .fontColor(getThemeColors().text);
         }
         .width('100%')
         .padding({ left: 20, right: 20, top: 12, bottom: 12 });
 
-        Divider().color(this.getThemeColors().divider);
+        Divider().color(getThemeColors().divider);
 
         Row() {
           Text('关于应用')
             .fontSize(14)
-            .fontColor(this.getThemeColors().textSecondary);
+            .fontColor(getThemeColors().textSecondary);
         }
         .width('100%')
         .padding({ left: 20, right: 20, top: 12 });
 
         Text('Toona 是一个基于 Matrix 协议的开源即时通讯客户端，为 HarmonyOS 设备提供安全、私密的聊天体验。')
           .fontSize(12)
-          .fontColor(this.getThemeColors().textSecondary)
+          .fontColor(getThemeColors().textSecondary)
           .padding({ left: 20, right: 20, top: 8, bottom: 12 });
 
-        Divider().color(this.getThemeColors().divider);
+        Divider().color(getThemeColors().divider);
 
         Row() {
           Text('隐私政策')
@@ -929,7 +906,7 @@ struct SettingsPage {
           promptAction.showToast({ message: '隐私政策页面开发中' });
         });
 
-        Divider().color(this.getThemeColors().divider);
+        Divider().color(getThemeColors().divider);
 
         Row() {
           Text('服务条款')
@@ -946,7 +923,7 @@ struct SettingsPage {
           promptAction.showToast({ message: '服务条款页面开发中' });
         });
 
-        Divider().color(this.getThemeColors().divider);
+        Divider().color(getThemeColors().divider);
 
         Row() {
           Text('开放源代码')
@@ -964,7 +941,7 @@ struct SettingsPage {
         });
       }
       .width('100%')
-      .backgroundColor(this.getThemeColors().surface);
+      .backgroundColor(getThemeColors().surface);
     }
     .width('100%')
     .margin({ top: 10 });

@@ -36,6 +36,7 @@ export class BaseHttpClient {
   }
 
   public buildUrl(endpoint: string, queryParams?: Record<string, string | number>, version: HttpVersion = 'v3'): string {
+    console.info('BaseHttpClient: buildUrl called, baseUrl: ' + this.baseUrl + ', endpoint: ' + endpoint);
     let url = `${this.baseUrl}/_matrix/client/${version}${endpoint}`;
     if (queryParams) {
       const keys = Object.keys(queryParams);

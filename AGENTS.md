@@ -7,10 +7,11 @@ Toona is a Matrix client application for HarmonyOS (鸿蒙OS), modeled after Ele
 ## Build Commands
 
 ### Using DevEco Studio (Recommended)
-- **Build**: Run ` hvigor build` or use DevEco Studio's Build menu
+- **Build**: Run `hvigor build` or use DevEco Studio's Build menu
 - **Clean**: Run `hvigor clean`
 - **Build Module**: `hvigor build -m toona`
 - **Debug Mode**: `hvigor build --mode debug`
+- **Release Build**: `hvigor assembleRelease`
 
 ### Manual Build
 ```bash
@@ -19,39 +20,61 @@ hvigor assembleDefault  # Full debug build
 hvigor assembleRelease # Release build
 ```
 
-### Architecture
+### Testing Commands
+```bash
+# Run all tests (via DevEco Studio)
+hvigor test          # If supported
+
+# Test files use @ohos/hypium framework
+# Location: toona/src/test/**/*.test.ets
+```
+
+### Lint
+```bash
+# Lint is configured via code-linter.json5
+# Uses @typescript-eslint/recommended rules
+```
+
+## Architecture
 
 ```
 toona/src/main/ets/
-├── network/           # HTTP client for Matrix API
-├── models/            # Data models and Matrix types
-├── database/          # SQLite local storage
-├── storage/           # SecureStorage for session tokens
-├── services/          # Business logic (Auth, Sync, Room, Message)
-├── pages/             # UI pages (Login, Main, RoomDetail, etc.)
+├── network/           # HTTP client for Matrix API (MatrixHttpClient)
+├── models/            # Data models (DataModels.ets) and Matrix types (MatrixTypes.ets)
+├── database/          # SQLite local storage (LocalDatabase.ets)
+├── storage/          # SecureStorage for encrypted session tokens
+├── services/          # Business logic (Auth, Sync, Room, Message, Presence, etc.)
+├── pages/             # UI pages (Login, Main, RoomDetail, RoomList, etc.)
 ├── viewmodels/        # View models for MVVM
-└── toonaability/      # Application entry point
+├── utils/            # Utilities (ThemeManager, etc.)
+└── toonaability/     # Application entry point
 ```
 
-## Code Style Guidelines
+## ArkTS Strict Mode Rules
 
-### ArkTS Strict Mode Rules
-
-**NEVER use:**
+### NEVER use:
 - `any` or `unknown` types
 - Structural typing workarounds
 - Destructuring declarations (`const [a, b] = ...`)
-- Indexed access for string fields (use helper functions)
+- Indexed access for string fields (use helper functions instead)
 - `throw` without Error objects
-- `Record<string, object>` (use `Record<string, string | object>`)
+- `Record<string, object>` - use `Record<string, string | object>`
+- Spread operator `...`
+- `as unknown as` casts
+- `in` operator
+- `Object.assign()`
+- `@ohos.pullToRefresh` (use alternative)
+- `placeholderFontColor` - use `placeholderColor`
 
-**ALWAYS use:**
+### ALWAYS use:
 - Explicit type annotations for variables
 - Intermediate typed variables for object literals
 - Explicit generic parameters for HTTP methods
 - Error handling with try-catch that throws `Error` objects
+- `fetch()` is NOT supported - use `@ohos.net.http`
+- Enum definitions must be top-level (NOT inside classes)
 
-### Naming Conventions
+## Naming Conventions
 
 | Type | Convention | Example |
 |------|------------|---------|
@@ -63,17 +86,18 @@ toona/src/main/ets/
 | Constants | camelCase | `SESSION_KEY`, `PREFS_NAME` |
 | Types | PascalCase | `Record<string, string>` |
 
-### Import Style
+## Import Style
 
 ```typescript
-// Group imports by category, use relative paths
-import { MatrixHttpClient, MatrixConfig } from '../network/MatrixHttpClient';
-import { Room, Message, Session } from '../models/DataModels';
+// Group imports by category (external -> internal -> local), use relative paths
+import router from '@ohos.router';
+import promptAction from '@ohos.promptAction';
 import { AuthManager } from '../services/AuthManager';
-import { SecureStorage } from '../storage/SecureStorage';
+import { Room, Message, Session } from '../models/DataModels';
+import { ThemeManager, getThemeColors } from '../utils/ThemeManager';
 ```
 
-### Error Handling
+## Error Handling
 
 ```typescript
 // CORRECT - throws Error object
@@ -89,7 +113,7 @@ try {
 throw 'something went wrong';  // Never do this
 ```
 
-### Type Definitions
+## Type Definitions
 
 ```typescript
 // Use explicit types for Record
@@ -98,12 +122,12 @@ const content: Record<string, string | object> = {};
 // For interface arrays
 const initialState: InitialStateEvent[] = [...];
 
-// For callback parameters
-onToggle: (roomId: string) => void;
-onNavigate: (room: Room) => void;
+// For callback parameters - must have default values
+onToggle: (roomId: string) => void = () => {};
+onNavigate: (room: Room) => void = () => {};
 ```
 
-### Component Decorators
+## Component Decorators
 
 Every UI struct MUST have `@Component` decorator:
 
@@ -112,18 +136,19 @@ Every UI struct MUST have `@Component` decorator:
 @Component
 struct MyPage {
   @State data: string = '';
-  
+  @StorageLink('colorMode') colorMode: number = 0;
+
   aboutToAppear() {
     // Use this instead of constructor
   }
-  
+
   build() {
     Column() { ... }
   }
 }
 ```
 
-### Property Initialization
+## Property Initialization
 
 Properties must be initialized or have default values:
 
@@ -132,8 +157,23 @@ Properties must be initialized or have default values:
 @State rooms: Room[] = [];
 @Prop filterType: FilterType = FilterType.ALL;
 
-// With initialization function
+// With initialization function (required for callbacks)
 onToggle: (roomId: string) => void = () => {};
+```
+
+## ThemeManager Integration
+
+Dark mode is controlled via `ThemeManager` (src/main/ets/utils/ThemeManager.ets):
+
+```typescript
+import { ThemeManager, getThemeColors } from '../utils/ThemeManager';
+
+// SettingsPage has toggleDarkMode() method
+// Other pages use getThemeColors() for theme-aware colors
+private themeManager: ThemeManager = ThemeManager.getInstance();
+
+// Get current theme colors
+const colors = getThemeColors();
 ```
 
 ## Matrix Client Implementation
@@ -147,16 +187,9 @@ onToggle: (roomId: string) => void = () => {};
 - Session restore happens at **Ability level** (ToonaAbility), NOT in Page's aboutToAppear
 - Token validation via `/account/whoami` endpoint
 
-### Room Creation
-```typescript
-const options: CreateRoomOptions = {
-  name: 'Room Name',
-  topic?: 'Optional topic',
-  isDirect?: true,
-  inviteUsers?: ['@user:matrix.org'],
-  roomAlias?: 'room-alias'
-};
-```
+### Room Tags
+- Tags come from sync response's `roomState.account_data.events` with type `m.tag`
+- NOT from separate API endpoint
 
 ## Key Patterns
 
@@ -164,7 +197,7 @@ const options: CreateRoomOptions = {
 ```typescript
 export class RoomManager {
   private static instance: RoomManager;
-  
+
   static getInstance(): RoomManager {
     if (!RoomManager.instance) {
       RoomManager.instance = new RoomManager();
@@ -190,11 +223,12 @@ Key interfaces in `models/MatrixTypes.ets`:
 - `RoomState` - Sync response room state
 - `LoginResponse`, `RegisterResponse` - Auth responses
 - `MessageEventContent` - Message content structure
+- `PresenceState` - online/offline/unavailable
 
 Key classes in `models/DataModels.ets`:
 - `Session` - User session with access token
-- `Room` - Room with display name handling
-- `Message` - Message with body extraction
+- `Room` - Room with display name handling, tags, avatarUrl
+- `Message` - Message with body extraction, status
 - `User` - User profile
 
 ## Common Tasks
@@ -206,7 +240,7 @@ Key classes in `models/DataModels.ets`:
 
 ### Adding a new page
 1. Create `.ets` file in `pages/`
-2. Add route to `main_pages.json`
+2. Add route to `main_pages.json` (src/main/resources/base/profile/)
 3. Register in ToonaAbility if needed
 
 ### Adding Space API
@@ -217,3 +251,21 @@ Matrix spaces use `m.space.child` state events. See `RoomManager.addChildToSpace
 - **main_pages.json**: Route configuration (src/main/resources/base/profile/)
 - **module.json5**: App module settings including INTERNET permission
 - **code-linter.json5**: ESLint rules for ArkTS
+- **hvigorfile.ts**: Build configuration
+
+## File Structure
+
+```
+toona/src/main/
+├── ets/
+│   ├── main.ets              # App entry
+│   ├── pages/               # All page components
+│   ├── services/            # Business logic managers
+│   ├── models/              # Data models
+│   ├── network/             # HTTP client
+│   ├── database/            # SQLite
+│   ├── storage/             # SecureStorage
+│   └── utils/               # Utilities (ThemeManager, etc.)
+└── resources/
+    └── base/profile/        # main_pages.json
+```

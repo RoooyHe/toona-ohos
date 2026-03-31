@@ -5,76 +5,35 @@ const SECURITY_KEY = 'toona_secure_key';
 const SESSION_KEY = 'matrix_session';
 const PREFS_NAME = 'toona_prefs';
 
-function base64CharAt(index: number): string {
-  if (index < 26) {
-    return String.fromCharCode(65 + index);
+function bytesToHex(bytes: Uint8Array): string {
+  const hexChars = '0123456789ABCDEF';
+  let result = '';
+  for (let i = 0; i < bytes.length; i++) {
+    const byte = bytes[i];
+    result += hexChars.charAt((byte >> 4) & 0x0F);
+    result += hexChars.charAt(byte & 0x0F);
   }
-  if (index < 52) {
-    return String.fromCharCode(97 + index - 26);
-  }
-  if (index < 62) {
-    return String.fromCharCode(48 + index - 52);
-  }
-  if (index === 62) {
-    return '+';
-  }
-  return '/';
+  return result;
 }
 
-function base64IndexOf(ch: string): number {
-  if (ch >= 'A' && ch <= 'Z') {
-    return ch.charCodeAt(0) - 65;
+function hexToBytes(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
   }
-  if (ch >= 'a' && ch <= 'z') {
-    return ch.charCodeAt(0) - 97 + 26;
-  }
-  if (ch >= '0' && ch <= '9') {
-    return ch.charCodeAt(0) - 48 + 52;
-  }
-  if (ch === '+') {
-    return 62;
-  }
-  if (ch === '/') {
-    return 63;
-  }
-  return -1;
+  return bytes;
 }
 
 function base64Encode(str: string): string {
-  let result = '';
-  let i = 0;
-  while (i < str.length) {
-    const a = str.charCodeAt(i++);
-    const b = i < str.length ? str.charCodeAt(i++) : 0;
-    const c = i < str.length ? str.charCodeAt(i++) : 0;
-    const triplet = (a << 16) | (b << 8) | c;
-    result += base64CharAt((triplet >> 18) & 0x3F);
-    result += base64CharAt((triplet >> 12) & 0x3F);
-    result += i > str.length + 1 ? '=' : base64CharAt((triplet >> 6) & 0x3F);
-    result += i > str.length ? '=' : base64CharAt(triplet & 0x3F);
+  const bytes: Uint8Array = new Uint8Array(str.length);
+  for (let i = 0; i < str.length; i++) {
+    bytes[i] = str.charCodeAt(i);
   }
-  return result;
+  return bytesToHex(bytes);
 }
 
-function base64Decode(str: string): string {
-  let result = '';
-  let i = 0;
-  const cleanedStr = str.replace(/[^A-Za-z0-9+/=]/g, '');
-  while (i < cleanedStr.length) {
-    const a = base64IndexOf(cleanedStr.charAt(i++));
-    const b = base64IndexOf(cleanedStr.charAt(i++));
-    const c = base64IndexOf(cleanedStr.charAt(i++));
-    const d = base64IndexOf(cleanedStr.charAt(i++));
-    const triplet = (a << 18) | (b << 12) | (c !== -1 ? c << 6 : 0) | (d !== -1 ? d : 0);
-    result += String.fromCharCode((triplet >> 16) & 0xFF);
-    if (c !== -1) {
-      result += String.fromCharCode((triplet >> 8) & 0xFF);
-    }
-    if (d !== -1) {
-      result += String.fromCharCode(triplet & 0xFF);
-    }
-  }
-  return result;
+function base64Decode(str: string): Uint8Array {
+  return hexToBytes(str);
 }
 
 export class SecureStorage {
@@ -113,7 +72,9 @@ export class SecureStorage {
       } else {
         this.cryptoKey = keyData as string;
       }
+      console.info('SecureStorage: CryptoKey initialized, length: ' + this.cryptoKey.length);
     } catch (error) {
+      console.error('SecureStorage: Failed to ensure cryptoKey:', error);
       this.cryptoKey = this.generateRandomKey();
     }
   }
@@ -144,10 +105,10 @@ export class SecureStorage {
       return encryptedData;
     }
     try {
-      const decoded = base64Decode(encryptedData);
+      const decoded: Uint8Array = base64Decode(encryptedData);
       let result = '';
       for (let i = 0; i < decoded.length; i++) {
-        const charCode = decoded.charCodeAt(i) ^ this.cryptoKey.charCodeAt(i % this.cryptoKey.length);
+        const charCode = decoded[i] ^ this.cryptoKey.charCodeAt(i % this.cryptoKey.length);
         result += String.fromCharCode(charCode);
       }
       return result;
@@ -161,11 +122,23 @@ export class SecureStorage {
       console.error('SecureStorage: preferences not initialized');
       throw new Error('SecureStorage not initialized');
     }
+    if (!this.cryptoKey) {
+      console.error('SecureStorage: cryptoKey not available');
+      throw new Error('Crypto key not available');
+    }
     const encrypted = this.simpleEncrypt(sessionJson);
     try {
       await this.preferences.put(SESSION_KEY, encrypted);
       await this.preferences.flush();
-      console.info('SecureStorage: Session saved successfully');
+      console.info('SecureStorage: Session saved, encrypted length: ' + encrypted.length);
+      
+      const verified = this.simpleDecrypt(encrypted);
+      if (verified !== sessionJson) {
+        console.error('SecureStorage: Save verification failed! Data mismatch.');
+        console.error('SecureStorage: Original length: ' + sessionJson.length + ', Verified length: ' + verified.length);
+        throw new Error('Session save verification failed');
+      }
+      console.info('SecureStorage: Session save verified successfully');
     } catch (error) {
       console.error('SecureStorage: Failed to save session', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);

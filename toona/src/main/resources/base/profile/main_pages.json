@@ -6,6 +6,7 @@
     "pages/RoomDetailPage",
     "pages/SearchPage",
     "pages/JoinRoomPage",
+    "pages/JoinSpacePage",
     "pages/SpacePage",
     "pages/SpaceDetailPage",
     "pages/SettingsPage"

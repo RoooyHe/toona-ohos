@@ -2,47 +2,53 @@ import router from '@ohos.router';
 import promptAction from '@ohos.promptAction';
 import { AuthManager } from '../services/AuthManager';
 import { SecureStorage } from '../storage/SecureStorage';
-import ConfigurationConstant from '@ohos.app.ability.ConfigurationConstant';
+import { ThemeColors, getThemeColors } from '../utils/ThemeManager';
 import { Context } from '@kit.AbilityKit';
+import http from '@ohos.net.http';
 
-interface WellKnownResponse {
-  "m.homeserver": {
-    "base_url": string;
-  };
-  "m.identity_server"?: {
-    "base_url": string;
-  };
+function extractHomeServerUrl(jsonString: string): string | null {
+  const regex = /"m\.homeserver"\s*:\s*\{\s*"base_url"\s*:\s*"([^"]+)"/;
+  const match = jsonString.match(regex);
+  if (match !== null && match[1] !== undefined) {
+    return match[1];
+  }
+  return null;
+}
+
+interface LoginThemeColors extends ThemeColors {
+  error: string;
 }
 
 @Entry
 @Component
 struct LoginPage {
+  @StorageLink('colorMode') colorMode: number = 0;
   @State homeserver: string = '';
   @State userId: string = '';
   @State password: string = '';
   @State isLoading: boolean = false;
   @State errorMessage: string = '';
   @State rememberMe: boolean = true;
-  @State isDarkMode: boolean = false;
   @State isDiscovering: boolean = false;
   private authManager: AuthManager = AuthManager.getInstance();
   private secureStorage: SecureStorage = SecureStorage.getInstance();
 
   aboutToAppear() {
-    const colorMode = AppStorage.get<number>('colorMode');
-    this.isDarkMode = colorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
     this.loadSavedCredentials();
   }
 
-  getThemeColors() {
+  getThemeColors(): LoginThemeColors {
+    const colors = getThemeColors();
     return {
-      bg: this.isDarkMode ? '#1a1a1a' : '#ffffff',
-      text: this.isDarkMode ? '#ffffff' : '#333333',
-      textSecondary: this.isDarkMode ? '#999999' : '#666666',
-      inputBg: this.isDarkMode ? '#2a2a2a' : '#f5f5f5',
-      primary: '#10a37f',
-      error: '#e53935',
-      divider: this.isDarkMode ? '#3a3a3a' : '#e0e0e0'
+      bg: colors.bg,
+      text: colors.text,
+      textSecondary: colors.textSecondary,
+      inputBg: colors.inputBg,
+      primary: colors.primary,
+      divider: colors.divider,
+      surface: colors.surface,
+      tabBg: colors.tabBg,
+      error: '#e53935'
     };
   }
 
@@ -88,19 +94,23 @@ struct LoginPage {
 
     try {
       const wellKnownUrl = serverUrl + '/.well-known/matrix/client';
-      const response = await fetch(wellKnownUrl, {
-        method: 'GET',
-        headers: {
+      const httpClient = http.createHttp();
+      const response = await httpClient.request(wellKnownUrl, {
+        method: http.RequestMethod.GET,
+        header: {
           'Accept': 'application/json'
         }
       });
 
-      if (response.ok) {
-        const data: WellKnownResponse = JSON.parse(JSON.stringify(response)) as WellKnownResponse;
-        if (data && data['m.homeserver'] && data['m.homeserver'].base_url) {
-          return data['m.homeserver'].base_url.replace(/\/$/, '');
+      if (response.responseCode === 200) {
+        const responseData = response.result as string;
+        const baseUrl = extractHomeServerUrl(responseData);
+        if (baseUrl) {
+          httpClient.destroy();
+          return baseUrl.replace(/\/$/, '');
         }
       }
+      httpClient.destroy();
     } catch (error) {
       console.warn('Well-known discovery failed, using direct connection:', error);
     }
@@ -181,12 +191,6 @@ struct LoginPage {
     });
   }
 
-  toggleDarkMode() {
-    this.isDarkMode = !this.isDarkMode;
-    const newMode = this.isDarkMode ? ConfigurationConstant.ColorMode.COLOR_MODE_DARK : ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT;
-    AppStorage.setOrCreate('colorMode', newMode);
-  }
-
   build() {
     Stack() {
       Column() {
@@ -194,12 +198,12 @@ struct LoginPage {
           Text('Toona')
             .fontSize(40)
             .fontWeight(FontWeight.Bold)
-            .fontColor(this.getThemeColors().primary)
+            .fontColor(getThemeColors().primary)
             .margin({ bottom: 10 });
 
-          Text('Matrix 客户端')
+          Text('Matrix IM Client')
             .fontSize(16)
-            .fontColor(this.getThemeColors().textSecondary)
+            .fontColor(getThemeColors().textSecondary)
             .margin({ bottom: 60 });
         }
         .margin({ top: 60 });
@@ -209,7 +213,7 @@ struct LoginPage {
             .width('100%')
             .height(50)
             .fontSize(16)
-            .backgroundColor(this.getThemeColors().inputBg)
+            .backgroundColor(getThemeColors().inputBg)
             .borderRadius(10)
             .margin({ bottom: 15 })
             .onChange((value: string) => {
@@ -220,7 +224,7 @@ struct LoginPage {
             .width('100%')
             .height(50)
             .fontSize(16)
-            .backgroundColor(this.getThemeColors().inputBg)
+            .backgroundColor(getThemeColors().inputBg)
             .borderRadius(10)
             .margin({ bottom: 15 })
             .onChange((value: string) => {
@@ -231,7 +235,7 @@ struct LoginPage {
             .width('100%')
             .height(50)
             .fontSize(16)
-            .backgroundColor(this.getThemeColors().inputBg)
+            .backgroundColor(getThemeColors().inputBg)
             .borderRadius(10)
             .type(InputType.Password)
             .margin({ bottom: 10 })
@@ -242,13 +246,13 @@ struct LoginPage {
           Row() {
             Checkbox()
               .select(this.rememberMe)
-              .selectedColor(this.getThemeColors().primary)
+              .selectedColor(getThemeColors().primary)
               .onChange((value: boolean) => {
                 this.rememberMe = value;
               });
             Text('记住我')
               .fontSize(14)
-              .fontColor(this.getThemeColors().textSecondary)
+              .fontColor(getThemeColors().textSecondary)
               .margin({ left: 8 });
           }
           .width('100%')
@@ -257,7 +261,7 @@ struct LoginPage {
           if (this.errorMessage) {
             Text(this.errorMessage)
               .fontSize(14)
-              .fontColor(this.getThemeColors().error)
+              .fontColor(getThemeColors().error)
               .margin({ bottom: 10 });
           }
 
@@ -266,10 +270,10 @@ struct LoginPage {
               LoadingProgress()
                 .width(20)
                 .height(20)
-                .color(this.getThemeColors().primary);
+                .color(getThemeColors().primary);
               Text('正在发现服务器...')
                 .fontSize(14)
-                .fontColor(this.getThemeColors().textSecondary)
+                .fontColor(getThemeColors().textSecondary)
                 .margin({ left: 8 });
             }
             .width('100%')
@@ -281,7 +285,7 @@ struct LoginPage {
             .height(50)
             .fontSize(18)
             .fontWeight(FontWeight.Medium)
-            .backgroundColor(this.getThemeColors().primary)
+            .backgroundColor(getThemeColors().primary)
             .borderRadius(10)
             .margin({ top: 10 })
             .enabled(!this.isLoading && !this.isDiscovering)
@@ -293,15 +297,15 @@ struct LoginPage {
             Line()
               .width('40%')
               .height(1)
-              .backgroundColor(this.getThemeColors().divider);
+              .backgroundColor(getThemeColors().divider);
             Text('或')
               .fontSize(12)
-              .fontColor(this.getThemeColors().textSecondary)
+              .fontColor(getThemeColors().textSecondary)
               .margin({ left: 10, right: 10 });
             Line()
               .width('40%')
               .height(1)
-              .backgroundColor(this.getThemeColors().divider);
+              .backgroundColor(getThemeColors().divider);
           }
           .width('100%')
           .margin({ top: 15, bottom: 15 });
@@ -311,11 +315,11 @@ struct LoginPage {
             .height(50)
             .fontSize(18)
             .fontWeight(FontWeight.Medium)
-            .backgroundColor(this.getThemeColors().bg)
-            .fontColor(this.getThemeColors().primary)
+            .backgroundColor(getThemeColors().bg)
+            .fontColor(getThemeColors().primary)
             .borderRadius(10)
             .borderWidth(1)
-            .borderColor(this.getThemeColors().primary)
+            .borderColor(getThemeColors().primary)
             .enabled(!this.isLoading && !this.isDiscovering)
             .onClick(() => {
               this.handleSSOLogin();
@@ -324,10 +328,10 @@ struct LoginPage {
           Row() {
             Text('还没有账号？')
               .fontSize(14)
-              .fontColor(this.getThemeColors().textSecondary);
+              .fontColor(getThemeColors().textSecondary);
             Text('注册')
               .fontSize(14)
-              .fontColor(this.getThemeColors().primary)
+              .fontColor(getThemeColors().primary)
               .onClick(() => {
                 this.handleRegister();
               });
@@ -339,7 +343,7 @@ struct LoginPage {
       }
       .width('100%')
       .height('100%')
-      .backgroundColor(this.getThemeColors().bg);
+      .backgroundColor(getThemeColors().bg);
 
       Column() {
         Row() {
@@ -350,7 +354,7 @@ struct LoginPage {
         }
         .width(40)
         .height(40)
-        .backgroundColor(this.getThemeColors().bg)
+        .backgroundColor(getThemeColors().bg)
         .borderRadius(20)
         .justifyContent(FlexAlign.Center)
         .alignItems(VerticalAlign.Center)
@@ -359,14 +363,11 @@ struct LoginPage {
           color: 'rgba(0, 0, 0, 0.1)',
           offsetX: 0,
           offsetY: 2
-        })
-        .onClick(() => {
-          this.toggleDarkMode();
         });
       }
       .width('100%')
       .justifyContent(FlexAlign.End)
-      .alignItems(VerticalAlign.Top)
+      .alignItems(HorizontalAlign.Start)
       .padding({ right: 20, top: 20 });
     }
     .width('100%')

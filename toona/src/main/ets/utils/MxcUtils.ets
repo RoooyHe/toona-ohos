@@ -33,7 +33,7 @@ export class MxcUtils {
   }
 
   static getHttpUri(mxcUri: string, homeserverUrl: string): string {
-    const parsed = this.parseMxcUri(mxcUri);
+    const parsed = MxcUtils.parseMxcUri(mxcUri);
     if (!parsed) {
       return '';
     }
@@ -48,7 +48,7 @@ export class MxcUtils {
     height: number,
     method?: 'crop' | 'scale'
   ): string {
-    const parsed = this.parseMxcUri(mxcUri);
+    const parsed = MxcUtils.parseMxcUri(mxcUri);
     if (!parsed) {
       return '';
     }
