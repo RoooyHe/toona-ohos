@@ -1,8 +1,7 @@
-import router from '@ohos.router';
 import promptAction from '@ohos.promptAction';
 import { AuthManager } from '../services/AuthManager';
 import { SecureStorage } from '../storage/SecureStorage';
-import { ThemeColors, getThemeColors } from '../utils/ThemeManager';
+import { getThemeColors } from '../utils/ThemeManager';
 import { Context } from '@kit.AbilityKit';
 import http from '@ohos.net.http';
 
@@ -15,8 +14,9 @@ function extractHomeServerUrl(jsonString: string): string | null {
   return null;
 }
 
-interface LoginThemeColors extends ThemeColors {
-  error: string;
+@Builder
+export function LoginPageBuilder(name: string, param: Object) {
+  LoginPage()
 }
 
 @Entry
@@ -32,24 +32,10 @@ struct LoginPage {
   @State isDiscovering: boolean = false;
   private authManager: AuthManager = AuthManager.getInstance();
   private secureStorage: SecureStorage = SecureStorage.getInstance();
+  private stack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
     this.loadSavedCredentials();
-  }
-
-  getThemeColors(): LoginThemeColors {
-    const colors = getThemeColors();
-    return {
-      bg: colors.bg,
-      text: colors.text,
-      textSecondary: colors.textSecondary,
-      inputBg: colors.inputBg,
-      primary: colors.primary,
-      divider: colors.divider,
-      surface: colors.surface,
-      tabBg: colors.tabBg,
-      error: '#e53935'
-    };
   }
 
   async loadSavedCredentials() {
@@ -158,8 +144,7 @@ struct LoginPage {
         duration: 2000
       });
 
-      router.replaceUrl({ url: 'pages/MainPage' }).catch(() => {
-      });
+      this.stack.replacePath(new NavPathInfo('MainPage', undefined));
     } catch (error) {
       console.error('Login failed:', error);
       const errorMsg: string = error instanceof Error ? error.message : String(error);
@@ -180,8 +165,7 @@ struct LoginPage {
   }
 
   handleRegister() {
-    router.pushUrl({ url: 'pages/RegisterPage' }).catch(() => {
-    });
+    this.stack.pushPath(new NavPathInfo('RegisterPage', undefined));
   }
 
   handleSSOLogin() {
@@ -192,185 +176,158 @@ struct LoginPage {
   }
 
   build() {
-    Stack() {
-      Column() {
+    NavDestination() {
+      Stack() {
         Column() {
-          Text('Toona')
-            .fontSize(40)
-            .fontWeight(FontWeight.Bold)
-            .fontColor(getThemeColors().primary)
-            .margin({ bottom: 10 });
-
-          Text('Matrix IM Client')
-            .fontSize(16)
-            .fontColor(getThemeColors().textSecondary)
-            .margin({ bottom: 60 });
-        }
-        .margin({ top: 60 });
-
-        Column() {
-          TextInput({ placeholder: ' homeserver (如: matrix.org)', text: this.homeserver })
-            .width('100%')
-            .height(50)
-            .fontSize(16)
-            .backgroundColor(getThemeColors().inputBg)
-            .borderRadius(10)
-            .margin({ bottom: 15 })
-            .onChange((value: string) => {
-              this.homeserver = value;
-            });
-
-          TextInput({ placeholder: ' 用户名', text: this.userId })
-            .width('100%')
-            .height(50)
-            .fontSize(16)
-            .backgroundColor(getThemeColors().inputBg)
-            .borderRadius(10)
-            .margin({ bottom: 15 })
-            .onChange((value: string) => {
-              this.userId = value;
-            });
-
-          TextInput({ placeholder: ' 密码', text: this.password })
-            .width('100%')
-            .height(50)
-            .fontSize(16)
-            .backgroundColor(getThemeColors().inputBg)
-            .borderRadius(10)
-            .type(InputType.Password)
-            .margin({ bottom: 10 })
-            .onChange((value: string) => {
-              this.password = value;
-            });
-
-          Row() {
-            Checkbox()
-              .select(this.rememberMe)
-              .selectedColor(getThemeColors().primary)
-              .onChange((value: boolean) => {
-                this.rememberMe = value;
-              });
-            Text('记住我')
-              .fontSize(14)
-              .fontColor(getThemeColors().textSecondary)
-              .margin({ left: 8 });
-          }
-          .width('100%')
-          .margin({ bottom: 10 });
-
-          if (this.errorMessage) {
-            Text(this.errorMessage)
-              .fontSize(14)
-              .fontColor(getThemeColors().error)
+          Column() {
+            Text('Toona')
+              .fontSize(40)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(getThemeColors().primary)
               .margin({ bottom: 10 });
+            Text('Matrix IM Client')
+              .fontSize(16)
+              .fontColor(getThemeColors().textSecondary)
+              .margin({ bottom: 60 });
           }
+          .margin({ top: 60 });
 
-          if (this.isDiscovering) {
+          Column() {
+            TextInput({ placeholder: ' homeserver (如: matrix.org)', text: this.homeserver })
+              .width('100%')
+              .height(50)
+              .fontSize(16)
+              .backgroundColor(getThemeColors().inputBg)
+              .borderRadius(10)
+              .margin({ bottom: 15 })
+              .onChange((value: string) => {
+                this.homeserver = value;
+              });
+            TextInput({ placeholder: ' 用户名', text: this.userId })
+              .width('100%')
+              .height(50)
+              .fontSize(16)
+              .backgroundColor(getThemeColors().inputBg)
+              .borderRadius(10)
+              .margin({ bottom: 15 })
+              .onChange((value: string) => {
+                this.userId = value;
+              });
+            TextInput({ placeholder: ' 密码', text: this.password })
+              .width('100%')
+              .height(50)
+              .fontSize(16)
+              .backgroundColor(getThemeColors().inputBg)
+              .borderRadius(10)
+              .type(InputType.Password)
+              .margin({ bottom: 10 })
+              .onChange((value: string) => {
+                this.password = value;
+              });
             Row() {
-              LoadingProgress()
-                .width(20)
-                .height(20)
-                .color(getThemeColors().primary);
-              Text('正在发现服务器...')
+              Checkbox()
+                .select(this.rememberMe)
+                .selectedColor(getThemeColors().primary)
+                .onChange((value: boolean) => {
+                  this.rememberMe = value;
+                });
+              Text('记住我')
                 .fontSize(14)
                 .fontColor(getThemeColors().textSecondary)
                 .margin({ left: 8 });
             }
             .width('100%')
             .margin({ bottom: 10 });
-          }
 
-          Button(this.isLoading ? '登录中...' : '登录')
-            .width('100%')
-            .height(50)
-            .fontSize(18)
-            .fontWeight(FontWeight.Medium)
-            .backgroundColor(getThemeColors().primary)
-            .borderRadius(10)
-            .margin({ top: 10 })
-            .enabled(!this.isLoading && !this.isDiscovering)
-            .onClick(() => {
-              this.handleLogin();
-            });
-
-          Row() {
-            Line()
-              .width('40%')
-              .height(1)
-              .backgroundColor(getThemeColors().divider);
-            Text('或')
-              .fontSize(12)
-              .fontColor(getThemeColors().textSecondary)
-              .margin({ left: 10, right: 10 });
-            Line()
-              .width('40%')
-              .height(1)
-              .backgroundColor(getThemeColors().divider);
-          }
-          .width('100%')
-          .margin({ top: 15, bottom: 15 });
-
-          Button('SSO 单点登录')
-            .width('100%')
-            .height(50)
-            .fontSize(18)
-            .fontWeight(FontWeight.Medium)
-            .backgroundColor(getThemeColors().bg)
-            .fontColor(getThemeColors().primary)
-            .borderRadius(10)
-            .borderWidth(1)
-            .borderColor(getThemeColors().primary)
-            .enabled(!this.isLoading && !this.isDiscovering)
-            .onClick(() => {
-              this.handleSSOLogin();
-            });
-
-          Row() {
-            Text('还没有账号？')
-              .fontSize(14)
-              .fontColor(getThemeColors().textSecondary);
-            Text('注册')
-              .fontSize(14)
-              .fontColor(getThemeColors().primary)
+            if (this.errorMessage) {
+              Text(this.errorMessage)
+                .fontSize(14)
+                .fontColor(getThemeColors().error)
+                .margin({ bottom: 10 });
+            }
+            if (this.isDiscovering) {
+              Row() {
+                LoadingProgress()
+                  .width(20)
+                  .height(20)
+                  .color(getThemeColors().primary);
+                Text('正在发现服务器...')
+                  .fontSize(14)
+                  .fontColor(getThemeColors().textSecondary)
+                  .margin({ left: 8 });
+              }
+              .width('100%')
+              .margin({ bottom: 10 });
+            }
+            Button(this.isLoading ? '登录中...' : '登录')
+              .width('100%')
+              .height(50)
+              .fontSize(18)
+              .fontWeight(FontWeight.Medium)
+              .backgroundColor(getThemeColors().primary)
+              .borderRadius(10)
+              .margin({ top: 10 })
+              .enabled(!this.isLoading && !this.isDiscovering)
               .onClick(() => {
-                this.handleRegister();
+                this.handleLogin();
               });
-          }
-          .margin({ top: 20 });
-        }
-        .width('85%')
-        .padding(20);
-      }
-      .width('100%')
-      .height('100%')
-      .backgroundColor(getThemeColors().bg);
+            Row() {
+              Line()
+                .width('40%')
+                .height(1)
+                .backgroundColor(getThemeColors().divider);
+              Text('或')
+                .fontSize(12)
+                .fontColor(getThemeColors().textSecondary)
+                .margin({ left: 10, right: 10 });
+              Line()
+                .width('40%')
+                .height(1)
+                .backgroundColor(getThemeColors().divider);
+            }
+            .width('100%')
+            .margin({ top: 15, bottom: 15 });
 
-      Column() {
-        Row() {
-          Image($r('app.media.menu'))
-            .width(24)
-            .height(24)
-            .objectFit(ImageFit.Contain);
+            Button('SSO 单点登录')
+              .width('100%')
+              .height(50)
+              .fontSize(18)
+              .fontWeight(FontWeight.Medium)
+              .backgroundColor(getThemeColors().bg)
+              .fontColor(getThemeColors().primary)
+              .borderRadius(10)
+              .borderWidth(1)
+              .borderColor(getThemeColors().primary)
+              .enabled(!this.isLoading && !this.isDiscovering)
+              .onClick(() => {
+                this.handleSSOLogin();
+              });
+            Row() {
+              Text('还没有账号？')
+                .fontSize(14)
+                .fontColor(getThemeColors().textSecondary);
+              Text('注册')
+                .fontSize(14)
+                .fontColor(getThemeColors().primary)
+                .onClick(() => {
+                  this.handleRegister();
+                });
+            }
+            .margin({ top: 20 });
+          }
+          .width('85%')
+          .padding(20);
         }
-        .width(40)
-        .height(40)
-        .backgroundColor(getThemeColors().bg)
-        .borderRadius(20)
-        .justifyContent(FlexAlign.Center)
-        .alignItems(VerticalAlign.Center)
-        .shadow({
-          radius: 4,
-          color: 'rgba(0, 0, 0, 0.1)',
-          offsetX: 0,
-          offsetY: 2
-        });
+        .width('100%')
+        .height('100%')
+        .backgroundColor(getThemeColors().bg);
       }
       .width('100%')
-      .justifyContent(FlexAlign.End)
-      .alignItems(HorizontalAlign.Start)
-      .padding({ right: 20, top: 20 });
+      .height('100%');
     }
-    .width('100%')
-    .height('100%');
+    .onReady((ctx: NavDestinationContext) => {
+      this.stack = ctx.pathStack;
+    })
+    .hideTitleBar(true);
   }
 }

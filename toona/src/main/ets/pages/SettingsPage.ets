@@ -1,4 +1,3 @@
-import router from '@ohos.router';
 import promptAction from '@ohos.promptAction';
 import { AuthManager } from '../services/AuthManager';
 import { UserManager } from '../services/UserManager';
@@ -14,6 +13,11 @@ import { media } from '@kit.MediaKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { picker } from '@kit.CoreFileKit';
 import { ThemeManager, getThemeColors } from '../utils/ThemeManager';
+
+@Builder
+export function SettingsPageBuilder(name: string, param: Object) {
+  SettingsPage()
+}
 
 @Entry
 @Component
@@ -34,7 +38,6 @@ struct SettingsPage {
   @State showRoomTagsMenu: boolean = false;
   @State selectedRoomForTags: Room | null = null;
   @State showAboutPage: boolean = false;
-
   private authManager: AuthManager = AuthManager.getInstance();
   private userManager: UserManager = UserManager.getInstance();
   private presenceManager: PresenceManager = PresenceManager.getInstance();
@@ -43,6 +46,7 @@ struct SettingsPage {
   private roomManager: RoomManager = RoomManager.getInstance();
   private mediaManager: MediaManager = MediaManager.getInstance();
   private themeManager: ThemeManager = ThemeManager.getInstance();
+  private pathStack: NavPathStack | null = null;
 
   aboutToAppear() {
     const session = this.authManager.getSession();
@@ -257,57 +261,76 @@ struct SettingsPage {
   }
 
   build() {
-    Scroll() {
-      Column() {
-        Row() {
-          Button('←')
-            .fontSize(24)
-            .backgroundColor('transparent')
-            .fontColor('#333333')
-            .width(44)
-            .height(44)
-            .onClick(() => {
-              router.back();
-            });
+    NavDestination() {
+      Scroll() {
+        Column() {
+          Row() {
+            Button('←')
+              .fontSize(24)
+              .backgroundColor('transparent')
+              .fontColor('#333333')
+              .width(44)
+              .height(44)
+              .onClick(() => {
+                this.pathStack?.pop();
+              });
 
-          Text('设置')
-            .fontSize(18)
-            .fontWeight(FontWeight.Medium)
-            .layoutWeight(1);
-        }
-        .width('100%')
-        .padding({ left: 10, right: 10 })
-        .backgroundColor('#ffffff');
-
-        Divider().color('#f0f0f0');
-
-        if (this.isLoading) {
-          Column() {
-            LoadingProgress()
-              .width(40)
-              .height(40);
-            Text('加载中...')
-              .fontSize(14)
-              .fontColor('#999999')
-              .margin({ top: 10 });
+            Text('设置')
+              .fontSize(18)
+              .fontWeight(FontWeight.Medium)
+              .layoutWeight(1);
           }
           .width('100%')
-          .padding({ top: 100 });
-        } else {
-          this.buildUserSection();
-          this.buildThemeSection();
-          this.buildPresenceSection();
-          this.buildRoomTagsSection();
-          this.buildDevicesSection();
-          this.buildLogoutSection();
-          this.buildAboutSection();
+          .padding({ left: 10, right: 10 })
+          .backgroundColor('#ffffff');
+
+          Divider().color('#f0f0f0');
+
+          if (this.isLoading) {
+            Column() {
+              LoadingProgress()
+                .width(40)
+                .height(40);
+              Text('加载中...')
+                .fontSize(14)
+                .fontColor('#999999')
+                .margin({ top: 10 });
+            }
+            .width('100%')
+            .padding({ top: 100 });
+          } else {
+            this.buildUserSection();
+            this.buildThemeSection();
+            this.buildPresenceSection();
+            this.buildRoomTagsSection();
+            this.buildDevicesSection();
+            this.buildLogoutSection();
+            this.buildAboutSection();
+          }
         }
+        .width('100%')
+        .backgroundColor(getThemeColors().bg)
       }
       .width('100%')
-      .backgroundColor(getThemeColors().bg);
+      .height('100%')
     }
-    .width('100%')
-    .height('100%');
+    .onReady((ctx: NavDestinationContext) => {
+      this.pathStack = ctx.pathStack;
+    })
+    .onBackPressed(() => {
+      this.pathStack?.pop();
+      return true;
+    });
+  }
+
+  async handleLogout() {
+    try {
+      await this.authManager.logout();
+      this.pathStack?.clear();
+    } catch (error) {
+      console.error('Logout failed:', error);
+      promptAction.showToast({ message: '退出失败' });
+    }
   }
 
   @Builder
@@ -320,7 +343,12 @@ struct SettingsPage {
           .fontColor(getThemeColors().text);
       }
       .width('100%')
-      .padding({ left: 20, right: 20, top: 15, bottom: 10 });
+      .padding({
+        left: 20,
+        right: 20,
+        top: 15,
+        bottom: 10
+      });
 
       Column() {
         Row() {
@@ -355,7 +383,12 @@ struct SettingsPage {
             });
         }
         .width('100%')
-        .padding({ left: 20, right: 20, top: 12, bottom: 12 });
+        .padding({
+          left: 20,
+          right: 20,
+          top: 12,
+          bottom: 12
+        });
       }
       .width('100%')
       .backgroundColor(getThemeColors().surface);
@@ -374,7 +407,12 @@ struct SettingsPage {
           .fontColor(getThemeColors().text);
       }
       .width('100%')
-      .padding({ left: 20, right: 20, top: 15, bottom: 10 });
+      .padding({
+        left: 20,
+        right: 20,
+        top: 15,
+        bottom: 10
+      });
 
       Column() {
         Row() {
@@ -486,7 +524,12 @@ struct SettingsPage {
           .layoutWeight(1);
         }
         .width('100%')
-        .padding({ left: 20, right: 20, top: 15, bottom: 15 });
+        .padding({
+          left: 20,
+          right: 20,
+          top: 15,
+          bottom: 15
+        });
       }
       .width('100%')
       .backgroundColor(getThemeColors().surface);
@@ -504,7 +547,12 @@ struct SettingsPage {
           .fontColor(getThemeColors().text);
       }
       .width('100%')
-      .padding({ left: 20, right: 20, top: 15, bottom: 10 });
+      .padding({
+        left: 20,
+        right: 20,
+        top: 15,
+        bottom: 10
+      });
 
       Column() {
         Row() {
@@ -529,7 +577,12 @@ struct SettingsPage {
           });
         }
         .width('100%')
-        .padding({ left: 20, right: 20, top: 12, bottom: 12 });
+        .padding({
+          left: 20,
+          right: 20,
+          top: 12,
+          bottom: 12
+        });
 
         if (this.showPresenceMenu) {
           Column() {
@@ -551,7 +604,12 @@ struct SettingsPage {
                 }
               }
               .width('100%')
-              .padding({ left: 20, right: 20, top: 10, bottom: 10 })
+              .padding({
+                left: 20,
+                right: 20,
+                top: 10,
+                bottom: 10
+              })
               .onClick(() => {
                 this.setPresence(state);
               });
@@ -577,7 +635,12 @@ struct SettingsPage {
           .fontSize(14)
           .backgroundColor(getThemeColors().bg)
           .borderRadius(8)
-          .margin({ left: 20, right: 20, top: 8, bottom: 12 })
+          .margin({
+            left: 20,
+            right: 20,
+            top: 8,
+            bottom: 12
+          })
           .onChange((value: string) => {
             this.statusMsg = value;
           })
@@ -614,7 +677,12 @@ struct SettingsPage {
           .fontColor('#333333');
       }
       .width('100%')
-      .padding({ left: 20, right: 20, top: 15, bottom: 10 });
+      .padding({
+        left: 20,
+        right: 20,
+        top: 15,
+        bottom: 10
+      });
 
       Column() {
         Row() {
@@ -623,7 +691,12 @@ struct SettingsPage {
             .fontColor('#666666');
         }
         .width('100%')
-        .padding({ left: 20, right: 20, top: 12, bottom: 8 });
+        .padding({
+          left: 20,
+          right: 20,
+          top: 12,
+          bottom: 8
+        });
 
         if (this.favoriteRooms.length === 0) {
           Text('暂无收藏的房间')
@@ -643,7 +716,12 @@ struct SettingsPage {
                   .fontColor('#FF9800');
               }
               .width('100%')
-              .padding({ left: 20, right: 20, top: 8, bottom: 8 })
+              .padding({
+                left: 20,
+                right: 20,
+                top: 8,
+                bottom: 8
+              })
               .onClick(() => {
                 this.toggleFavorite(room);
               });
@@ -661,7 +739,12 @@ struct SettingsPage {
             .fontColor('#666666');
         }
         .width('100%')
-        .padding({ left: 20, right: 20, top: 12, bottom: 8 });
+        .padding({
+          left: 20,
+          right: 20,
+          top: 12,
+          bottom: 8
+        });
 
         if (this.lowPriorityRooms.length === 0) {
           Text('暂无低优先级的房间')
@@ -681,7 +764,12 @@ struct SettingsPage {
                   .fontColor('#9E9E9E');
               }
               .width('100%')
-              .padding({ left: 20, right: 20, top: 8, bottom: 8 })
+              .padding({
+                left: 20,
+                right: 20,
+                top: 8,
+                bottom: 8
+              })
               .onClick(() => {
                 this.toggleLowPriority(room);
               });
@@ -699,7 +787,12 @@ struct SettingsPage {
             .fontColor('#10a37f');
         }
         .width('100%')
-        .padding({ left: 20, right: 20, top: 12, bottom: 12 })
+        .padding({
+          left: 20,
+          right: 20,
+          top: 12,
+          bottom: 12
+        })
         .onClick(() => {
           this.showRoomTagsMenu = !this.showRoomTagsMenu;
         });
@@ -729,7 +822,12 @@ struct SettingsPage {
                   });
               }
               .width('100%')
-              .padding({ left: 20, right: 20, top: 10, bottom: 10 });
+              .padding({
+                left: 20,
+                right: 20,
+                top: 10,
+                bottom: 10
+              });
             });
           }
           .width('100%')
@@ -753,14 +851,24 @@ struct SettingsPage {
           .fontColor('#333333');
       }
       .width('100%')
-      .padding({ left: 20, right: 20, top: 15, bottom: 10 });
+      .padding({
+        left: 20,
+        right: 20,
+        top: 15,
+        bottom: 10
+      });
 
       Column() {
         if (this.devices.length === 0) {
           Text('暂无设备信息')
             .fontSize(14)
             .fontColor('#999999')
-            .padding({ left: 20, right: 20, top: 12, bottom: 12 });
+            .padding({
+              left: 20,
+              right: 20,
+              top: 12,
+              bottom: 12
+            });
         } else {
           ForEach(this.devices, (device: Device) => {
             Row() {
@@ -781,7 +889,12 @@ struct SettingsPage {
                   .fontSize(12)
                   .fontColor('#10a37f')
                   .backgroundColor('#e8f5e9')
-                  .padding({ left: 8, right: 8, top: 2, bottom: 2 })
+                  .padding({
+                    left: 8,
+                    right: 8,
+                    top: 2,
+                    bottom: 2
+                  })
                   .borderRadius(4);
               } else {
                 Button('删除')
@@ -796,7 +909,12 @@ struct SettingsPage {
               }
             }
             .width('100%')
-            .padding({ left: 20, right: 20, top: 12, bottom: 12 });
+            .padding({
+              left: 20,
+              right: 20,
+              top: 12,
+              bottom: 12
+            });
           });
         }
       }
@@ -817,7 +935,12 @@ struct SettingsPage {
           .fontColor(getThemeColors().text);
       }
       .width('100%')
-      .padding({ left: 20, right: 20, top: 15, bottom: 10 });
+      .padding({
+        left: 20,
+        right: 20,
+        top: 15,
+        bottom: 10
+      });
 
       Column() {
         Row() {
@@ -830,7 +953,12 @@ struct SettingsPage {
             .fontColor(getThemeColors().text);
         }
         .width('100%')
-        .padding({ left: 20, right: 20, top: 12, bottom: 12 });
+        .padding({
+          left: 20,
+          right: 20,
+          top: 12,
+          bottom: 12
+        });
 
         Divider().color(getThemeColors().divider);
 
@@ -844,7 +972,12 @@ struct SettingsPage {
             .fontColor(getThemeColors().text);
         }
         .width('100%')
-        .padding({ left: 20, right: 20, top: 12, bottom: 12 });
+        .padding({
+          left: 20,
+          right: 20,
+          top: 12,
+          bottom: 12
+        });
 
         Divider().color(getThemeColors().divider);
 
@@ -858,7 +991,12 @@ struct SettingsPage {
             .fontColor(getThemeColors().text);
         }
         .width('100%')
-        .padding({ left: 20, right: 20, top: 12, bottom: 12 });
+        .padding({
+          left: 20,
+          right: 20,
+          top: 12,
+          bottom: 12
+        });
 
         Divider().color(getThemeColors().divider);
 
@@ -872,7 +1010,12 @@ struct SettingsPage {
             .fontColor(getThemeColors().text);
         }
         .width('100%')
-        .padding({ left: 20, right: 20, top: 12, bottom: 12 });
+        .padding({
+          left: 20,
+          right: 20,
+          top: 12,
+          bottom: 12
+        });
 
         Divider().color(getThemeColors().divider);
 
@@ -887,7 +1030,12 @@ struct SettingsPage {
         Text('Toona 是一个基于 Matrix 协议的开源即时通讯客户端，为 HarmonyOS 设备提供安全、私密的聊天体验。')
           .fontSize(12)
           .fontColor(getThemeColors().textSecondary)
-          .padding({ left: 20, right: 20, top: 8, bottom: 12 });
+          .padding({
+            left: 20,
+            right: 20,
+            top: 8,
+            bottom: 12
+          });
 
         Divider().color(getThemeColors().divider);
 
@@ -901,7 +1049,12 @@ struct SettingsPage {
             .fontColor('#10a37f');
         }
         .width('100%')
-        .padding({ left: 20, right: 20, top: 12, bottom: 12 })
+        .padding({
+          left: 20,
+          right: 20,
+          top: 12,
+          bottom: 12
+        })
         .onClick(() => {
           promptAction.showToast({ message: '隐私政策页面开发中' });
         });
@@ -918,7 +1071,12 @@ struct SettingsPage {
             .fontColor('#10a37f');
         }
         .width('100%')
-        .padding({ left: 20, right: 20, top: 12, bottom: 12 })
+        .padding({
+          left: 20,
+          right: 20,
+          top: 12,
+          bottom: 12
+        })
         .onClick(() => {
           promptAction.showToast({ message: '服务条款页面开发中' });
         });
@@ -935,7 +1093,12 @@ struct SettingsPage {
             .fontColor('#10a37f');
         }
         .width('100%')
-        .padding({ left: 20, right: 20, top: 12, bottom: 12 })
+        .padding({
+          left: 20,
+          right: 20,
+          top: 12,
+          bottom: 12
+        })
         .onClick(() => {
           promptAction.showToast({ message: '开源地址开发中' });
         });
@@ -953,28 +1116,22 @@ struct SettingsPage {
       Button('退出登录')
         .fontSize(16)
         .fontColor('#e53935')
-        .backgroundColor('#ffffff')
+        .backgroundColor($r('sys.color.white'))
         .width('100%')
         .height(48)
         .borderRadius(8)
-        .margin({ top: 20, left: 20, right: 20, bottom: 30 })
+        .margin({
+          top: 20,
+          left: 20,
+          right: 20,
+          bottom: 30
+        })
         .onClick(() => {
           this.handleLogout();
         });
     }
     .width('100%')
-    .backgroundColor('#ffffff')
+    .backgroundColor($r('sys.color.white'))
     .margin({ top: 10 });
-  }
-
-  async handleLogout() {
-    try {
-      await this.authManager.logout();
-      router.replaceUrl({ url: 'pages/LoginPage' }).catch(() => {
-      });
-    } catch (error) {
-      console.error('Logout failed:', error);
-      promptAction.showToast({ message: '退出失败' });
-    }
   }
 }

@@ -1,12 +1,21 @@
-import router from '@ohos.router';
 import { RoomManager } from '../services/RoomManager';
 import { Room } from '../models/DataModels';
 import { SpaceChild } from '../services/RoomManager';
 import { getThemeColors } from '../utils/ThemeManager';
 
+@Builder
+export function SpaceDetailPageBuilder(name: string, param: Object) {
+  SpaceDetailPage({
+    spaceId: (param as Record<string, string>)['spaceId'] || '',
+    spaceName: (param as Record<string, string>)['spaceName'] || '空间'
+  })
+}
+
+@Entry
 @Component
 struct SpaceRoomItem {
   @Prop room: Room = new Room('');
+  @Prop pathStack: NavPathStack | null = null;
 
   aboutToAppear() {
   }
@@ -42,38 +51,33 @@ struct SpaceRoomItem {
       .layoutWeight(1);
     }
     .width('100%')
-    .padding({ top: 12, bottom: 12, left: 20, right: 20 })
+    .padding({
+      top: 12,
+      bottom: 12,
+      left: 20,
+      right: 20
+    })
     .backgroundColor(getThemeColors().bg)
     .onClick(() => {
-      router.pushUrl({
-        url: 'pages/RoomDetailPage',
-        params: {
-          roomId: this.room.id,
-          roomName: this.room.getDisplayName()
-        }
-      }).catch(() => {
-        // Ignore error
-      });
+      const param: Record<string, string> = {
+        "roomId": this.room.id,
+        "roomName": this.room.getDisplayName()
+      };
+      this.pathStack?.pushPathByName('RoomDetailPage', param);
     });
   }
 }
 
-@Entry
 @Component
 struct SpaceDetailPage {
   @State spaceName: string = '';
   @State spaceId: string = '';
   @State childRooms: Room[] = [];
   @State isLoading: boolean = true;
-
   private roomManager: RoomManager = RoomManager.getInstance();
+  private pathStack: NavPathStack | null = null;
 
   aboutToAppear() {
-    const params = router.getParams() as Record<string, string>;
-    if (params) {
-      this.spaceId = params.spaceId || '';
-      this.spaceName = params.spaceName || '空间';
-    }
     this.loadSpaceDetails();
   }
 
@@ -103,77 +107,84 @@ struct SpaceDetailPage {
   }
 
   build() {
-    Stack() {
-      Column() {
-        Row() {
-          Button('←')
-            .fontSize(24)
-            .backgroundColor('transparent')
-            .fontColor(getThemeColors().text)
-            .width(44)
-            .height(44)
-            .onClick(() => {
-              router.back();
-            });
+    NavDestination() {
+      Stack() {
+        Column() {
+          Row() {
+            Button('←')
+              .fontSize(24)
+              .backgroundColor('transparent')
+              .fontColor(getThemeColors().text)
+              .width(44)
+              .height(44)
+              .onClick(() => {
+                this.pathStack?.pop();
+              });
 
-          Text(this.spaceName)
-            .fontSize(18)
-            .fontWeight(FontWeight.Medium)
-            .fontColor(getThemeColors().text)
+            Text(this.spaceName)
+              .fontSize(18)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(getThemeColors().text)
+              .layoutWeight(1);
+          }
+          .width('100%')
+          .padding({ left: 10, right: 10 })
+          .backgroundColor(getThemeColors().bg);
+
+          Divider().color(getThemeColors().divider);
+
+          if (this.isLoading) {
+            Column() {
+              LoadingProgress()
+                .width(40)
+                .height(40);
+              Text('加载中...')
+                .fontSize(14)
+                .fontColor(getThemeColors().textSecondary)
+                .margin({ top: 10 });
+            }
+            .width('100%')
+            .layoutWeight(1)
+            .justifyContent(FlexAlign.Center);
+          } else if (this.childRooms.length === 0) {
+            Column() {
+              Text('暂无房间')
+                .fontSize(16)
+                .fontColor(getThemeColors().textSecondary);
+              Text('此空间内没有房间')
+                .fontSize(14)
+                .fontColor(getThemeColors().textSecondary)
+                .opacity(0.7)
+                .margin({ top: 5 });
+            }
+            .width('100%')
+            .layoutWeight(1)
+            .justifyContent(FlexAlign.Center);
+          } else {
+            List() {
+              ForEach(this.childRooms, (room: Room) => {
+                ListItem() {
+                  SpaceRoomItem({ room: room, pathStack: this.pathStack });
+                }
+              });
+            }
+            .width('100%')
             .layoutWeight(1);
+          }
         }
         .width('100%')
-        .padding({ left: 10, right: 10 })
+        .height('100%')
         .backgroundColor(getThemeColors().bg);
-
-        Divider().color(getThemeColors().divider);
-
-        if (this.isLoading) {
-          Column() {
-            LoadingProgress()
-              .width(40)
-              .height(40);
-            Text('加载中...')
-              .fontSize(14)
-              .fontColor(getThemeColors().textSecondary)
-              .margin({ top: 10 });
-          }
-          .width('100%')
-          .layoutWeight(1)
-          .justifyContent(FlexAlign.Center);
-        } else if (this.childRooms.length === 0) {
-          Column() {
-            Text('暂无房间')
-              .fontSize(16)
-              .fontColor(getThemeColors().textSecondary);
-            Text('此空间内没有房间')
-              .fontSize(14)
-              .fontColor(getThemeColors().textSecondary)
-              .opacity(0.7)
-              .margin({ top: 5 });
-          }
-          .width('100%')
-          .layoutWeight(1)
-          .justifyContent(FlexAlign.Center);
-        } else {
-          List() {
-            ForEach(this.childRooms, (room: Room) => {
-              ListItem() {
-                SpaceRoomItem({ room: room });
-              }
-            });
-          }
-          .width('100%')
-          .layoutWeight(1);
-        }
       }
       .width('100%')
-      .height('100%')
-      .backgroundColor(getThemeColors().bg);
+      .height('100%');
     }
-    .width('100%')
-    .height('100%');
+    .onReady((ctx: NavDestinationContext) => {
+      this.pathStack = ctx.pathStack;
+    })
+    .onBackPressed(() => {
+      this.pathStack?.pop();
+      return true;
+    });
   }
 }
-
-export { SpaceDetailPage };

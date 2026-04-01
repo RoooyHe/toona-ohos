@@ -9,6 +9,7 @@ export interface ThemeColors {
   divider: string;
   surface: string;
   tabBg: string;
+  error: string;
 }
 
 export class ThemeManager {
@@ -29,7 +30,8 @@ export class ThemeManager {
 
   setDarkMode(isDark: boolean): void {
     this.isDarkMode = isDark;
-    const newMode = isDark ? ConfigurationConstant.ColorMode.COLOR_MODE_DARK : ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT;
+    const newMode =
+      isDark ? ConfigurationConstant.ColorMode.COLOR_MODE_DARK : ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT;
     AppStorage.setOrCreate('colorMode', newMode);
   }
 
@@ -48,7 +50,8 @@ export class ThemeManager {
         primary: '#10a37f',
         divider: '#3a3a3a',
         surface: '#2a2a2a',
-        tabBg: '#2a2a2a'
+        tabBg: '#2a2a2a',
+        error: '#e53935'
       };
     }
     return {
@@ -59,7 +62,8 @@ export class ThemeManager {
       primary: '#10a37f',
       divider: '#f0f0f0',
       surface: '#ffffff',
-      tabBg: '#f0f0f0'
+      tabBg: '#f0f0f0',
+      error: '#e53935'
     };
   }
 

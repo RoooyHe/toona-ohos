@@ -1,8 +1,10 @@
 {
   "src": [
+    "pages/MainShell",
     "pages/LoginPage",
     "pages/RegisterPage",
     "pages/MainPage",
+    "pages/RoomListPage",
     "pages/RoomDetailPage",
     "pages/SearchPage",
     "pages/JoinRoomPage",

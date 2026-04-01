@@ -1,0 +1,67 @@
+{
+  "routerMap": [
+    {
+      "name": "MainShell",
+      "pageSourceFile": "src/main/ets/pages/MainShell.ets",
+      "buildFunction": "MainShellBuilder"
+    },
+    {
+      "name": "JoinRoomPage",
+      "pageSourceFile": "src/main/ets/pages/JoinRoomPage.ets",
+      "buildFunction": "JoinRoomPageBuilder",
+      "data": {
+        "description": "Page For Join Matrix Room"
+      }
+    },
+    {
+      "name": "JoinSpacePage",
+      "pageSourceFile": "src/main/ets/pages/JoinSpacePage.ets",
+      "buildFunction": "JoinSpacePageBuilder"
+    },
+    {
+      "name": "LoginPage",
+      "pageSourceFile": "src/main/ets/pages/LoginPage.ets",
+      "buildFunction": "LoginPageBuilder"
+    },
+    {
+      "name": "MainPage",
+      "pageSourceFile": "src/main/ets/pages/MainPage.ets",
+      "buildFunction": "MainPageBuilder"
+    },
+    {
+      "name": "RegisterPage",
+      "pageSourceFile": "src/main/ets/pages/RegisterPage.ets",
+      "buildFunction": "RegisterPageBuilder"
+    },
+    {
+      "name": "RoomDetailPage",
+      "pageSourceFile": "src/main/ets/pages/RoomDetailPage.ets",
+      "buildFunction": "RoomDetailPageBuilder"
+    },
+    {
+      "name": "RoomListPage",
+      "pageSourceFile": "src/main/ets/pages/RoomListPage.ets",
+      "buildFunction": "RoomListPageBuilder"
+    },
+    {
+      "name": "SearchPage",
+      "pageSourceFile": "src/main/ets/pages/SearchPage.ets",
+      "buildFunction": "SearchPageBuilder"
+    },
+    {
+      "name": "SettingsPage",
+      "pageSourceFile": "src/main/ets/pages/SettingsPage.ets",
+      "buildFunction": "SettingsPageBuilder"
+    },
+    {
+      "name": "SpaceDetailPage",
+      "pageSourceFile": "src/main/ets/pages/SpaceDetailPage.ets",
+      "buildFunction": "SpaceDetailPageBuilder"
+    },
+    {
+      "name": "SpacePage",
+      "pageSourceFile": "src/main/ets/pages/SpacePage.ets",
+      "buildFunction": "SpacePageBuilder"
+    }
+  ]
+}

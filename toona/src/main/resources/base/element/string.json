@@ -2,7 +2,7 @@
   "string": [
     {
       "name": "module_desc",
-      "value": "module description"
+      "value": "Matrix Client For HarmonyOS Native"
     },
     {
       "name": "ToonaAbility_desc",

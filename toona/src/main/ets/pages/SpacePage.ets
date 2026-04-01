@@ -1,4 +1,3 @@
-import router from '@ohos.router';
 import { RoomManager } from '../services/RoomManager';
 import { Room } from '../models/DataModels';
 import { getThemeColors } from '../utils/ThemeManager';
@@ -10,13 +9,22 @@ interface SpaceItem {
   level: number;
 }
 
+@Builder
+export function SpacePageBuilder(name: string, param: Object) {
+  SpacePage()
+}
+
+@Entry
 @Component
 struct SpaceListItem {
   @ObjectLink item: SpaceItem;
   @State isExpanded: boolean = false;
-  onToggle: (roomId: string) => void = () => {};
-  onNavigateToSpace: (space: Room) => void = () => {};
-  onNavigateToRoom: (room: Room) => void = () => {};
+  onToggle: (roomId: string) => void = () => {
+  };
+  onNavigateToSpace: (space: Room) => void = () => {
+  };
+  onNavigateToRoom: (room: Room) => void = () => {
+  };
 
   aboutToAppear() {
     this.isExpanded = this.item.isExpanded;
@@ -42,7 +50,9 @@ struct SpaceListItem {
           Blank().width(20);
         }
 
-        Text(this.item.room.getDisplayName().charAt(0).toUpperCase())
+        Text(this.item.room.getDisplayName()
+          .charAt(0)
+          .toUpperCase())
           .fontSize(18)
           .fontWeight(FontWeight.Bold)
           .fontColor('#ffffff')
@@ -64,11 +74,21 @@ struct SpaceListItem {
             .fontColor(getThemeColors().textSecondary)
             .backgroundColor(getThemeColors().inputBg)
             .borderRadius(10)
-            .padding({ left: 8, right: 8, top: 2, bottom: 2 });
+            .padding({
+              left: 8,
+              right: 8,
+              top: 2,
+              bottom: 2
+            });
         }
       }
       .width('100%')
-      .padding({ top: 12, bottom: 12, left: 20, right: 20 })
+      .padding({
+        top: 12,
+        bottom: 12,
+        left: 20,
+        right: 20
+      })
       .backgroundColor(this.item.level === 0 ? getThemeColors().bg : getThemeColors().surface)
       .onClick(() => {
         if (this.item.room.isSpace === true) {
@@ -92,12 +112,11 @@ struct SpaceListItem {
   }
 }
 
-@Entry
 @Component
-struct SpacePage {
+export struct SpacePage {
+  @Prop pathStack: NavPathStack | null = null;
   @State spaceItems: SpaceItem[] = [];
   @State isLoading: boolean = true;
-
   private roomManager: RoomManager = RoomManager.getInstance();
   private expandedSpaces: Set<string> = new Set();
 
@@ -192,111 +211,102 @@ struct SpacePage {
   }
 
   navigateToSpaceDetail(space: Room) {
-    router.pushUrl({
-      url: 'pages/SpaceDetailPage',
-      params: {
-        spaceId: space.id,
-        spaceName: space.getDisplayName()
-      }
-    }).catch(() => {
-      // Ignore error
-    });
+    const param: Record<string, string> = {
+      "spaceId": space.id,
+      "spaceName": space.getDisplayName()
+    };
+    this.pathStack?.pushPathByName('SpaceDetailPage', param);
   }
 
   navigateToRoom(room: Room) {
-    router.pushUrl({
-      url: 'pages/RoomDetailPage',
-      params: {
-        roomId: room.id,
-        roomName: room.getDisplayName()
-      }
-    }).catch(() => {
-      // Ignore error
-    });
+    const param: Record<string, string> = {
+      "roomId": room.id,
+      "roomName": room.getDisplayName()
+    };
+    this.pathStack?.pushPathByName('RoomDetailPage', param);
   }
 
   navigateToJoinSpace() {
-    router.pushUrl({
-      url: 'pages/JoinSpacePage'
-    }).catch(() => {
-      // Ignore error
-    });
+    this.pathStack?.pushPathByName('JoinSpacePage', undefined);
   }
 
   build() {
-    Stack() {
-      Column() {
-        Divider().color(getThemeColors().divider);
+    NavDestination() {
+      Stack() {
+        Column() {
+          Divider().color(getThemeColors().divider);
 
-        if (this.isLoading) {
-          Column() {
-            LoadingProgress()
-              .width(40)
-              .height(40);
-            Text('加载中...')
-              .fontSize(14)
-              .fontColor(getThemeColors().textSecondary)
-              .margin({ top: 10 });
+          if (this.isLoading) {
+            Column() {
+              LoadingProgress()
+                .width(40)
+                .height(40);
+              Text('加载中...')
+                .fontSize(14)
+                .fontColor(getThemeColors().textSecondary)
+                .margin({ top: 10 });
+            }
+            .width('100%')
+            .layoutWeight(1)
+            .justifyContent(FlexAlign.Center);
+          } else if (this.spaceItems.length === 0) {
+            Column() {
+              Text('暂无空间')
+                .fontSize(16)
+                .fontColor(getThemeColors().textSecondary);
+              Text('点击下方创建空间')
+                .fontSize(14)
+                .fontColor(getThemeColors().textSecondary)
+                .opacity(0.7)
+                .margin({ top: 5 });
+            }
+            .width('100%')
+            .layoutWeight(1)
+            .justifyContent(FlexAlign.Center);
+          } else {
+            List() {
+              ForEach(this.spaceItems, (item: SpaceItem) => {
+                ListItem() {
+                  SpaceListItem({
+                    item: item,
+                    onToggle: (roomId: string) => {
+                      this.onToggleSpace(roomId);
+                    },
+                    onNavigateToSpace: (space: Room) => {
+                      this.navigateToSpaceDetail(space);
+                    },
+                    onNavigateToRoom: (room: Room) => {
+                      this.navigateToRoom(room);
+                    }
+                  });
+                }
+              });
+            }
+            .width('100%')
+            .layoutWeight(1);
           }
-          .width('100%')
-          .layoutWeight(1)
-          .justifyContent(FlexAlign.Center);
-        } else if (this.spaceItems.length === 0) {
-          Column() {
-            Text('暂无空间')
+
+          Row() {
+            Text('创建空间')
               .fontSize(16)
-              .fontColor(getThemeColors().textSecondary);
-            Text('点击下方创建空间')
-              .fontSize(14)
-              .fontColor(getThemeColors().textSecondary)
-              .opacity(0.7)
-              .margin({ top: 5 });
+              .fontColor(getThemeColors().primary)
+              .onClick(() => {
+                this.navigateToJoinSpace();
+              });
           }
-          .width('100%')
-          .layoutWeight(1)
+          .width('90%')
+          .padding({ top: 15, bottom: 15 })
           .justifyContent(FlexAlign.Center);
-        } else {
-          List() {
-            ForEach(this.spaceItems, (item: SpaceItem) => {
-              ListItem() {
-                SpaceListItem({
-                  item: item,
-                  onToggle: (roomId: string) => {
-                    this.onToggleSpace(roomId);
-                  },
-                  onNavigateToSpace: (space: Room) => {
-                    this.navigateToSpaceDetail(space);
-                  },
-                  onNavigateToRoom: (room: Room) => {
-                    this.navigateToRoom(room);
-                  }
-                });
-              }
-            });
-          }
-          .width('100%')
-          .layoutWeight(1);
         }
-
-        Row() {
-          Text('创建空间')
-            .fontSize(16)
-            .fontColor(getThemeColors().primary)
-            .onClick(() => {
-              this.navigateToJoinSpace();
-            });
-        }
-        .width('90%')
-        .padding({ top: 15, bottom: 15 })
-        .justifyContent(FlexAlign.Center);
+        .width('100%')
+        .height('100%')
+        .backgroundColor(getThemeColors().bg);
       }
       .width('100%')
-      .height('100%')
-      .backgroundColor(getThemeColors().bg);
+      .height('100%');
     }
-    .width('100%')
-    .height('100%');
+    .onReady((ctx: NavDestinationContext) => {
+      this.pathStack = ctx.pathStack;
+    })
   }
 }
-
-export { SpacePage };
