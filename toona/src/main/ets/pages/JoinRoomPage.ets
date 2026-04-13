@@ -2,6 +2,7 @@ import promptAction from '@ohos.promptAction';
 import { RoomManager, CreateRoomOptions } from '../services/RoomManager';
 import { AuthManager } from '../services/AuthManager';
 import { MatrixHttpClient } from '../network/MatrixHttpClient';
+import { ScanManager } from '../services/ScanManager';
 import { getThemeColors } from '../utils/ThemeManager';
 
 interface DirectoryUser {
@@ -33,6 +34,7 @@ struct JoinRoomPage {
   private roomManager: RoomManager = RoomManager.getInstance();
   private authManager: AuthManager = AuthManager.getInstance();
   private httpClient: MatrixHttpClient | null = null;
+  private scanManager: ScanManager = ScanManager.getInstance();
   pathStack: NavPathStack | null = null;
 
   aboutToAppear() {
@@ -78,6 +80,25 @@ struct JoinRoomPage {
       "roomName": userId
     };
     this.pathStack?.pushPathByName('RoomDetailPage', param);
+  }
+
+  async onScanQRCode() {
+    try {
+      const result = await this.scanManager.startScan();
+      if (result) {
+        const parsed = this.scanManager.parseMatrixToLink(result);
+        if (parsed && parsed.roomId) {
+          this.roomAddress = parsed.roomId;
+          promptAction.showToast({ message: '已识别房间，可点击加入' });
+        } else {
+          this.roomAddress = result;
+          promptAction.showToast({ message: '已扫描内容' });
+        }
+      }
+    } catch (error) {
+      console.error('Scan error: %{public}s', JSON.stringify(error));
+      promptAction.showToast({ message: '扫码失败' });
+    }
   }
 
   joinRoom() {
@@ -260,13 +281,25 @@ struct JoinRoomPage {
               .margin({ bottom: 10 });
 
             TextInput({ placeholder: '输入 room ID 或地址', text: this.roomAddress })
-              .width('100%')
+              .width('85%')
               .height(44)
               .fontSize(16)
               .backgroundColor(getThemeColors().inputBg)
               .borderRadius(10)
               .onChange((value: string) => {
                 this.roomAddress = value;
+              });
+
+            Button('📷')
+              .fontSize(20)
+              .backgroundColor(getThemeColors().primary)
+              .fontColor('#ffffff')
+              .width(44)
+              .height(44)
+              .borderRadius(10)
+              .margin({ left: 8 })
+              .onClick(() => {
+                this.onScanQRCode();
               });
 
             Button(this.isJoining ? '加入中...' : '加入')
