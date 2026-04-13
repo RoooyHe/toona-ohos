@@ -5,12 +5,14 @@ import { SyncManager } from '../services/SyncManager';
 import { MessageManager } from '../services/MessageManager';
 import { PresenceManager } from '../services/PresenceManager';
 import { MediaManager } from '../services/MediaManager';
+import { MediaLibraryManager } from '../services/MediaLibraryManager';
 import { AuthManager } from '../services/AuthManager';
 import { ShareManager } from '../services/ShareManager';
 import { DeviceSecurityManager } from '../services/DeviceSecurityManager';
 import { MessageStatus, PresenceState } from '../models/MatrixTypes';
 import { picker } from '@kit.CoreFileKit';
 import { fileIo } from '@kit.CoreFileKit';
+import { mediaLibrary } from '@kit.MediaLibraryKit';
 import { getThemeColors } from '../utils/ThemeManager';
 
 interface MemberPresence {
@@ -89,6 +91,7 @@ struct RoomDetailPage {
   private typingStopTimeout: number = 0;
   private presenceInterval: number = 0;
   private mediaManager: MediaManager = MediaManager.getInstance();
+  private mediaLibraryManager: MediaLibraryManager = MediaLibraryManager.getInstance();
   private shareManager: ShareManager = ShareManager.getInstance();
   private deviceSecurityManager: DeviceSecurityManager = DeviceSecurityManager.getInstance();
   private pathStack: NavPathStack | null = null;
@@ -212,19 +215,46 @@ struct RoomDetailPage {
 
   async pickAndUploadImage() {
     try {
-      const photoPicker = new picker.PhotoViewPicker();
+      const photoPicker = new mediaLibrary.PhotoViewPicker();
       const result = await photoPicker.select({
-        MIMEType: picker.PhotoViewMIMETypes.IMAGE_TYPE,
+        MIMEType: mediaLibrary.PhotoViewMIMETypes.IMAGE_TYPE,
         maxSelectNumber: 1
       });
-      if (result && result.photoUris && result.photoUris.length > 0) {
-        const photoUri = result.photoUris[0];
+      if (result && result.photos && result.photos.length > 0) {
+        await this.uploadImages(result.photos);
+      }
+    } catch (error) {
+      console.error('Failed to pick image: %{public}s', JSON.stringify(error));
+      promptAction.showToast({ message: '选择图片失败' });
+    }
+  }
+
+  async pickAndUploadMultipleImages() {
+    try {
+      const photoPicker = new mediaLibrary.PhotoViewPicker();
+      const result = await photoPicker.select({
+        MIMEType: mediaLibrary.PhotoViewMIMETypes.IMAGE_TYPE,
+        maxSelectNumber: 9
+      });
+      if (result && result.photos && result.photos.length > 0) {
+        await this.uploadImages(result.photos);
+      }
+    } catch (error) {
+      console.error('Failed to pick images: %{public}s', JSON.stringify(error));
+      promptAction.showToast({ message: '选择图片失败' });
+    }
+  }
+
+  async uploadImages(uris: string[]) {
+    for (let i = 0; i < uris.length; i++) {
+      const photoUri = uris[i];
+      try {
         const file = fileIo.openSync(photoUri, fileIo.OpenMode.READ_ONLY);
         const fileInfo = fileIo.statSync(photoUri);
         const buffer = new Uint8Array(fileInfo.size);
         fileIo.readSync(file.fd, buffer);
         fileIo.closeSync(file);
-        const fileName = 'image_' + Date.now() + '.jpg';
+        const fileName = 'image_' + Date.now() + '_' + i + '.jpg';
         const mxcUri = await this.mediaManager.uploadImage(buffer.buffer as ArrayBuffer, fileName);
         const msgContent: Record<string, string | object> = {
           'msgtype': 'm.image',
@@ -247,12 +277,14 @@ struct RoomDetailPage {
           if (index >= 0) {
             this.messages[index].status = MessageStatus.FAILED;
           }
-          promptAction.showToast({ message: '图片发送失败' });
         }
+      } catch (error) {
+        console.error('Failed to upload image: %{public}s', JSON.stringify(error));
+        promptAction.showToast({ message: '图片上传失败' });
       }
-    } catch (error) {
-      console.error('Failed to pick image:', error);
-      promptAction.showToast({ message: '选择图片失败' });
+    }
+    if (uris.length > 1) {
+      promptAction.showToast({ message: `已发送 ${uris.length} 张图片` });
     }
   }
 
@@ -840,7 +872,22 @@ struct RoomDetailPage {
                 this.startVoiceCall();
               });
 
-            if (!this.editingMessage) {
+            Row() {
+              Button('📷')
+                .fontSize(18)
+                .backgroundColor('transparent')
+                .fontColor(this.getRoomThemeColors().textSecondary)
+                .borderRadius(20)
+                .width(40)
+                .height(40)
+                .margin({ left: 5 })
+                .onClick(() => {
+                  this.pickAndUploadImage();
+                })
+                .onLongPress(() => {
+                  this.pickAndUploadMultipleImages();
+                });
+
               Button('📎')
                 .fontSize(18)
                 .backgroundColor('transparent')
