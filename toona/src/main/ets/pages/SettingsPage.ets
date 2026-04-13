@@ -6,6 +6,7 @@ import { DeviceManager } from '../services/DeviceManager';
 import { RoomTagManager } from '../services/RoomTagManager';
 import { RoomManager } from '../services/RoomManager';
 import { MediaManager } from '../services/MediaManager';
+import { ServiceCollaborationManager } from '../services/ServiceCollaborationManager';
 import { Room } from '../models/DataModels';
 import { Device } from '../models/MatrixTypes';
 import { PresenceState } from '../models/MatrixTypes';
@@ -46,6 +47,7 @@ struct SettingsPage {
   private roomManager: RoomManager = RoomManager.getInstance();
   private mediaManager: MediaManager = MediaManager.getInstance();
   private themeManager: ThemeManager = ThemeManager.getInstance();
+  private collaborationManager: ServiceCollaborationManager = ServiceCollaborationManager.getInstance();
   private pathStack: NavPathStack | null = null;
 
   aboutToAppear() {
@@ -304,6 +306,7 @@ struct SettingsPage {
             this.buildPresenceSection();
             this.buildRoomTagsSection();
             this.buildDevicesSection();
+            this.buildCollaborationSection();
             this.buildLogoutSection();
             this.buildAboutSection();
           }
@@ -923,6 +926,83 @@ struct SettingsPage {
     }
     .width('100%')
     .margin({ top: 10 });
+  }
+
+  @Builder
+  buildCollaborationSection() {
+    Column() {
+      Row() {
+        Text('跨设备协作')
+          .fontSize(16)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(getThemeColors().text);
+      }
+      .width('100%')
+      .padding({
+        left: 20,
+        right: 20,
+        top: 15,
+        bottom: 10
+      });
+
+      Column() {
+        Row() {
+          Column() {
+            Text('设备接续')
+              .fontSize(14)
+              .fontColor(getThemeColors().text);
+            Text('将当前会话切换到其他设备')
+              .fontSize(11)
+              .fontColor(getThemeColors().textSecondary)
+              .margin({ top: 2 });
+          }
+          .alignItems(HorizontalAlign.Start)
+          .layoutWeight(1);
+
+          Button('查找设备')
+            .fontSize(12)
+            .backgroundColor(getThemeColors().primary)
+            .fontColor('#ffffff')
+            .padding({
+              left: 12,
+              right: 12,
+              top: 6,
+              bottom: 6
+            })
+            .borderRadius(16)
+            .onClick(() => {
+              this.onFindCollaborativeDevices();
+            });
+        }
+        .width('100%')
+        .padding({
+          left: 20,
+          right: 20,
+          top: 12,
+          bottom: 12
+        });
+      }
+      .width('100%')
+      .backgroundColor(getThemeColors().surface);
+    }
+    .width('100%')
+    .margin({ top: 10 });
+  }
+
+  async onFindCollaborativeDevices() {
+    const isSupported = await this.collaborationManager.isCollaborationSupported();
+    if (!isSupported) {
+      promptAction.showToast({ message: '当前设备不支持跨设备协作' });
+      return;
+    }
+
+    const devices = await this.collaborationManager.getCollaborationDevices();
+    if (devices.length === 0) {
+      promptAction.showToast({ message: '未发现可协作设备' });
+      return;
+    }
+
+    promptAction.showToast({ message: `发现 ${devices.length} 个可协作设备` });
   }
 
   @Builder

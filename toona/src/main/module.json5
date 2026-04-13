@@ -5,7 +5,8 @@
     "description": "$string:module_desc",
     "mainElement": "ToonaAbility",
     "deviceTypes": [
-      "phone"
+      "phone",
+      "tablet"
     ],
     "deliveryWithInstall": true,
     "routerMap": "$profile:router_map",
@@ -14,6 +15,58 @@
       {
         "name": "ohos.permission.INTERNET"
       }
+    ],
+    "pages": "$profile:main_pages",
+    "abilities": [
+      {
+        "name": "ToonaAbility",
+        "srcEntry": "./ets/toonaability/ToonaAbility.ets",
+        "description": "$string:ToonaAbility_desc",
+        "icon": "$media:layered_image",
+        "label": "$string:ToonaAbility_label",
+        "startWindowIcon": "$media:1024",
+        "startWindowBackground": "$color:start_window_background",
+        "exported": true,
+        "skills": [
+          {
+            "entities": [
+              "entity.system.home"
+            ],
+            "actions": [
+              "ohos.want.action.home"
+            ]
+          }
+        ]
+      }
+    ],
+    "extensionAbilities": [
+      {
+        "name": "ToonaBackupAbility",
+        "srcEntry": "./ets/toonabackupability/ToonaBackupAbility.ets",
+        "type": "backup",
+        "exported": false,
+        "metadata": [
+          {
+            "name": "ohos.extension.backup",
+            "resource": "$profile:backup_config"
+          }
+        ]
+      },
+      {
+        "name": "ToonaContinuationAbility",
+        "srcEntry": "./ets/toonacontinueability/ToonaContinueAbility.ets",
+        "type": "continuation",
+        "exported": true,
+        "metadata": [
+          {
+            "name": "ability.continuation.params",
+            "value": "deviceType,deviceName,deviceId"
+          }
+        ]
+      }
+    ]
+  }
+}
     ],
     "pages": "$profile:main_pages",
     "abilities": [
