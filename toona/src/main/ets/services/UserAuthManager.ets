@@ -1,6 +1,5 @@
 import { userAuth } from '@kit.UserAuthenticationKit';
 import { promptAction } from '@ohos.promptAction';
-import { BusinessError } from '@kit.BasicServicesKit';
 
 export class UserAuthManager {
   private static instance: UserAuthManager;

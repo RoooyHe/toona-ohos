@@ -1,6 +1,5 @@
 import { collaborationManager, collaborationInfo } from '@kit.CollaborationKit';
 import { promptAction } from '@ohos.promptAction';
-import { AsyncCallback, RemoteObject } from '@kit.AbilityKit';
 
 export class ServiceCollaborationManager {
   private static instance: ServiceCollaborationManager;

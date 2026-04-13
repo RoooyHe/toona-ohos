@@ -13,7 +13,6 @@ import { UserAuthManager } from '../services/UserAuthManager';
 import { Room } from '../models/DataModels';
 import { Device } from '../models/MatrixTypes';
 import { PresenceState } from '../models/MatrixTypes';
-import { media } from '@kit.MediaKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { picker } from '@kit.CoreFileKit';
 import { ThemeManager, getThemeColors } from '../utils/ThemeManager';

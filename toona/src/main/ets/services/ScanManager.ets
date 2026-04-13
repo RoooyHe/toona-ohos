@@ -1,6 +1,5 @@
 import { scanCore, scanBarcode } from '@kit.ScanKit';
 import { promptAction } from '@ohos.promptAction';
-import { AsyncCallback } from '@kit.BaseKit';
 
 export class ScanManager {
   private static instance: ScanManager;
@@ -9,7 +8,7 @@ export class ScanManager {
     if (!ScanManager.instance) {
       ScanManager.instance = new ScanManager();
     }
-    return ScanManager.instance;;
+    return ScanManager.instance;
   }
 
   async startScan(): Promise<string | null> {

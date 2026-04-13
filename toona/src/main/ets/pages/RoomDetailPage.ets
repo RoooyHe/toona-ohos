@@ -10,7 +10,6 @@ import { AuthManager } from '../services/AuthManager';
 import { ShareManager } from '../services/ShareManager';
 import { DeviceSecurityManager } from '../services/DeviceSecurityManager';
 import { MessageStatus, PresenceState } from '../models/MatrixTypes';
-import { picker } from '@kit.CoreFileKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { mediaLibrary } from '@kit.MediaLibraryKit';
 import { getThemeColors } from '../utils/ThemeManager';

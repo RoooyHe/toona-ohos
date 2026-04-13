@@ -1,7 +1,6 @@
 import { mediaLibrary } from '@kit.MediaLibraryKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { promptAction } from '@ohos.promptAction';
-import { AsyncCallback } from '@kit.BaseKit';
 
 export class MediaLibraryManager {
   private static instance: MediaLibraryManager;
