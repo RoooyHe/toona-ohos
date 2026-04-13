@@ -1,6 +1,7 @@
 import promptAction from '@ohos.promptAction';
 import { AuthManager } from '../services/AuthManager';
 import { SecureStorage } from '../storage/SecureStorage';
+import { UserAuthManager } from '../services/UserAuthManager';
 import { getThemeColors } from '../utils/ThemeManager';
 import { Context } from '@kit.AbilityKit';
 import http from '@ohos.net.http';
@@ -32,6 +33,7 @@ struct LoginPage {
   @State isDiscovering: boolean = false;
   private authManager: AuthManager = AuthManager.getInstance();
   private secureStorage: SecureStorage = SecureStorage.getInstance();
+  private userAuthManager: UserAuthManager = UserAuthManager.getInstance();
   private stack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
@@ -175,6 +177,33 @@ struct LoginPage {
     });
   }
 
+  async handleBiometricLogin() {
+    try {
+      const success = await this.userAuthManager.authenticateWithFace();
+      if (success) {
+        await this.tryAutoLogin();
+      }
+    } catch (error) {
+      console.error('Biometric login failed: %{public}s', JSON.stringify(error));
+      promptAction.showToast({ message: '生物识别登录失败' });
+    }
+  }
+
+  async tryAutoLogin() {
+    try {
+      const savedToken = await this.secureStorage.loadString('saved_access_token');
+      if (savedToken) {
+        promptAction.showToast({ message: '验证成功，正在登录...' });
+        this.stack.replacePath(new NavPathInfo('MainPage', undefined));
+      } else {
+        promptAction.showToast({ message: '请先使用密码登录以启用生物识别' });
+      }
+    } catch (error) {
+      console.error('Auto login failed: %{public}s', JSON.stringify(error));
+      promptAction.showToast({ message: '自动登录失败' });
+    }
+  }
+
   build() {
     NavDestination() {
       Stack() {
@@ -302,6 +331,21 @@ struct LoginPage {
               .onClick(() => {
                 this.handleSSOLogin();
               });
+
+            Button('🔐 生物识别登录')
+              .width('100%')
+              .height(50)
+              .fontSize(18)
+              .fontWeight(FontWeight.Medium)
+              .backgroundColor(getThemeColors().primary)
+              .fontColor('#ffffff')
+              .borderRadius(10)
+              .margin({ top: 10 })
+              .enabled(!this.isLoading && !this.isDiscovering)
+              .onClick(() => {
+                this.handleBiometricLogin();
+              });
+
             Row() {
               Text('还没有账号？')
                 .fontSize(14)

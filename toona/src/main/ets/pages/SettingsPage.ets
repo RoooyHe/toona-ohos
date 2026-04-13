@@ -9,6 +9,7 @@ import { MediaManager } from '../services/MediaManager';
 import { ServiceCollaborationManager } from '../services/ServiceCollaborationManager';
 import { DeviceSecurityManager } from '../services/DeviceSecurityManager';
 import { ScanManager } from '../services/ScanManager';
+import { UserAuthManager } from '../services/UserAuthManager';
 import { Room } from '../models/DataModels';
 import { Device } from '../models/MatrixTypes';
 import { PresenceState } from '../models/MatrixTypes';
@@ -52,6 +53,7 @@ struct SettingsPage {
   private collaborationManager: ServiceCollaborationManager = ServiceCollaborationManager.getInstance();
   private deviceSecurityManager: DeviceSecurityManager = DeviceSecurityManager.getInstance();
   private scanManager: ScanManager = ScanManager.getInstance();
+  private userAuthManager: UserAuthManager = UserAuthManager.getInstance();
   private pathStack: NavPathStack | null = null;
 
   aboutToAppear() {
@@ -311,6 +313,7 @@ struct SettingsPage {
             this.buildRoomTagsSection();
             this.buildDevicesSection();
             this.buildSecuritySection();
+            this.buildBiometricSection();
             this.buildCollaborationSection();
             this.buildQRScannerSection();
             this.buildLogoutSection();
@@ -1190,6 +1193,120 @@ struct SettingsPage {
     } catch (error) {
       console.error('Scan error: %{public}s', JSON.stringify(error));
       promptAction.showToast({ message: '扫码失败' });
+    }
+  }
+
+  @Builder
+  buildBiometricSection() {
+    Column() {
+      Row() {
+        Text('🔐 登录安全')
+          .fontSize(16)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(getThemeColors().text);
+      }
+      .width('100%')
+      .padding({
+        left: 20,
+        right: 20,
+        top: 15,
+        bottom: 10
+      });
+
+      Column() {
+        Row() {
+          Column() {
+            Text('生物识别登录')
+              .fontSize(14)
+              .fontColor(getThemeColors().text);
+            Text('使用指纹或面部识别快速登录')
+              .fontSize(11)
+              .fontColor(getThemeColors().textSecondary)
+              .margin({ top: 2 });
+          }
+          .alignItems(HorizontalAlign.Start)
+          .layoutWeight(1);
+
+          Toggle({ type: ToggleType.Switch, isOn: false })
+            .selectedColor(getThemeColors().primary)
+            .onChange((isOn: boolean) => {
+              this.onToggleBiometric(isOn);
+            });
+        }
+        .width('100%')
+        .padding({
+          left: 20,
+          right: 20,
+          top: 12,
+          bottom: 12
+        });
+
+        Divider().color(getThemeColors().divider);
+
+        Row() {
+          Column() {
+            Text('验证生物识别')
+              .fontSize(14)
+              .fontColor(getThemeColors().text);
+            Text('测试指纹或面部识别是否可用')
+              .fontSize(11)
+              .fontColor(getThemeColors().textSecondary)
+              .margin({ top: 2 });
+          }
+          .alignItems(HorizontalAlign.Start)
+          .layoutWeight(1);
+
+          Button('验证')
+            .fontSize(12)
+            .backgroundColor(getThemeColors().primary)
+            .fontColor('#ffffff')
+            .padding({
+              left: 16,
+              right: 16,
+              top: 8,
+              bottom: 8
+            })
+            .borderRadius(16)
+            .onClick(() => {
+              this.onVerifyBiometric();
+            });
+        }
+        .width('100%')
+        .padding({
+          left: 20,
+          right: 20,
+          top: 12,
+          bottom: 12
+        });
+      }
+      .width('100%')
+      .backgroundColor(getThemeColors().surface);
+    }
+    .width('100%')
+    .margin({ top: 10 });
+  }
+
+  async onToggleBiometric(enable: boolean) {
+    if (enable) {
+      const success = await this.userAuthManager.authenticateWithFace();
+      if (success) {
+        this.userAuthManager.setBiometricEnabled(true);
+        promptAction.showToast({ message: '生物识别登录已启用' });
+      } else {
+        promptAction.showToast({ message: '生物识别验证失败' });
+      }
+    } else {
+      this.userAuthManager.setBiometricEnabled(false);
+      promptAction.showToast({ message: '生物识别登录已关闭' });
+    }
+  }
+
+  async onVerifyBiometric() {
+    const success = await this.userAuthManager.authenticateWithFace();
+    if (success) {
+      promptAction.showToast({ message: '✅ 生物识别验证成功' });
+    } else {
+      promptAction.showToast({ message: '❌ 生物识别验证失败' });
     }
   }
 
