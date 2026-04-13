@@ -6,6 +6,7 @@ import { MessageManager } from '../services/MessageManager';
 import { PresenceManager } from '../services/PresenceManager';
 import { MediaManager } from '../services/MediaManager';
 import { AuthManager } from '../services/AuthManager';
+import { ShareManager } from '../services/ShareManager';
 import { MessageStatus, PresenceState } from '../models/MatrixTypes';
 import { picker } from '@kit.CoreFileKit';
 import { fileIo } from '@kit.CoreFileKit';
@@ -87,6 +88,7 @@ struct RoomDetailPage {
   private typingStopTimeout: number = 0;
   private presenceInterval: number = 0;
   private mediaManager: MediaManager = MediaManager.getInstance();
+  private shareManager: ShareManager = ShareManager.getInstance();
   private pathStack: NavPathStack | null = null;
 
   aboutToAppear() {
@@ -336,6 +338,11 @@ struct RoomDetailPage {
     }
   }
 
+  shareRoom() {
+    const homeserver = this.authManager.getHomeserver() || '';
+    this.shareManager.shareRoomLink(this.roomId, this.roomName, homeserver);
+  }
+
   startReply(message: Message) {
     this.replyQuote = {
       eventId: message.eventId,
@@ -357,6 +364,14 @@ struct RoomDetailPage {
       console.error('Failed to copy message:', error);
     }
     this.showMessageAction = false;
+    this.selectedMessage = null;
+  }
+
+  shareMessage(message: Message) {
+    const body = message.getMessageBody();
+    const senderName = this.getMessageSenderName(message);
+    this.shareManager.shareMessage(body, senderName);
+    this.showReplyMenu = false;
     this.selectedMessage = null;
   }
 
@@ -559,6 +574,16 @@ struct RoomDetailPage {
 
           if (this.showMenu) {
             Column() {
+              Button('分享房间')
+                .fontSize(16)
+                .backgroundColor(this.getRoomThemeColors().bg)
+                .fontColor(this.getRoomThemeColors().primary)
+                .width('100%')
+                .height(44)
+                .onClick(() => {
+                  this.showMenu = false;
+                  this.shareRoom();
+                });
               Button('离开房间')
                 .fontSize(16)
                 .backgroundColor(this.getRoomThemeColors().bg)
@@ -980,6 +1005,17 @@ struct RoomDetailPage {
                     this.startEdit(this.selectedMessage!);
                   });
               }
+
+              Divider().color(this.getRoomThemeColors().divider);
+
+              Text('分享')
+                .fontSize(14)
+                .fontColor(this.getRoomThemeColors().primary)
+                .width('100%')
+                .padding({ left: 15, top: 12, bottom: 12 })
+                .onClick(() => {
+                  this.shareMessage(this.selectedMessage!);
+                });
 
               Divider().color(this.getRoomThemeColors().divider);
 
