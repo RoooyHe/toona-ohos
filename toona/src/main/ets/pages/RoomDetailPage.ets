@@ -7,6 +7,7 @@ import { PresenceManager } from '../services/PresenceManager';
 import { MediaManager } from '../services/MediaManager';
 import { AuthManager } from '../services/AuthManager';
 import { ShareManager } from '../services/ShareManager';
+import { DeviceSecurityManager } from '../services/DeviceSecurityManager';
 import { MessageStatus, PresenceState } from '../models/MatrixTypes';
 import { picker } from '@kit.CoreFileKit';
 import { fileIo } from '@kit.CoreFileKit';
@@ -89,6 +90,7 @@ struct RoomDetailPage {
   private presenceInterval: number = 0;
   private mediaManager: MediaManager = MediaManager.getInstance();
   private shareManager: ShareManager = ShareManager.getInstance();
+  private deviceSecurityManager: DeviceSecurityManager = DeviceSecurityManager.getInstance();
   private pathStack: NavPathStack | null = null;
 
   aboutToAppear() {
@@ -371,6 +373,27 @@ struct RoomDetailPage {
     const body = message.getMessageBody();
     const senderName = this.getMessageSenderName(message);
     this.shareManager.shareMessage(body, senderName);
+    this.showReplyMenu = false;
+    this.selectedMessage = null;
+  }
+
+  checkMessageSecurity(message: Message) {
+    const body = message.getMessageBody();
+    const senderId = message.sender;
+    const result = this.deviceSecurityManager.analyzeMessageSecurity(body, senderId);
+    
+    if (result.isSuspicious) {
+      promptAction.showToast({
+        message: `⚠️ 安全提醒: ${result.warnings.join(', ')}`,
+        duration: 4000
+      });
+    } else {
+      promptAction.showToast({
+        message: '✅ 消息安全检测通过',
+        duration: 2000
+      });
+    }
+    
     this.showReplyMenu = false;
     this.selectedMessage = null;
   }
@@ -1005,6 +1028,17 @@ struct RoomDetailPage {
                     this.startEdit(this.selectedMessage!);
                   });
               }
+
+              Divider().color(this.getRoomThemeColors().divider);
+
+              Text('🔒 安全检测')
+                .fontSize(14)
+                .fontColor('#FF9800')
+                .width('100%')
+                .padding({ left: 15, top: 12, bottom: 12 })
+                .onClick(() => {
+                  this.checkMessageSecurity(this.selectedMessage!);
+                });
 
               Divider().color(this.getRoomThemeColors().divider);
 
