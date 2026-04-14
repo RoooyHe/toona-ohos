@@ -58,3 +58,5 @@ signing/
 
 # Sandbox/local data (optional - uncomment if needed)
 # .sandbox/
+
+.octos

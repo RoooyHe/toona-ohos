@@ -3,7 +3,7 @@ import { AuthManager } from '../services/AuthManager';
 import { SecureStorage } from '../storage/SecureStorage';
 import { UserAuthManager } from '../services/UserAuthManager';
 import { getThemeColors } from '../utils/ThemeManager';
-import { Context } from '@kit.AbilityKit';
+import { Context, ConfigurationConstant } from '@kit.AbilityKit';
 import http from '@ohos.net.http';
 
 function extractHomeServerUrl(jsonString: string): string | null {
@@ -37,6 +37,9 @@ struct LoginPage {
   private stack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
+    // Force light mode on launch
+    AppStorage.setOrCreate('colorMode', ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT);
+    this.colorMode = ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT;
     this.loadSavedCredentials();
   }
 
@@ -167,7 +170,7 @@ struct LoginPage {
   }
 
   handleRegister() {
-    this.stack.pushPath(new NavPathInfo('RegisterPage', undefined));
+    this.stack.pushPathByName('RegisterPage', undefined);
   }
 
   handleSSOLogin() {

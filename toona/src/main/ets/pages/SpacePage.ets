@@ -114,7 +114,7 @@ struct SpaceListItem {
 
 @Component
 export struct SpacePage {
-  @Prop pathStack: NavPathStack | null = null;
+  pathStack: NavPathStack = new NavPathStack();
   @State spaceItems: SpaceItem[] = [];
   @State isLoading: boolean = true;
   private roomManager: RoomManager = RoomManager.getInstance();
@@ -215,7 +215,7 @@ export struct SpacePage {
       "spaceId": space.id,
       "spaceName": space.getDisplayName()
     };
-    this.pathStack?.pushPathByName('SpaceDetailPage', param);
+    this.pathStack.pushPathByName('SpaceDetailPage', param);
   }
 
   navigateToRoom(room: Room) {
@@ -223,11 +223,11 @@ export struct SpacePage {
       "roomId": room.id,
       "roomName": room.getDisplayName()
     };
-    this.pathStack?.pushPathByName('RoomDetailPage', param);
+    this.pathStack.pushPathByName('RoomDetailPage', param);
   }
 
   navigateToJoinSpace() {
-    this.pathStack?.pushPathByName('JoinSpacePage', undefined);
+    this.pathStack.pushPathByName('JoinSpacePage', undefined);
   }
 
   build() {

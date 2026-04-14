@@ -1,5 +1,6 @@
 import { BusinessError } from '@kit.BasicServicesKit';
-import { promptAction } from '@ohos.promptAction';
+import promptAction from '@ohos.promptAction';
+import { common, Want } from '@kit.AbilityKit';
 
 export class ShareManager {
   private static instance: ShareManager;
@@ -13,19 +14,17 @@ export class ShareManager {
 
   shareText(title: string, content: string): void {
     try {
-      const context = getContext();
-      const want = {
+      const context: common.UIAbilityContext = getContext() as common.UIAbilityContext;
+      const want: Want = {
         action: 'ohos.want.action.viewData',
         type: 'text/plain',
-        data: content,
         parameters: {
-          title: title
-        }
-      } as Record<string, Object>;
-      
-      context.startAbility({
-        want: want
-      }).then(() => {
+          "title": title,
+          "data": content
+        } as Record<string, Object>
+      };
+
+      context.startAbility(want).then(() => {
         console.info('Share started successfully');
       }).catch((error: BusinessError) => {
         console.error('Failed to start share: %{public}s', JSON.stringify(error));
@@ -53,7 +52,7 @@ export class ShareManager {
   }
 
   shareUserId(userId: string, displayName: string): void {
-    const shareText = displayName 
+    const shareText = displayName
       ? `${displayName} (${userId})`
       : userId;
     this.shareText(

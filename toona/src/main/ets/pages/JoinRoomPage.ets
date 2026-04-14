@@ -35,7 +35,7 @@ struct JoinRoomPage {
   private authManager: AuthManager = AuthManager.getInstance();
   private httpClient: MatrixHttpClient | null = null;
   private scanManager: ScanManager = ScanManager.getInstance();
-  pathStack: NavPathStack | null = null;
+  private pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
     this.httpClient = this.authManager.getHttpClient();
@@ -79,7 +79,7 @@ struct JoinRoomPage {
       "roomId": roomId,
       "roomName": userId
     };
-    this.pathStack?.pushPathByName('RoomDetailPage', param);
+    this.pathStack.pushPathByName('RoomDetailPage', param);
   }
 
   async onScanQRCode() {

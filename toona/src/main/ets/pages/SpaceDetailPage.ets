@@ -11,11 +11,10 @@ export function SpaceDetailPageBuilder(name: string, param: Object) {
   })
 }
 
-@Entry
 @Component
 struct SpaceRoomItem {
   @Prop room: Room = new Room('');
-  @Prop pathStack: NavPathStack | null = null;
+  @Prop pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
   }
@@ -63,7 +62,7 @@ struct SpaceRoomItem {
         "roomId": this.room.id,
         "roomName": this.room.getDisplayName()
       };
-      this.pathStack?.pushPathByName('RoomDetailPage', param);
+      this.pathStack.pushPathByName('RoomDetailPage', param);
     });
   }
 }
@@ -75,7 +74,7 @@ struct SpaceDetailPage {
   @State childRooms: Room[] = [];
   @State isLoading: boolean = true;
   private roomManager: RoomManager = RoomManager.getInstance();
-  private pathStack: NavPathStack | null = null;
+  pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
     this.loadSpaceDetails();

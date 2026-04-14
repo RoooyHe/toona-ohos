@@ -38,7 +38,7 @@ struct JoinSpacePage {
   private roomManager: RoomManager = RoomManager.getInstance();
   private authManager: AuthManager = AuthManager.getInstance();
   private httpClient: MatrixHttpClient | null = null;
-  private pathStack: NavPathStack | null = null;
+  private pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
     this.httpClient = this.authManager.getHttpClient();

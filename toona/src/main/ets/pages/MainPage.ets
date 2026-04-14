@@ -149,15 +149,9 @@ struct MainPage {
   }
 
   navigateToSearch() {
-    this.pathStack?.pushPathByName('SearchPage', undefined);
-  }
-
-  navigateToJoinRoom() {
-    this.pathStack?.pushPathByName('JoinRoomPage', undefined);
-  }
-
-  navigateToSetting() {
-    this.pathStack?.pushPathByName('SettingsPage', undefined);
+      this.pathStack.pushPathByName('SearchPage', undefined);
+      this.pathStack.pushPathByName('JoinRoomPage', undefined);
+      this.pathStack.pushPathByName('SettingsPage', undefined);
   }
 
   setFilter(filter: FilterType) {

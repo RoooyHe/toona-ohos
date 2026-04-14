@@ -19,11 +19,10 @@ export function RoomListPageBuilder(name: string, param: Object) {
   RoomListPage({ filterType: param as FilterType })
 }
 
-@Entry
 @Component
 struct RoomListPage {
   @State filterType: FilterType = FilterType.ALL;
-  @Prop pathStack: NavPathStack | null = null;
+  pathStack: NavPathStack = new NavPathStack();
   @State rooms: Room[] = [];
   @State isLoading: boolean = true;
   @State isRefreshing: boolean = false;
@@ -276,13 +275,13 @@ struct RoomListPage {
         "spaceId": room.id,
         "spaceName": room.getDisplayName()
       };
-      this.pathStack?.pushPathByName('SpaceDetailPage', param);
+      this.pathStack.pushPathByName('SpaceDetailPage', param);
     } else {
       const param: Record<string, string> = {
         "roomId": room.id,
         "roomName": room.getDisplayName()
       };
-      this.pathStack?.pushPathByName('RoomDetailPage', param);
+      this.pathStack.pushPathByName('RoomDetailPage', param);
     }
   }
 

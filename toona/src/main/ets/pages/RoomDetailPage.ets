@@ -11,7 +11,6 @@ import { ShareManager } from '../services/ShareManager';
 import { DeviceSecurityManager } from '../services/DeviceSecurityManager';
 import { MessageStatus, PresenceState } from '../models/MatrixTypes';
 import { fileIo } from '@kit.CoreFileKit';
-import { mediaLibrary } from '@kit.MediaLibraryKit';
 import { getThemeColors } from '../utils/ThemeManager';
 
 interface MemberPresence {
@@ -214,13 +213,9 @@ struct RoomDetailPage {
 
   async pickAndUploadImage() {
     try {
-      const photoPicker = new mediaLibrary.PhotoViewPicker();
-      const result = await photoPicker.select({
-        MIMEType: mediaLibrary.PhotoViewMIMETypes.IMAGE_TYPE,
-        maxSelectNumber: 1
-      });
-      if (result && result.photos && result.photos.length > 0) {
-        await this.uploadImages(result.photos);
+      const uri = await this.mediaLibraryManager.selectImage();
+      if (uri) {
+        await this.uploadImages([uri]);
       }
     } catch (error) {
       console.error('Failed to pick image: %{public}s', JSON.stringify(error));
@@ -230,13 +225,9 @@ struct RoomDetailPage {
 
   async pickAndUploadMultipleImages() {
     try {
-      const photoPicker = new mediaLibrary.PhotoViewPicker();
-      const result = await photoPicker.select({
-        MIMEType: mediaLibrary.PhotoViewMIMETypes.IMAGE_TYPE,
-        maxSelectNumber: 9
-      });
-      if (result && result.photos && result.photos.length > 0) {
-        await this.uploadImages(result.photos);
+      const uris = await this.mediaLibraryManager.selectMultipleImages(9);
+      if (uris.length > 0) {
+        await this.uploadImages(uris);
       }
     } catch (error) {
       console.error('Failed to pick images: %{public}s', JSON.stringify(error));
@@ -882,9 +873,6 @@ struct RoomDetailPage {
                 .margin({ left: 5 })
                 .onClick(() => {
                   this.pickAndUploadImage();
-                })
-                .onLongPress(() => {
-                  this.pickAndUploadMultipleImages();
                 });
 
               Button('📎')
@@ -1376,5 +1364,9 @@ struct RoomDetailPage {
       default:
         return '#9E9E9E';
     }
+  }
+
+  getMessageSenderName(message: Message): string {
+    return message.sender.split(':')[0].replace('@', '');
   }
 }

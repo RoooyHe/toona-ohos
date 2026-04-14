@@ -1,5 +1,21 @@
 import { scanCore, scanBarcode } from '@kit.ScanKit';
-import { promptAction } from '@ohos.promptAction';
+import promptAction from '@ohos.promptAction';
+
+interface GeneratedTypeLiteralInterface_1 {
+  type: string;
+  roomId?: string;
+  userId?: string;
+  server?: string;
+  via?: string[];
+}
+
+interface GeneratedTypeLiteralInterface_2 {
+  type: string;
+  roomId?: string;
+  userId?: string;
+  server?: string;
+  via?: string[];
+}
 
 export class ScanManager {
   private static instance: ScanManager;
@@ -20,7 +36,7 @@ export class ScanManager {
       };
 
       return new Promise<string | null>((resolve) => {
-        scanBarcode.scan(options, (err: error, result: scanBarcode.ScanResult) => {
+        scanBarcode.startScan(options, (err: Error, result: scanBarcode.ScanResult) => {
           if (err) {
             console.error('Scan failed: %{public}s', JSON.stringify(err));
             promptAction.showToast({ message: '扫码失败' });
@@ -44,7 +60,7 @@ export class ScanManager {
     }
   }
 
-  parseMatrixToLink(url: string): { type: string; roomId?: string; userId?: string; server?: string; via?: string[] } | null {
+  parseMatrixToLink(url: string): GeneratedTypeLiteralInterface_1 | null {
     const matrixToRegex = /^https?:\/\/matrix\.to\/((#|!)([^\?]+))(\?.*)?$/;
     const match = url.match(matrixToRegex);
 
@@ -56,7 +72,7 @@ export class ScanManager {
     const identifier = match[3];
     const queryString = match[4] || '';
 
-    const result: { type: string; roomId?: string; userId?: string; server?: string; via?: string[] } = {
+    const result: GeneratedTypeLiteralInterface_2 = {
       type: type === '#' ? 'room' : 'room-or-space'
     };
 

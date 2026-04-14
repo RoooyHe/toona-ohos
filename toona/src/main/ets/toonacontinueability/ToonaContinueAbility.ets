@@ -1,21 +1,31 @@
 import { UIAbility, Want } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import { collaborationInfo } from '@kit.CollaborationKit';
 
 const DOMAIN = 0x0001;
 
+enum OnContinueResult {
+  AGREE = 0,
+  REJECT = 1,
+  MISMATCH = 2
+}
+
+interface SessionData {
+  timestamp: number;
+  businessId: string;
+}
+
 export default class ToonaContinueAbility extends UIAbility {
-  onContinue(want: Want): void | collaborationInfo.OnContinueResult {
+  onContinue(wantParam: Record<string, Object>): OnContinueResult | Promise<OnContinueResult> {
     hilog.info(DOMAIN, 'ToonaContinue', 'onContinue called');
     
-    const deviceType = want.parameters?.['deviceType'] as string;
-    const deviceName = want.parameters?.['deviceName'] as string;
-    const deviceId = want.parameters?.['deviceId'] as string;
+    const deviceType = wantParam?.['deviceType'] as string;
+    const deviceName = wantParam?.['deviceName'] as string;
+    const deviceId = wantParam?.['deviceId'] as string;
     
     hilog.info(DOMAIN, 'ToonaContinue', 'Continuing from device: %{public}s, type: %{public}s', 
       deviceName || 'unknown', deviceType || 'unknown');
     
-    return collaborationInfo.OnContinueResult.AGREE;
+    return OnContinueResult.AGREE;
   }
 
   onStartContinuation(): boolean {
@@ -28,9 +38,9 @@ export default class ToonaContinueAbility extends UIAbility {
     
     want.parameters = want.parameters || {};
     want.parameters['sessionData'] = {
-      timestamp: Date.now(),
-      businessId: 'com.roy.toona.ohos'
-    };
+      "timestamp": Date.now(),
+      "businessId": 'com.roy.toona.ohos'
+    } as Record<string, Object>;
     
     return true;
   }

@@ -2,134 +2,101 @@
 
 ## Project Overview
 
-Toona is a Matrix client application for HarmonyOS (鸿蒙OS), modeled after ElementX/Element Android client architecture. It uses **ArkTS** (strict mode) with MVVM + Repository pattern architecture.
-
-## Build Commands
-
-### Using DevEco Studio (Recommended)
-- **Build**: Run `hvigor build` or use DevEco Studio's Build menu
-- **Clean**: Run `hvigor clean`
-- **Build Module**: `hvigor build -m toona`
-- **Debug Mode**: `hvigor build --mode debug`
-- **Release Build**: `hvigor assembleRelease`
-
-### Manual Build
-```bash
-cd C:\Users\Roy\DevEcoStudioProjects\toona_ohos
-hvigor assembleDefault  # Full debug build
-hvigor assembleRelease # Release build
-```
-
-### Testing Commands
-```bash
-# Run all tests (via DevEco Studio)
-hvigor test          # If supported
-
-# Test files use @ohos/hypium framework
-# Location: toona/src/test/**/*.test.ets
-```
-
-### Lint
-```bash
-# Lint is configured via code-linter.json5
-# Uses @typescript-eslint/recommended rules
-```
-
-## Architecture
+Toona is a Matrix client for HarmonyOS (鸿蒙OS), modeled after ElementX/Element Android. Uses **ArkTS strict mode** with MVVM + Repository pattern.
 
 ```
 toona/src/main/ets/
-├── network/           # HTTP client for Matrix API (MatrixHttpClient)
-├── models/            # Data models (DataModels.ets) and Matrix types (MatrixTypes.ets)
-├── database/          # SQLite local storage (LocalDatabase.ets)
-├── storage/          # SecureStorage for encrypted session tokens
-├── services/          # Business logic (Auth, Sync, Room, Message, Presence, etc.)
-├── pages/             # UI pages (Login, Main, RoomDetail, RoomList, etc.)
-├── viewmodels/        # View models for MVVM
-├── utils/            # Utilities (ThemeManager, etc.)
-└── toonaability/     # Application entry point
+├── network/           # MatrixHttpClient
+├── models/            # DataModels.ets, MatrixTypes.ets
+├── database/          # SQLite (LocalDatabase.ets)
+├── storage/           # SecureStorage for session tokens
+├── services/          # Auth, Sync, Room, Message, Presence
+├── pages/             # UI pages
+├── viewmodels/        # View models
+├── utils/             # ThemeManager, etc.
+└── toonaability/      # Entry point
 ```
 
-## ArkTS Strict Mode Rules
+## Build Commands
 
-### NEVER use:
+| Command | Description |
+|---------|-------------|
+| `hvigor build` | Full debug build |
+| `hvigor clean` | Clean artifacts |
+| `hvigor build -m toona` | Build module |
+| `hvigor assembleRelease` | Release build |
+| `hvigor build --mode debug` | Debug mode |
+
+### Testing
+
+Tests use `@ohos/hypium` framework. Test location: `toona/src/test/**/*.test.ets`
+
+```bash
+# Run all tests via DevEco Studio: hvigor test
+# Or run in DevEco Studio: Run > Run All Tests
+
+# Single test: Use DevEco Studio's test runner
+# Right-click a test function > Run 'it name'
+```
+
+## Code Style
+
+### NEVER Use
 - `any` or `unknown` types
-- Structural typing workarounds
-- Destructuring declarations (`const [a, b] = ...`)
-- Indexed access for string fields (use helper functions instead)
-- `throw` without Error objects
-- `Record<string, object>` - use `Record<string, string | object>`
+- Destructuring (`const [a, b] = ...`)
 - Spread operator `...`
 - `as unknown as` casts
 - `in` operator
 - `Object.assign()`
+- `throw` without Error objects
+- `Record<string, object>` (use `Record<string, string | object>`)
+- `fetch()` (use `@ohos.net.http`)
 - `@ohos.pullToRefresh` (use alternative)
-- `placeholderFontColor` - use `placeholderColor`
+- `placeholderFontColor` (use `placeholderColor`)
 
-### ALWAYS use:
-- Explicit type annotations for variables
+### ALWAYS Use
+- Explicit type annotations
 - Intermediate typed variables for object literals
 - Explicit generic parameters for HTTP methods
-- Error handling with try-catch that throws `Error` objects
-- `fetch()` is NOT supported - use `@ohos.net.http`
-- Enum definitions must be top-level (NOT inside classes)
+- Try-catch that throws `Error` objects
+- Top-level enum definitions (NOT inside classes)
+- `@Component` decorator on every UI struct
+- Property initialization or defaults
 
-## Naming Conventions
+### Naming Conventions
 
 | Type | Convention | Example |
 |------|------------|---------|
-| Classes | PascalCase | `RoomManager`, `Session` |
-| Interfaces | PascalCase | `CreateRoomOptions`, `SpaceChild` |
-| Enums | PascalCase | `FilterType`, `MessageStatus` |
-| Enum Values | PascalCase | `FilterType.ALL`, `MessageStatus.SENT` |
-| Private vars | camelCase | `httpClient`, `authManager` |
-| Constants | camelCase | `SESSION_KEY`, `PREFS_NAME` |
+| Classes/Interfaces/Enums | PascalCase | `RoomManager`, `FilterType` |
+| Enum Values | PascalCase | `FilterType.ALL` |
+| Private vars/constants | camelCase | `httpClient`, `SESSION_KEY` |
 | Types | PascalCase | `Record<string, string>` |
 
-## Import Style
+### Import Style
 
 ```typescript
-// Group imports by category (external -> internal -> local), use relative paths
+// Group: external -> internal -> local, use relative paths
 import router from '@ohos.router';
-import promptAction from '@ohos.promptAction';
 import { AuthManager } from '../services/AuthManager';
-import { Room, Message, Session } from '../models/DataModels';
-import { ThemeManager, getThemeColors } from '../utils/ThemeManager';
+import { Room, Message } from '../models/DataModels';
 ```
 
-## Error Handling
+### Error Handling
 
 ```typescript
-// CORRECT - throws Error object
+// CORRECT
 try {
-  await this.httpClient.post<LoginResponse>('/login', loginBody);
+  await this.httpClient.post<LoginResponse>('/login', body);
 } catch (error) {
-  console.error('Login failed:', error);
   const errMsg: string = error instanceof Error ? error.message : String(error);
   throw new Error(`Login failed: ${errMsg}`);
 }
 
-// WRONG - throwing non-Error
-throw 'something went wrong';  // Never do this
+// WRONG - never throw strings
+throw 'something went wrong';
 ```
 
-## Type Definitions
-
-```typescript
-// Use explicit types for Record
-const content: Record<string, string | object> = {};
-
-// For interface arrays
-const initialState: InitialStateEvent[] = [...];
-
-// For callback parameters - must have default values
-onToggle: (roomId: string) => void = () => {};
-onNavigate: (room: Room) => void = () => {};
-```
-
-## Component Decorators
-
-Every UI struct MUST have `@Component` decorator:
+### Component Structure
 
 ```typescript
 @Entry
@@ -137,135 +104,44 @@ Every UI struct MUST have `@Component` decorator:
 struct MyPage {
   @State data: string = '';
   @StorageLink('colorMode') colorMode: number = 0;
+  onCallback: (id: string) => void = () => {};  // callbacks need defaults
 
-  aboutToAppear() {
-    // Use this instead of constructor
-  }
+  aboutToAppear() { }  // Use instead of constructor
 
   build() {
-    Column() { ... }
+    Column() { }
   }
 }
 ```
 
-## Property Initialization
+## Lint
 
-Properties must be initialized or have default values:
+ESLint config: `code-linter.json5` (uses `@typescript-eslint/recommended` + `@performance/recommended`)
 
-```typescript
-// With default
-@State rooms: Room[] = [];
-@Prop filterType: FilterType = FilterType.ALL;
+Security rules block unsafe crypto usage (`no-unsafe-aes`, `no-unsafe-rsa-*`, etc.)
 
-// With initialization function (required for callbacks)
-onToggle: (roomId: string) => void = () => {};
-```
+## Matrix Implementation
 
-## ThemeManager Integration
-
-Dark mode is controlled via `ThemeManager` (src/main/ets/utils/ThemeManager.ets):
-
-```typescript
-import { ThemeManager, getThemeColors } from '../utils/ThemeManager';
-
-// SettingsPage has toggleDarkMode() method
-// Other pages use getThemeColors() for theme-aware colors
-private themeManager: ThemeManager = ThemeManager.getInstance();
-
-// Get current theme colors
-const colors = getThemeColors();
-```
-
-## Matrix Client Implementation
-
-### API Version
-- Use `/_matrix/client/v3/` prefix for most endpoints
-- Some Space APIs use `/_matrix/client/v1/`
-
-### Session Management
-- Use `SecureStorage` for encrypted token storage
-- Session restore happens at **Ability level** (ToonaAbility), NOT in Page's aboutToAppear
-- Token validation via `/account/whoami` endpoint
-
-### Room Tags
-- Tags come from sync response's `roomState.account_data.events` with type `m.tag`
-- NOT from separate API endpoint
-
-## Key Patterns
-
-### Singleton Pattern
-```typescript
-export class RoomManager {
-  private static instance: RoomManager;
-
-  static getInstance(): RoomManager {
-    if (!RoomManager.instance) {
-      RoomManager.instance = new RoomManager();
-    }
-    return RoomManager.instance;
-  }
-}
-```
-
-### Builder for Complex Objects
-```typescript
-const createContent: Record<string, string | object> = {
-  'creator': userId,
-  'room_version': '9',
-  'type': 'm.space'
-};
-```
-
-## Matrix Types Reference
-
-Key interfaces in `models/MatrixTypes.ets`:
-- `Event` - Matrix event structure
-- `RoomState` - Sync response room state
-- `LoginResponse`, `RegisterResponse` - Auth responses
-- `MessageEventContent` - Message content structure
-- `PresenceState` - online/offline/unavailable
-
-Key classes in `models/DataModels.ets`:
-- `Session` - User session with access token
-- `Room` - Room with display name handling, tags, avatarUrl
-- `Message` - Message with body extraction, status
-- `User` - User profile
+- API prefix: `/_matrix/client/v3/` (some Space APIs use `v1/`)
+- Session: `SecureStorage` for tokens, restore at Ability level
+- Room tags: from sync response `roomState.account_data.events` (type `m.tag`)
+- Key types in `models/MatrixTypes.ets`: `Event`, `RoomState`, `LoginResponse`, `MessageEventContent`
+- Key classes in `models/DataModels.ets`: `Session`, `Room`, `Message`, `User`
 
 ## Common Tasks
 
-### Adding a new API endpoint
-1. Add method to `MatrixHttpClient.ets`
-2. Add response type to `MatrixTypes.ets`
-3. Add wrapper in appropriate Manager service
+### Add API endpoint
+1. Method to `MatrixHttpClient.ets`
+2. Response type to `MatrixTypes.ets`
+3. Wrapper in Manager service
 
-### Adding a new page
-1. Create `.ets` file in `pages/`
+### Add page
+1. Create `.ets` in `pages/`
 2. Add route to `main_pages.json` (src/main/resources/base/profile/)
 3. Register in ToonaAbility if needed
 
-### Adding Space API
-Matrix spaces use `m.space.child` state events. See `RoomManager.addChildToSpace()` and `removeChildFromSpace()`.
-
 ## Configuration
 
-- **main_pages.json**: Route configuration (src/main/resources/base/profile/)
-- **module.json5**: App module settings including INTERNET permission
-- **code-linter.json5**: ESLint rules for ArkTS
-- **hvigorfile.ts**: Build configuration
-
-## File Structure
-
-```
-toona/src/main/
-├── ets/
-│   ├── main.ets              # App entry
-│   ├── pages/               # All page components
-│   ├── services/            # Business logic managers
-│   ├── models/              # Data models
-│   ├── network/             # HTTP client
-│   ├── database/            # SQLite
-│   ├── storage/             # SecureStorage
-│   └── utils/               # Utilities (ThemeManager, etc.)
-└── resources/
-    └── base/profile/        # main_pages.json
-```
+- `main_pages.json`: Route config
+- `module.json5`: Permissions (INTERNET), module settings
+- `hvigorfile.ts`: Build plugins

@@ -15,7 +15,7 @@ import { Device } from '../models/MatrixTypes';
 import { PresenceState } from '../models/MatrixTypes';
 import { fileIo } from '@kit.CoreFileKit';
 import { picker } from '@kit.CoreFileKit';
-import { ThemeManager, getThemeColors } from '../utils/ThemeManager';
+import { ThemeManager, getThemeColors, ColorModeType } from '../utils/ThemeManager';
 
 @Builder
 export function SettingsPageBuilder(name: string, param: Object) {
@@ -41,6 +41,7 @@ struct SettingsPage {
   @State showRoomTagsMenu: boolean = false;
   @State selectedRoomForTags: Room | null = null;
   @State showAboutPage: boolean = false;
+  @State colorModeType: ColorModeType = 'light';
   private authManager: AuthManager = AuthManager.getInstance();
   private userManager: UserManager = UserManager.getInstance();
   private presenceManager: PresenceManager = PresenceManager.getInstance();
@@ -60,12 +61,19 @@ struct SettingsPage {
     if (session) {
       this.userId = session.userId;
     }
+    this.colorModeType = this.themeManager.getColorModeType();
     this.loadUserData();
   }
 
-  toggleDarkMode() {
-    this.themeManager.toggleDarkMode();
-    promptAction.showToast({ message: this.themeManager.getIsDarkMode() ? '深色模式已开启' : '浅色模式已开启' });
+  setColorMode(mode: ColorModeType) {
+    this.colorModeType = mode;
+    this.themeManager.setColorMode(mode);
+    const messages: Record<ColorModeType, string> = {
+      'light': '日间模式',
+      'dark': '夜间模式',
+      'system': '跟随系统'
+    };
+    promptAction.showToast({ message: `已切换至${messages[mode]}` });
   }
 
   async loadUserData() {
@@ -362,50 +370,45 @@ struct SettingsPage {
       });
 
       Column() {
-        Row() {
-          Column() {
-            Text('深色模式')
-              .fontSize(14)
-              .fontColor(getThemeColors().text);
-            Text(this.themeManager.getIsDarkMode() ? '已开启' : '已关闭')
-              .fontSize(12)
-              .fontColor(getThemeColors().textSecondary)
-              .margin({ top: 2 });
-          }
-          .alignItems(HorizontalAlign.Start)
-          .layoutWeight(1);
-
-          if (this.themeManager.getIsDarkMode()) {
-            Image($r('app.media.dark'))
-              .width(24)
-              .height(24);
-          } else {
-            Image($r('app.media.light'))
-              .width(24)
-              .height(24);
-          }
-
-          Blank().width(10);
-
-          Toggle({ type: ToggleType.Switch, isOn: this.themeManager.getIsDarkMode() })
-            .selectedColor('#10a37f')
-            .onChange((isOn: boolean) => {
-              this.toggleDarkMode();
-            });
-        }
-        .width('100%')
-        .padding({
-          left: 20,
-          right: 20,
-          top: 12,
-          bottom: 12
-        });
+        this.ColorModeOptionBuilder('日间', 'light');
+        Divider().color(getThemeColors().divider);
+        this.ColorModeOptionBuilder('夜间', 'dark');
+        Divider().color(getThemeColors().divider);
+        this.ColorModeOptionBuilder('跟随系统', 'system');
       }
       .width('100%')
       .backgroundColor(getThemeColors().surface);
     }
     .width('100%')
     .margin({ top: 10 });
+  }
+
+  @Builder
+  ColorModeOptionBuilder(label: string, mode: ColorModeType) {
+    Row() {
+      Text(label)
+        .fontSize(14)
+        .fontColor(getThemeColors().text);
+
+      Blank();
+
+      if (this.colorModeType === mode) {
+        Image($r('app.media.check'))
+          .width(20)
+          .height(20)
+          .fillColor(getThemeColors().primary);
+      }
+    }
+    .width('100%')
+    .padding({
+      left: 20,
+      right: 20,
+      top: 14,
+      bottom: 14
+    })
+    .onClick(() => {
+      this.setColorMode(mode);
+    });
   }
 
   @Builder

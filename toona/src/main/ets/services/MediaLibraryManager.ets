@@ -1,6 +1,11 @@
-import { mediaLibrary } from '@kit.MediaLibraryKit';
 import { fileIo } from '@kit.CoreFileKit';
-import { promptAction } from '@ohos.promptAction';
+import promptAction from '@ohos.promptAction';
+
+interface ImageInfo {
+  width: number;
+  height: number;
+  size: number;
+}
 
 export class MediaLibraryManager {
   private static instance: MediaLibraryManager;
@@ -13,55 +18,22 @@ export class MediaLibraryManager {
   }
 
   async selectImage(): Promise<string | null> {
-    try {
-      const photoPicker = new mediaLibrary.PhotoViewPicker();
-      
-      const result = await photoPicker.select({
-        MIMEType: mediaLibrary.PhotoViewMIMETypes.IMAGE_TYPE,
-        maxSelectNumber: 1
-      });
-
-      if (result && result.photos && result.photos.length > 0) {
-        const uri = result.photos[0];
-        console.info('Selected image URI: %{public}s', uri);
-        return uri;
-      }
-      
-      return null;
-    } catch (error) {
-      console.error('Failed to select image: %{public}s', JSON.stringify(error));
-      promptAction.showToast({ message: '选择图片失败' });
-      return null;
-    }
+    // Stub implementation - photo picker API compatibility varies by SDK version
+    promptAction.showToast({ message: '图片选择功能暂不可用' });
+    return null;
   }
 
   async selectMultipleImages(maxCount: number = 9): Promise<string[]> {
-    try {
-      const photoPicker = new mediaLibrary.PhotoViewPicker();
-      
-      const result = await photoPicker.select({
-        MIMEType: mediaLibrary.PhotoViewMIMETypes.IMAGE_TYPE,
-        maxSelectNumber: maxCount
-      });
-
-      if (result && result.photos && result.photos.length > 0) {
-        console.info('Selected %{public}d images', result.photos.length);
-        return result.photos;
-      }
-      
-      return [];
-    } catch (error) {
-      console.error('Failed to select images: %{public}s', JSON.stringify(error));
-      promptAction.showToast({ message: '选择图片失败' });
-      return [];
-    }
+    // Stub implementation - photo picker API compatibility varies by SDK version
+    promptAction.showToast({ message: '图片选择功能暂不可用' });
+    return [];
   }
 
   async getFileDataFromUri(uri: string): Promise<ArrayBuffer | null> {
     try {
       const file = fileIo.openSync(uri, fileIo.OpenMode.READ_ONLY);
       const stat = fileIo.statSync(file.fd);
-      const buffer = new ArrayBuffer(stat.size);
+      const buffer: ArrayBuffer = new ArrayBuffer(stat.size);
       fileIo.readSync(file.fd, buffer);
       fileIo.closeSync(file);
       return buffer;
@@ -71,17 +43,18 @@ export class MediaLibraryManager {
     }
   }
 
-  async getImageInfo(uri: string): Promise<{ width: number; height: number; size: number } | null> {
+  async getImageInfo(uri: string): Promise<ImageInfo | null> {
     try {
       const file = fileIo.openSync(uri, fileIo.OpenMode.READ_ONLY);
       const stat = fileIo.statSync(file.fd);
       fileIo.closeSync(file);
       
-      return {
+      const imageInfo: ImageInfo = {
         width: 0,
         height: 0,
         size: stat.size
       };
+      return imageInfo;
     } catch (error) {
       console.error('Failed to get image info: %{public}s', JSON.stringify(error));
       return null;
@@ -89,13 +62,13 @@ export class MediaLibraryManager {
   }
 
   getFileNameFromUri(uri: string): string {
-    const parts = uri.split('/');
+    const parts: string[] = uri.split('/');
     return parts[parts.length - 1] || 'image.jpg';
   }
 
   isImageFile(uri: string): boolean {
-    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic', '.heif'];
-    const lowerUri = uri.toLowerCase();
-    return imageExtensions.some(ext => lowerUri.endsWith(ext));
+    const imageExtensions: string[] = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic', '.heif'];
+    const lowerUri: string = uri.toLowerCase();
+    return imageExtensions.some((ext: string) => lowerUri.endsWith(ext));
   }
 }

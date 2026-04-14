@@ -14,7 +14,7 @@ struct SearchPage {
   @State searchResults: Room[] = [];
   @State isSearching: boolean = false;
   private roomManager: RoomManager = RoomManager.getInstance();
-  private pathStack: NavPathStack | null = null;
+  private pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
   }
@@ -46,7 +46,7 @@ struct SearchPage {
       "roomId": room.id,
       "roomName": room.getDisplayName()
     };
-    this.pathStack?.pushPathByName('RoomDetailPage', param);
+    this.pathStack.pushPathByName('RoomDetailPage', param);
   }
 
   build() {

@@ -1,5 +1,7 @@
 import ConfigurationConstant from '@ohos.app.ability.ConfigurationConstant';
 
+export type ColorModeType = 'light' | 'dark' | 'system';
+
 export interface ThemeColors {
   bg: string;
   text: string;
@@ -14,11 +16,34 @@ export interface ThemeColors {
 
 export class ThemeManager {
   private static instance: ThemeManager;
-  private isDarkMode: boolean = false;
+  private colorModeType: ColorModeType = 'light';
+  private systemColorMode: number = ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT;
 
   private constructor() {
-    const colorMode = AppStorage.get<number>('colorMode');
-    this.isDarkMode = colorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
+    this.initializeColorMode();
+  }
+
+  private initializeColorMode(): void {
+    const savedMode = AppStorage.get<ColorModeType>('colorModeType');
+    if (savedMode) {
+      this.colorModeType = savedMode;
+    } else {
+      this.colorModeType = 'light';
+      AppStorage.setOrCreate('colorModeType', 'light');
+    }
+    
+    // Listen for system color mode changes
+    const systemColorMode = AppStorage.get<number>('systemColorMode');
+    if (systemColorMode !== undefined) {
+      this.systemColorMode = systemColorMode;
+    }
+  }
+
+  private updateFromSystemColorMode(): void {
+    const systemColorMode = AppStorage.get<number>('systemColorMode');
+    if (systemColorMode !== undefined) {
+      this.systemColorMode = systemColorMode;
+    }
   }
 
   static getInstance(): ThemeManager {
@@ -28,20 +53,34 @@ export class ThemeManager {
     return ThemeManager.instance;
   }
 
-  setDarkMode(isDark: boolean): void {
-    this.isDarkMode = isDark;
-    const newMode =
-      isDark ? ConfigurationConstant.ColorMode.COLOR_MODE_DARK : ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT;
-    AppStorage.setOrCreate('colorMode', newMode);
+  setColorMode(mode: ColorModeType): void {
+    this.colorModeType = mode;
+    AppStorage.setOrCreate('colorModeType', mode);
+    
+    if (mode === 'system') {
+      this.updateFromSystemColorMode();
+    }
   }
 
-  getIsDarkMode(): boolean {
-    const colorMode = AppStorage.get<number>('colorMode');
-    return colorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
+  getColorModeType(): ColorModeType {
+    return this.colorModeType;
+  }
+
+  isDarkMode(): boolean {
+    this.updateFromSystemColorMode();
+    if (this.colorModeType === 'dark') {
+      return true;
+    } else if (this.colorModeType === 'light') {
+      return false;
+    } else {
+      // Follow system
+      return this.systemColorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
+    }
   }
 
   getColors(): ThemeColors {
-    if (this.isDarkMode) {
+    const dark = this.isDarkMode();
+    if (dark) {
       return {
         bg: '#1a1a1a',
         text: '#ffffff',
@@ -66,10 +105,6 @@ export class ThemeManager {
       error: '#e53935'
     };
   }
-
-  toggleDarkMode(): void {
-    this.setDarkMode(!this.isDarkMode);
-  }
 }
 
 export function getThemeColors(): ThemeColors {
@@ -77,9 +112,13 @@ export function getThemeColors(): ThemeColors {
 }
 
 export function getIsDarkMode(): boolean {
-  return ThemeManager.getInstance().getIsDarkMode();
+  return ThemeManager.getInstance().isDarkMode();
 }
 
-export function toggleDarkMode(): void {
-  ThemeManager.getInstance().toggleDarkMode();
+export function getColorModeType(): ColorModeType {
+  return ThemeManager.getInstance().getColorModeType();
+}
+
+export function setColorMode(mode: ColorModeType): void {
+  ThemeManager.getInstance().setColorMode(mode);
 }
