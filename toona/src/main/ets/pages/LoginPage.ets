@@ -335,7 +335,7 @@ struct LoginPage {
                 this.handleSSOLogin();
               });
 
-            Button('🔐 生物识别登录')
+            Button('生物识别登录')
               .width('100%')
               .height(50)
               .fontSize(18)

@@ -39,7 +39,7 @@ struct MainPage {
   private authManager: AuthManager = AuthManager.getInstance();
   private syncManager: SyncManager = SyncManager.getInstance();
   private roomManager: RoomManager = RoomManager.getInstance();
-  pathStack: NavPathStack = new NavPathStack();
+  @State pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
     this.syncStatus = 'syncing';
@@ -150,7 +150,13 @@ struct MainPage {
 
   navigateToSearch() {
       this.pathStack.pushPathByName('SearchPage', undefined);
+  }
+
+  navigateToJoinRoom() {
       this.pathStack.pushPathByName('JoinRoomPage', undefined);
+  }
+
+  navigateToSetting() {
       this.pathStack.pushPathByName('SettingsPage', undefined);
   }
 

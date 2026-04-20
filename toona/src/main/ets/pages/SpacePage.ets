@@ -114,7 +114,7 @@ struct SpaceListItem {
 
 @Component
 export struct SpacePage {
-  pathStack: NavPathStack = new NavPathStack();
+  @Prop pathStack: NavPathStack;
   @State spaceItems: SpaceItem[] = [];
   @State isLoading: boolean = true;
   private roomManager: RoomManager = RoomManager.getInstance();

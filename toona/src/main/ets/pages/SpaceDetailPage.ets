@@ -74,7 +74,7 @@ struct SpaceDetailPage {
   @State childRooms: Room[] = [];
   @State isLoading: boolean = true;
   private roomManager: RoomManager = RoomManager.getInstance();
-  pathStack: NavPathStack = new NavPathStack();
+  @State pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
     this.loadSpaceDetails();
