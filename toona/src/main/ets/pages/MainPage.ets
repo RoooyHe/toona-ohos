@@ -3,6 +3,7 @@ import { AuthManager } from '../services/AuthManager';
 import { UserManager } from '../services/UserManager';
 import { SyncManager } from '../services/SyncManager';
 import { RoomManager } from '../services/RoomManager';
+import { Room, Message } from '../models/DataModels';
 import { RoomListPage } from './RoomListPage';
 import { getThemeColors } from '../utils/ThemeManager';
 import { SpacePage } from './SpacePage';
@@ -157,7 +158,9 @@ struct MainPage {
   }
 
   navigateToSetting() {
-      this.pathStack.pushPathByName('SettingsPage', undefined);
+      if (this.pathStack) {
+        this.pathStack.pushPathByName('SettingsPage', undefined);
+      }
   }
 
   setFilter(filter: FilterType) {
@@ -333,7 +336,16 @@ struct MainPage {
   @Builder
   UserMenuBuilder() {
     if (this.showUserMenu) {
-      Column() {
+      Stack() {
+        Column() {
+        }
+        .width('100%')
+        .height('100%')
+        .backgroundColor('rgba(0, 0, 0, 0.3)')
+        .onClick(() => {
+          this.showUserMenu = false;
+        });
+
         Column() {
           Row() {
             if (this.userAvatarUrl) {
@@ -383,8 +395,8 @@ struct MainPage {
             .padding({ left: 15 })
             .textAlign(TextAlign.Start)
             .onClick(() => {
-              this.showUserMenu = false;
               this.navigateToSetting();
+              this.showUserMenu = false;
             });
 
           Divider().color(getThemeColors().divider);
@@ -409,17 +421,12 @@ struct MainPage {
           color: 'rgba(0, 0, 0, 0.15)',
           offsetX: 0,
           offsetY: 2
-        });
+        })
+        .alignItems(HorizontalAlign.End)
+        .padding({ right: 20, top: 60 });
       }
       .width('100%')
-      .height('100%')
-      .justifyContent(FlexAlign.Start)
-      .alignItems(HorizontalAlign.End)
-      .padding({ right: 20, top: 60 })
-      .backgroundColor('rgba(0, 0, 0, 0.3)')
-      .onClick(() => {
-        this.showUserMenu = false;
-      });
+      .height('100%');
     }
   }
 
@@ -500,7 +507,24 @@ struct MainPage {
       this.FilterBarBuilder();
 
       if (this.currentIndex === 0) {
-        RoomListPage({ filterType: this.currentFilter, pathStack: this.pathStack });
+        RoomListPage({
+          filterType: this.currentFilter,
+          onNavigateToRoom: (room: Room) => {
+            if (room.isSpace === true) {
+              const param: Record<string, string> = {
+                "spaceId": room.id,
+                "spaceName": room.getDisplayName()
+              };
+              this.pathStack.pushPathByName('SpaceDetailPage', param);
+            } else {
+              const param: Record<string, string> = {
+                "roomId": room.id,
+                "roomName": room.getDisplayName()
+              };
+              this.pathStack.pushPathByName('RoomDetailPage', param);
+            }
+          }
+        });
       } else {
         SpacePage({ pathStack: this.pathStack });
       }

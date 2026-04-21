@@ -19,10 +19,10 @@ export function RoomListPageBuilder(name: string, param: Object) {
   RoomListPage({ filterType: param as FilterType })
 }
 
-@Component
-struct RoomListPage {
+  @Entry
+  @Component
+  struct RoomListPage {
   @State filterType: FilterType = FilterType.ALL;
-  @State pathStack: NavPathStack = new NavPathStack();
   @State rooms: Room[] = [];
   @State isLoading: boolean = true;
   @State isRefreshing: boolean = false;
@@ -32,6 +32,7 @@ struct RoomListPage {
   private roomManager: RoomManager = RoomManager.getInstance();
   private roomTagManager: RoomTagManager = RoomTagManager.getInstance();
   private syncManager: SyncManager = SyncManager.getInstance();
+  onNavigateToRoom: (room: Room) => void = () => {};
 
   aboutToAppear() {
     this.loadRooms();
@@ -104,7 +105,6 @@ struct RoomListPage {
 
   @Builder
   buildRoomListContent() {
-    const self = this;
     List() {
       ForEach(this.getFilteredRooms(), (room: Room) => {
         ListItem() {
@@ -201,7 +201,7 @@ struct RoomListPage {
             })
             .backgroundColor(getThemeColors().bg)
             .onClick(() => {
-              self.navigateToRoom(room);
+              this.navigateToRoom(room);
             });
 
             Divider()
@@ -271,36 +271,7 @@ struct RoomListPage {
   }
 
   navigateToRoom(room: Room) {
-    console.info('navigateToRoom called');
-    console.info('  room:', room ? room.id : 'null/undefined');
-    console.info('  pathStack:', this.pathStack);
-    if (!this.pathStack) {
-      console.error('navigateToRoom: pathStack is undefined/null');
-      return;
-    }
-    const pushMethod = (this.pathStack as Record<string, object>)['pushPathByName'];
-    console.info('  pushMethod:', pushMethod);
-    if (typeof pushMethod !== 'function') {
-      console.error('navigateToRoom: pushPathByName is not a function');
-      return;
-    }
-    try {
-      if (room.isSpace === true) {
-        const param: Record<string, string> = {
-          "spaceId": room.id,
-          "spaceName": room.getDisplayName()
-        };
-        pushMethod.call(this.pathStack, 'SpaceDetailPage', param);
-      } else {
-        const param: Record<string, string> = {
-          "roomId": room.id,
-          "roomName": room.getDisplayName()
-        };
-        pushMethod.call(this.pathStack, 'RoomDetailPage', param);
-      }
-    } catch (e) {
-      console.error('navigateToRoom error:', e);
-    }
+    this.onNavigateToRoom(room);
   }
 
   formatTimestamp(timestamp: number | undefined): string {
@@ -459,9 +430,6 @@ struct RoomListPage {
       .width('100%')
       .height('100%');
     }
-    .onReady((ctx: NavDestinationContext) => {
-      this.pathStack = ctx.pathStack;
-    })
   }
 }
 

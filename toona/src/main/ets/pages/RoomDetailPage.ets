@@ -403,19 +403,19 @@ struct RoomDetailPage {
     const body = message.getMessageBody();
     const senderId = message.sender;
     const result = this.deviceSecurityManager.analyzeMessageSecurity(body, senderId);
-    
+
     if (result.isSuspicious) {
       promptAction.showToast({
-        message: `⚠️ 安全提醒: ${result.warnings.join(', ')}`,
+        message: `安全提醒: ${result.warnings.join(', ')}`,
         duration: 4000
       });
     } else {
       promptAction.showToast({
-        message: '✅ 消息安全检测通过',
+        message: '消息安全检测通过',
         duration: 2000
       });
     }
-    
+
     this.showReplyMenu = false;
     this.selectedMessage = null;
   }
@@ -555,16 +555,6 @@ struct RoomDetailPage {
       Stack() {
         Column() {
           Row() {
-            Button('←')
-              .fontSize(24)
-              .backgroundColor('transparent')
-              .fontColor(this.getRoomThemeColors().text)
-              .width(44)
-              .height(44)
-              .onClick(() => {
-                this.pathStack?.pop();
-              });
-
             Column() {
               Text(this.roomName)
                 .fontSize(18)
@@ -583,7 +573,7 @@ struct RoomDetailPage {
             .layoutWeight(1)
             .alignItems(HorizontalAlign.Start);
 
-            Button('👥')
+            Button('Eyes')
               .fontSize(18)
               .backgroundColor('transparent')
               .fontColor(this.getRoomThemeColors().textSecondary)
@@ -593,7 +583,7 @@ struct RoomDetailPage {
                 this.showMembersPanel = !this.showMembersPanel;
               });
 
-            Button('📞')
+            Button('Phone')
               .fontSize(16)
               .backgroundColor('transparent')
               .fontColor(this.getRoomThemeColors().textSecondary)
@@ -850,7 +840,7 @@ struct RoomDetailPage {
                 });
             }
 
-            Button('📞')
+            Button('Voice')
               .fontSize(16)
               .backgroundColor('transparent')
               .fontColor(this.getRoomThemeColors().textSecondary)
@@ -863,7 +853,7 @@ struct RoomDetailPage {
               });
 
             Row() {
-              Button('📷')
+              Button('Photo')
                 .fontSize(18)
                 .backgroundColor('transparent')
                 .fontColor(this.getRoomThemeColors().textSecondary)
@@ -875,7 +865,7 @@ struct RoomDetailPage {
                   this.pickAndUploadImage();
                 });
 
-              Button('📎')
+              Button('Image')
                 .fontSize(18)
                 .backgroundColor('transparent')
                 .fontColor(this.getRoomThemeColors().textSecondary)
@@ -1065,7 +1055,7 @@ struct RoomDetailPage {
 
               Divider().color(this.getRoomThemeColors().divider);
 
-              Text('🔒 安全检测')
+              Text('安全检测')
                 .fontSize(14)
                 .fontColor('#FF9800')
                 .width('100%')
@@ -1124,10 +1114,6 @@ struct RoomDetailPage {
     .onReady((ctx: NavDestinationContext) => {
       this.pathStack = ctx.pathStack;
     })
-    .onBackPressed(() => {
-      this.pathStack?.pop();
-      return true;
-    });
   }
 
   @Builder

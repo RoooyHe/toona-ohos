@@ -53,16 +53,6 @@ struct SearchPage {
     NavDestination() {
       Column() {
         Row() {
-          Button('←')
-            .fontSize(24)
-            .backgroundColor('transparent')
-            .fontColor(getThemeColors().text)
-            .width(44)
-            .height(44)
-            .onClick(() => {
-              this.pathStack?.pop();
-            });
-
           TextInput({ placeholder: '搜索房间...', text: this.searchQuery })
             .width('100%')
             .height(40)
@@ -201,9 +191,6 @@ struct SearchPage {
     .onReady((ctx: NavDestinationContext) => {
       this.pathStack = ctx.pathStack;
     })
-    .onBackPressed(() => {
-      this.pathStack?.pop();
-      return true;
-    });
+    .hideTitleBar(true)
   }
 }

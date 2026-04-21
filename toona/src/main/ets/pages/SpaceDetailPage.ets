@@ -58,15 +58,21 @@ struct SpaceRoomItem {
     })
     .backgroundColor(getThemeColors().bg)
     .onClick(() => {
+      const stack = this.pathStack;
+      if (!stack) {
+        console.error('SpaceRoomItem navigateToRoom: pathStack is null');
+        return;
+      }
       const param: Record<string, string> = {
         "roomId": this.room.id,
         "roomName": this.room.getDisplayName()
       };
-      this.pathStack.pushPathByName('RoomDetailPage', param);
+      stack.pushPathByName('RoomDetailPage', param);
     });
   }
 }
 
+@Entry
 @Component
 struct SpaceDetailPage {
   @State spaceName: string = '';
@@ -74,7 +80,7 @@ struct SpaceDetailPage {
   @State childRooms: Room[] = [];
   @State isLoading: boolean = true;
   private roomManager: RoomManager = RoomManager.getInstance();
-  @State pathStack: NavPathStack = new NavPathStack();
+  @State navCtx: NavDestinationContext | null = null;
 
   aboutToAppear() {
     this.loadSpaceDetails();
@@ -110,21 +116,10 @@ struct SpaceDetailPage {
       Stack() {
         Column() {
           Row() {
-            Button('←')
-              .fontSize(24)
-              .backgroundColor('transparent')
-              .fontColor(getThemeColors().text)
-              .width(44)
-              .height(44)
-              .onClick(() => {
-                this.pathStack?.pop();
-              });
-
             Text(this.spaceName)
               .fontSize(18)
               .fontWeight(FontWeight.Medium)
-              .fontColor(getThemeColors().text)
-              .layoutWeight(1);
+              .fontColor(getThemeColors().text);
           }
           .width('100%')
           .padding({ left: 10, right: 10 })
@@ -163,7 +158,7 @@ struct SpaceDetailPage {
             List() {
               ForEach(this.childRooms, (room: Room) => {
                 ListItem() {
-                  SpaceRoomItem({ room: room, pathStack: this.pathStack });
+                  SpaceRoomItem({ room: room, pathStack: this.navCtx?.pathStack });
                 }
               });
             }
@@ -179,11 +174,8 @@ struct SpaceDetailPage {
       .height('100%');
     }
     .onReady((ctx: NavDestinationContext) => {
-      this.pathStack = ctx.pathStack;
+      this.navCtx = ctx;
     })
-    .onBackPressed(() => {
-      this.pathStack?.pop();
-      return true;
-    });
+    .hideTitleBar(true)
   }
 }

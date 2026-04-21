@@ -117,6 +117,7 @@ export struct SpacePage {
   @Prop pathStack: NavPathStack;
   @State spaceItems: SpaceItem[] = [];
   @State isLoading: boolean = true;
+  @State navCtx: NavDestinationContext | null = null;
   private roomManager: RoomManager = RoomManager.getInstance();
   private expandedSpaces: Set<string> = new Set();
 
@@ -211,23 +212,38 @@ export struct SpacePage {
   }
 
   navigateToSpaceDetail(space: Room) {
+    const stack = this.navCtx?.pathStack ?? this.pathStack;
+    if (!stack) {
+      console.error('navigateToSpaceDetail: no pathStack available');
+      return;
+    }
     const param: Record<string, string> = {
       "spaceId": space.id,
       "spaceName": space.getDisplayName()
     };
-    this.pathStack.pushPathByName('SpaceDetailPage', param);
+    stack.pushPathByName('SpaceDetailPage', param);
   }
 
   navigateToRoom(room: Room) {
+    const stack = this.navCtx?.pathStack ?? this.pathStack;
+    if (!stack) {
+      console.error('navigateToRoom: no pathStack available');
+      return;
+    }
     const param: Record<string, string> = {
       "roomId": room.id,
       "roomName": room.getDisplayName()
     };
-    this.pathStack.pushPathByName('RoomDetailPage', param);
+    stack.pushPathByName('RoomDetailPage', param);
   }
 
   navigateToJoinSpace() {
-    this.pathStack.pushPathByName('JoinSpacePage', undefined);
+    const stack = this.navCtx?.pathStack ?? this.pathStack;
+    if (!stack) {
+      console.error('navigateToJoinSpace: no pathStack available');
+      return;
+    }
+    stack.pushPathByName('JoinSpacePage', undefined);
   }
 
   build() {
@@ -306,7 +322,7 @@ export struct SpacePage {
       .height('100%');
     }
     .onReady((ctx: NavDestinationContext) => {
-      this.pathStack = ctx.pathStack;
+      this.navCtx = ctx;
     })
   }
 }

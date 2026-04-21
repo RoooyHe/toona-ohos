@@ -155,16 +155,6 @@ struct JoinRoomPage {
       Stack() {
         Column() {
           Row() {
-            Button('←')
-              .fontSize(24)
-              .backgroundColor('transparent')
-              .fontColor(getThemeColors().text)
-              .width(44)
-              .height(44)
-              .onClick(() => {
-                this.pathStack?.pop();
-              });
-
             Text('加入房间')
               .fontSize(18)
               .fontWeight(FontWeight.Medium)
@@ -399,9 +389,6 @@ struct JoinRoomPage {
     .onReady((ctx: NavDestinationContext) => {
       this.pathStack = ctx.pathStack;
     })
-    .onBackPressed(() => {
-      this.pathStack?.pop();
-      return true;
-    });
+    .hideTitleBar(true)
   }
 }

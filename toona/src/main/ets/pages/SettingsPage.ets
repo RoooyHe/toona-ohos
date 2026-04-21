@@ -280,16 +280,6 @@ struct SettingsPage {
       Scroll() {
         Column() {
           Row() {
-            Button('←')
-              .fontSize(24)
-              .backgroundColor('transparent')
-              .fontColor('#333333')
-              .width(44)
-              .height(44)
-              .onClick(() => {
-                this.pathStack?.pop();
-              });
-
             Text('设置')
               .fontSize(18)
               .fontWeight(FontWeight.Medium)
@@ -336,10 +326,7 @@ struct SettingsPage {
     .onReady((ctx: NavDestinationContext) => {
       this.pathStack = ctx.pathStack;
     })
-    .onBackPressed(() => {
-      this.pathStack?.pop();
-      return true;
-    });
+    .hideTitleBar(true)
   }
 
   async handleLogout() {
