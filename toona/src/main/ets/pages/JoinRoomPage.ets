@@ -20,7 +20,6 @@ export function JoinRoomPageBuilder(name: string, param: Object) {
   JoinRoomPage()
 }
 
-@Entry
 @Component
 struct JoinRoomPage {
   @State searchQuery: string = '';
@@ -35,7 +34,7 @@ struct JoinRoomPage {
   private authManager: AuthManager = AuthManager.getInstance();
   private httpClient: MatrixHttpClient | null = null;
   private scanManager: ScanManager = ScanManager.getInstance();
-  private pathStack: NavPathStack = new NavPathStack();
+  @Prop pathStack: NavPathStack;
 
   aboutToAppear() {
     this.httpClient = this.authManager.getHttpClient();
@@ -151,244 +150,238 @@ struct JoinRoomPage {
   }
 
   build() {
-    NavDestination() {
-      Stack() {
+    Stack() {
+      Column() {
+        Row() {
+          Text('加入房间')
+            .fontSize(18)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(getThemeColors().text)
+            .layoutWeight(1);
+        }
+        .width('100%')
+        .padding({ left: 10, right: 10 })
+        .backgroundColor(getThemeColors().bg);
+
+        Column() {
+          TextInput({ placeholder: '搜索用户进行私聊', text: this.searchQuery })
+            .width('100%')
+            .height(44)
+            .fontSize(16)
+            .backgroundColor(getThemeColors().inputBg)
+            .borderRadius(10)
+            .margin({ bottom: 10 })
+            .onChange((value: string) => {
+              this.searchQuery = value;
+            })
+            .onSubmit(() => {
+              this.searchUsers();
+            });
+
+          Button('搜索')
+            .fontSize(14)
+            .backgroundColor(getThemeColors().primary)
+            .fontColor('#ffffff')
+            .width('100%')
+            .height(40)
+            .borderRadius(10)
+            .onClick(() => {
+              this.searchUsers();
+            });
+
+          if (this.isSearching) {
+            LoadingProgress()
+              .width(30)
+              .height(30)
+              .margin({ top: 10 });
+          } else if (this.searchResults.length > 0) {
+            List() {
+              ForEach(this.searchResults, (user: DirectoryUser) => {
+                ListItem() {
+                  Row() {
+                    Text(user.display_name?.charAt(0).toUpperCase() || user.user_id.charAt(0).toUpperCase())
+                      .fontSize(18)
+                      .fontWeight(FontWeight.Bold)
+                      .fontColor('#ffffff')
+                      .width(40)
+                      .height(40)
+                      .borderRadius(20)
+                      .backgroundColor(getThemeColors().primary)
+                      .textAlign(TextAlign.Center);
+
+                    Column() {
+                      Text(user.display_name || user.user_id)
+                        .fontSize(16)
+                        .fontColor(getThemeColors().text);
+                      Text(user.user_id)
+                        .fontSize(12)
+                        .fontColor(getThemeColors().textSecondary);
+                    }
+                    .margin({ left: 12 })
+                    .alignItems(HorizontalAlign.Start);
+                  }
+                  .width('100%')
+                  .padding({ top: 10, bottom: 10 })
+                  .onClick(() => {
+                    this.startDirectChat(user.user_id);
+                  });
+                };
+              });
+            }
+            .width('100%')
+            .layoutWeight(1);
+          }
+        }
+        .width('90%')
+        .padding({ top: 15, bottom: 15 });
+
+        Divider().color(getThemeColors().divider);
+
         Column() {
           Row() {
-            Text('加入房间')
-              .fontSize(18)
-              .fontWeight(FontWeight.Medium)
-              .fontColor(getThemeColors().text)
-              .layoutWeight(1);
+            Text('创建新聊天室')
+              .fontSize(16)
+              .fontColor(getThemeColors().text);
+            Blank();
+            Button('+')
+              .fontSize(24)
+              .backgroundColor(getThemeColors().primary)
+              .fontColor('#ffffff')
+              .width(36)
+              .height(36)
+              .borderRadius(18)
+              .onClick(() => {
+                this.showCreateDialog = true;
+              });
           }
           .width('100%')
-          .padding({ left: 10, right: 10 })
-          .backgroundColor(getThemeColors().bg);
+          .padding({ top: 15, bottom: 15 });
+        }
+        .width('90%');
 
+        Divider().color(getThemeColors().divider);
+
+        Column() {
+          Text('通过地址加入')
+            .fontSize(16)
+            .fontColor(getThemeColors().text)
+            .alignSelf(ItemAlign.Start)
+            .margin({ bottom: 10 });
+
+          TextInput({ placeholder: '输入 room ID 或地址', text: this.roomAddress })
+            .width('85%')
+            .height(44)
+            .fontSize(16)
+            .backgroundColor(getThemeColors().inputBg)
+            .borderRadius(10)
+            .onChange((value: string) => {
+              this.roomAddress = value;
+            });
+
+          Button('📷')
+            .fontSize(20)
+            .backgroundColor(getThemeColors().primary)
+            .fontColor('#ffffff')
+            .width(44)
+            .height(44)
+            .borderRadius(10)
+            .margin({ left: 8 })
+            .onClick(() => {
+              this.onScanQRCode();
+            });
+
+          Button(this.isJoining ? '加入中...' : '加入')
+            .fontSize(16)
+            .backgroundColor(getThemeColors().primary)
+            .fontColor('#ffffff')
+            .width('100%')
+            .height(44)
+            .borderRadius(10)
+            .margin({ top: 10 })
+            .enabled(!this.isJoining)
+            .onClick(() => {
+              this.joinRoom();
+            });
+        }
+        .width('90%')
+        .padding({ top: 15, bottom: 30 });
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor(getThemeColors().bg);
+
+      if (this.showCreateDialog) {
+        Column() {
           Column() {
-            TextInput({ placeholder: '搜索用户进行私聊', text: this.searchQuery })
+            Text('创建聊天室')
+              .fontSize(18)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(getThemeColors().text)
+              .margin({ bottom: 20 });
+
+            TextInput({ placeholder: '房间名称' })
               .width('100%')
               .height(44)
               .fontSize(16)
               .backgroundColor(getThemeColors().inputBg)
-              .borderRadius(10)
-              .margin({ bottom: 10 })
+              .borderRadius(8)
               .onChange((value: string) => {
-                this.searchQuery = value;
-              })
-              .onSubmit(() => {
-                this.searchUsers();
+                this.newRoomName = value;
               });
 
-            Button('搜索')
-              .fontSize(14)
-              .backgroundColor(getThemeColors().primary)
-              .fontColor('#ffffff')
-              .width('100%')
-              .height(40)
-              .borderRadius(10)
-              .onClick(() => {
-                this.searchUsers();
-              });
-
-            if (this.isSearching) {
-              LoadingProgress()
-                .width(30)
-                .height(30)
-                .margin({ top: 10 });
-            } else if (this.searchResults.length > 0) {
-              List() {
-                ForEach(this.searchResults, (user: DirectoryUser) => {
-                  ListItem() {
-                    Row() {
-                      Text(user.display_name?.charAt(0).toUpperCase() || user.user_id.charAt(0).toUpperCase())
-                        .fontSize(18)
-                        .fontWeight(FontWeight.Bold)
-                        .fontColor('#ffffff')
-                        .width(40)
-                        .height(40)
-                        .borderRadius(20)
-                        .backgroundColor(getThemeColors().primary)
-                        .textAlign(TextAlign.Center);
-
-                      Column() {
-                        Text(user.display_name || user.user_id)
-                          .fontSize(16)
-                          .fontColor(getThemeColors().text);
-                        Text(user.user_id)
-                          .fontSize(12)
-                          .fontColor(getThemeColors().textSecondary);
-                      }
-                      .margin({ left: 12 })
-                      .alignItems(HorizontalAlign.Start);
-                    }
-                    .width('100%')
-                    .padding({ top: 10, bottom: 10 })
-                    .onClick(() => {
-                      this.startDirectChat(user.user_id);
-                    });
-                  };
-                });
-              }
-              .width('100%')
-              .layoutWeight(1);
-            }
-          }
-          .width('90%')
-          .padding({ top: 15, bottom: 15 });
-
-          Divider().color(getThemeColors().divider);
-
-          Column() {
             Row() {
-              Text('创建新聊天室')
-                .fontSize(16)
+              Text('设为公开房间')
+                .fontSize(14)
                 .fontColor(getThemeColors().text);
               Blank();
-              Button('+')
-                .fontSize(24)
-                .backgroundColor(getThemeColors().primary)
-                .fontColor('#ffffff')
-                .width(36)
-                .height(36)
-                .borderRadius(18)
-                .onClick(() => {
-                  this.showCreateDialog = true;
+              Toggle({ type: ToggleType.Switch, isOn: this.isPublicRoom })
+                .selectedColor(getThemeColors().primary)
+                .onChange((isOn: boolean) => {
+                  this.isPublicRoom = isOn;
                 });
             }
             .width('100%')
-            .padding({ top: 15, bottom: 15 });
+            .margin({ top: 12 });
+
+            Row() {
+              Button('取消')
+                .fontSize(16)
+                .backgroundColor(getThemeColors().inputBg)
+                .fontColor(getThemeColors().text)
+                .width('45%')
+                .height(44)
+                .borderRadius(8)
+                .onClick(() => {
+                  this.showCreateDialog = false;
+                  this.newRoomName = '';
+                });
+
+              Button('创建')
+                .fontSize(16)
+                .backgroundColor(getThemeColors().primary)
+                .fontColor('#ffffff')
+                .width('45%')
+                .height(44)
+                .borderRadius(8)
+                .onClick(() => {
+                  this.createRoom();
+                });
+            }
+            .width('100%')
+            .margin({ top: 20 });
           }
-          .width('90%');
-
-          Divider().color(getThemeColors().divider);
-
-          Column() {
-            Text('通过地址加入')
-              .fontSize(16)
-              .fontColor(getThemeColors().text)
-              .alignSelf(ItemAlign.Start)
-              .margin({ bottom: 10 });
-
-            TextInput({ placeholder: '输入 room ID 或地址', text: this.roomAddress })
-              .width('85%')
-              .height(44)
-              .fontSize(16)
-              .backgroundColor(getThemeColors().inputBg)
-              .borderRadius(10)
-              .onChange((value: string) => {
-                this.roomAddress = value;
-              });
-
-            Button('📷')
-              .fontSize(20)
-              .backgroundColor(getThemeColors().primary)
-              .fontColor('#ffffff')
-              .width(44)
-              .height(44)
-              .borderRadius(10)
-              .margin({ left: 8 })
-              .onClick(() => {
-                this.onScanQRCode();
-              });
-
-            Button(this.isJoining ? '加入中...' : '加入')
-              .fontSize(16)
-              .backgroundColor(getThemeColors().primary)
-              .fontColor('#ffffff')
-              .width('100%')
-              .height(44)
-              .borderRadius(10)
-              .margin({ top: 10 })
-              .enabled(!this.isJoining)
-              .onClick(() => {
-                this.joinRoom();
-              });
-          }
-          .width('90%')
-          .padding({ top: 15, bottom: 30 });
+          .width('85%')
+          .padding(20)
+          .backgroundColor(getThemeColors().surface)
+          .borderRadius(16);
         }
         .width('100%')
         .height('100%')
-        .backgroundColor(getThemeColors().bg);
-
-        if (this.showCreateDialog) {
-          Column() {
-            Column() {
-              Text('创建聊天室')
-                .fontSize(18)
-                .fontWeight(FontWeight.Bold)
-                .fontColor(getThemeColors().text)
-                .margin({ bottom: 20 });
-
-              TextInput({ placeholder: '房间名称' })
-                .width('100%')
-                .height(44)
-                .fontSize(16)
-                .backgroundColor(getThemeColors().inputBg)
-                .borderRadius(8)
-                .onChange((value: string) => {
-                  this.newRoomName = value;
-                });
-
-              Row() {
-                Text('设为公开房间')
-                  .fontSize(14)
-                  .fontColor(getThemeColors().text);
-                Blank();
-                Toggle({ type: ToggleType.Switch, isOn: this.isPublicRoom })
-                  .selectedColor(getThemeColors().primary)
-                  .onChange((isOn: boolean) => {
-                    this.isPublicRoom = isOn;
-                  });
-              }
-              .width('100%')
-              .margin({ top: 12 });
-
-              Row() {
-                Button('取消')
-                  .fontSize(16)
-                  .backgroundColor(getThemeColors().inputBg)
-                  .fontColor(getThemeColors().text)
-                  .width('45%')
-                  .height(44)
-                  .borderRadius(8)
-                  .onClick(() => {
-                    this.showCreateDialog = false;
-                    this.newRoomName = '';
-                  });
-
-                Button('创建')
-                  .fontSize(16)
-                  .backgroundColor(getThemeColors().primary)
-                  .fontColor('#ffffff')
-                  .width('45%')
-                  .height(44)
-                  .borderRadius(8)
-                  .onClick(() => {
-                    this.createRoom();
-                  });
-              }
-              .width('100%')
-              .margin({ top: 20 });
-            }
-            .width('85%')
-            .padding(20)
-            .backgroundColor(getThemeColors().surface)
-            .borderRadius(16);
-          }
-          .width('100%')
-          .height('100%')
-          .backgroundColor('rgba(0, 0, 0, 0.5)')
-          .justifyContent(FlexAlign.Center);
-        }
+        .backgroundColor('rgba(0, 0, 0, 0.5)')
+        .justifyContent(FlexAlign.Center);
       }
-      .width('100%')
-      .height('100%');
     }
-    .onReady((ctx: NavDestinationContext) => {
-      this.pathStack = ctx.pathStack;
-    })
-    .hideTitleBar(true)
+    .width('100%')
+    .height('100%');
   }
 }

@@ -18,12 +18,12 @@ export default class ToonaAbility extends UIAbility {
   onWindowStageCreate(windowStage: window.WindowStage): void {
     hilog.info(DOMAIN, 'testTag', 'Ability onWindowStageCreate');
 
-    windowStage.loadContent('pages/MainShell', (err) => {
+    windowStage.loadContent('pages/LoginPage', (err) => {
       if (err.code) {
-        hilog.error(DOMAIN, 'testTag', 'Failed to load MainShell. Cause: %{public}s', JSON.stringify(err));
+        hilog.error(DOMAIN, 'testTag', 'Failed to load LoginPage. Cause: %{public}s', JSON.stringify(err));
         return;
       }
-      hilog.info(DOMAIN, 'testTag', 'Succeeded in loading MainShell.');
+      hilog.info(DOMAIN, 'testTag', 'Succeeded in loading LoginPage.');
     });
   }
 

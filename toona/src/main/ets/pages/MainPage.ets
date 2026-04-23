@@ -29,7 +29,6 @@ struct MainPage {
   @State userInitial: string = '';
   @State userDisplayName: string = '';
   @State userAvatarUrl: string = '';
-  @State showUserMenu: boolean = false;
   @State currentFilter: FilterType = FilterType.ALL;
   @State unreadCountAll: number = 0;
   @State unreadCountUnread: number = 0;
@@ -334,103 +333,6 @@ struct MainPage {
   }
 
   @Builder
-  UserMenuBuilder() {
-    if (this.showUserMenu) {
-      Stack() {
-        Column() {
-        }
-        .width('100%')
-        .height('100%')
-        .backgroundColor('rgba(0, 0, 0, 0.3)')
-        .onClick(() => {
-          this.showUserMenu = false;
-        });
-
-        Column() {
-          Row() {
-            if (this.userAvatarUrl) {
-              Image(this.userAvatarUrl)
-                .width(40)
-                .height(40)
-                .borderRadius(20)
-                .objectFit(ImageFit.Cover);
-            } else {
-              Text(this.userInitial)
-                .fontSize(16)
-                .fontWeight(FontWeight.Bold)
-                .fontColor($r('sys.color.white'))
-                .width(40)
-                .height(40)
-                .borderRadius(20)
-                .backgroundColor(getThemeColors().primary)
-                .textAlign(TextAlign.Center);
-            }
-            Column() {
-              Text(this.userDisplayName || this.authManager.getSession()?.userId || '用户')
-                .fontSize(14)
-                .fontWeight(FontWeight.Medium)
-                .fontColor(getThemeColors().text);
-              Text(this.authManager.getSession()?.userId || '')
-                .fontSize(11)
-                .fontColor(getThemeColors().textSecondary);
-            }
-            .margin({ left: 10 })
-            .alignItems(HorizontalAlign.Start);
-          }
-          .width('100%')
-          .padding({
-            left: 15,
-            right: 15,
-            top: 15,
-            bottom: 10
-          });
-
-          Divider().color(getThemeColors().divider);
-
-          Text('设置')
-            .fontSize(14)
-            .fontColor(getThemeColors().text)
-            .width('100%')
-            .height(40)
-            .padding({ left: 15 })
-            .textAlign(TextAlign.Start)
-            .onClick(() => {
-              this.navigateToSetting();
-              this.showUserMenu = false;
-            });
-
-          Divider().color(getThemeColors().divider);
-
-          Text('退出登录')
-            .fontSize(14)
-            .fontColor('#e53935')
-            .width('100%')
-            .height(40)
-            .padding({ left: 15 })
-            .textAlign(TextAlign.Start)
-            .onClick(() => {
-              this.showUserMenu = false;
-              this.handleLogout();
-            });
-        }
-        .width(220)
-        .backgroundColor(getThemeColors().bg)
-        .borderRadius(8)
-        .shadow({
-          radius: 10,
-          color: 'rgba(0, 0, 0, 0.15)',
-          offsetX: 0,
-          offsetY: 2
-        })
-        .alignItems(HorizontalAlign.End)
-        .padding({ right: 20, top: 60 });
-      }
-      .width('100%')
-      .height('100%');
-    }
-  }
-
-  @Builder
   MainContent() {
     Column() {
       Row() {
@@ -446,7 +348,7 @@ struct MainPage {
               .backgroundColor(getThemeColors().primary)
               .textAlign(TextAlign.Center)
               .onClick(() => {
-                this.showUserMenu = !this.showUserMenu;
+                this.navigateToSetting();
               });
           }
         }
@@ -537,7 +439,6 @@ struct MainPage {
     NavDestination() {
       this.MainContent();
       this.MainTabBar();
-      this.UserMenuBuilder();
     }
     .onReady((ctx: NavDestinationContext) => {
       this.pathStack = ctx.pathStack;

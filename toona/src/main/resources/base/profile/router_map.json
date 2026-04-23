@@ -1,11 +1,6 @@
 {
   "routerMap": [
     {
-      "name": "MainShell",
-      "pageSourceFile": "src/main/ets/pages/MainShell.ets",
-      "buildFunction": "MainShellBuilder"
-    },
-    {
       "name": "JoinRoomPage",
       "pageSourceFile": "src/main/ets/pages/JoinRoomPage.ets",
       "buildFunction": "JoinRoomPageBuilder",

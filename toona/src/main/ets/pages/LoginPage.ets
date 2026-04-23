@@ -34,7 +34,7 @@ struct LoginPage {
   private authManager: AuthManager = AuthManager.getInstance();
   private secureStorage: SecureStorage = SecureStorage.getInstance();
   private userAuthManager: UserAuthManager = UserAuthManager.getInstance();
-  private stack: NavPathStack = new NavPathStack();
+  private pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
     // Force light mode on launch
@@ -149,7 +149,7 @@ struct LoginPage {
         duration: 2000
       });
 
-      this.stack.replacePath(new NavPathInfo('MainPage', undefined));
+      this.pathStack.replacePath(new NavPathInfo('MainPage', undefined));
     } catch (error) {
       console.error('Login failed:', error);
       const errorMsg: string = error instanceof Error ? error.message : String(error);
@@ -170,7 +170,7 @@ struct LoginPage {
   }
 
   handleRegister() {
-    this.stack.pushPathByName('RegisterPage', undefined);
+    this.pathStack.pushPathByName('RegisterPage', undefined);
   }
 
   handleSSOLogin() {
@@ -197,7 +197,7 @@ struct LoginPage {
       const savedToken = await this.secureStorage.loadString('saved_access_token');
       if (savedToken) {
         promptAction.showToast({ message: '验证成功，正在登录...' });
-        this.stack.replacePath(new NavPathInfo('MainPage', undefined));
+        this.pathStack.replacePath(new NavPathInfo('MainPage', undefined));
       } else {
         promptAction.showToast({ message: '请先使用密码登录以启用生物识别' });
       }
@@ -373,7 +373,7 @@ struct LoginPage {
       .height('100%');
     }
     .onReady((ctx: NavDestinationContext) => {
-      this.stack = ctx.pathStack;
+      this.pathStack = ctx.pathStack;
     })
     .hideTitleBar(true);
   }

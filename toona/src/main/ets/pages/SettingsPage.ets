@@ -16,15 +16,26 @@ import { PresenceState } from '../models/MatrixTypes';
 import { fileIo } from '@kit.CoreFileKit';
 import { picker } from '@kit.CoreFileKit';
 import { ThemeManager, getThemeColors, ColorModeType } from '../utils/ThemeManager';
+import { SettingsHeader } from './components/settings/SettingsHeader';
+import { UserProfileCard } from './components/settings/UserProfileCard';
+import { ThemeSettings } from './components/settings/ThemeSettings';
+import { PresenceSettings } from './components/settings/PresenceSettings';
+import { RoomTagsSettings } from './components/settings/RoomTagsSettings';
+import { DeviceManagement } from './components/settings/DeviceManagement';
+import { SecuritySettings } from './components/settings/SecuritySettings';
+import { QRScannerSettings } from './components/settings/QRScannerSettings';
+import { BiometricSettings } from './components/settings/BiometricSettings';
+import { CollaborationSettings } from './components/settings/CollaborationSettings';
+import { AboutSection } from './components/settings/AboutSection';
+import { LogoutButton } from './components/settings/LogoutButton';
 
 @Builder
 export function SettingsPageBuilder(name: string, param: Object) {
   SettingsPage()
 }
 
-@Entry
 @Component
-struct SettingsPage {
+export struct SettingsPage {
   @State userId: string = '';
   @State displayName: string = '';
   @State avatarUrl: string = '';
@@ -54,7 +65,7 @@ struct SettingsPage {
   private deviceSecurityManager: DeviceSecurityManager = DeviceSecurityManager.getInstance();
   private scanManager: ScanManager = ScanManager.getInstance();
   private userAuthManager: UserAuthManager = UserAuthManager.getInstance();
-  private pathStack: NavPathStack | null = null;
+  @Prop pathStack: NavPathStack;
 
   aboutToAppear() {
     const session = this.authManager.getSession();
@@ -239,752 +250,149 @@ struct SettingsPage {
     }
   }
 
-  getPresenceText(state: PresenceState): string {
-    switch (state) {
-      case 'online':
-        return '在线';
-      case 'offline':
-        return '离线';
-      case 'unavailable':
-        return '离开';
-      default:
-        return '未知';
-    }
-  }
-
-  getPresenceColor(state: PresenceState): string {
-    switch (state) {
-      case 'online':
-        return '#4CAF50';
-      case 'offline':
-        return '#9E9E9E';
-      case 'unavailable':
-        return '#FF9800';
-      default:
-        return '#9E9E9E';
-    }
-  }
-
-  getAvatarInitials(): string {
-    if (this.displayName) {
-      return this.displayName.charAt(0).toUpperCase();
-    }
-    if (this.userId) {
-      return this.userId.charAt(0).toUpperCase();
-    }
-    return 'U';
-  }
-
   build() {
-    NavDestination() {
-      Scroll() {
-        Column() {
-          Row() {
-            Text('设置')
-              .fontSize(18)
-              .fontWeight(FontWeight.Medium)
-              .layoutWeight(1);
+    Scroll() {
+      Column() {
+        SettingsHeader();
+
+        if (this.isLoading) {
+          Column() {
+            LoadingProgress()
+              .width(40)
+              .height(40);
+            Text('加载中...')
+              .fontSize(14)
+              .fontColor('#999999')
+              .margin({ top: 10 });
           }
           .width('100%')
-          .padding({ left: 10, right: 10 })
-          .backgroundColor('#ffffff');
-
-          Divider().color('#f0f0f0');
-
-          if (this.isLoading) {
-            Column() {
-              LoadingProgress()
-                .width(40)
-                .height(40);
-              Text('加载中...')
-                .fontSize(14)
-                .fontColor('#999999')
-                .margin({ top: 10 });
+          .padding({ top: 100 });
+        } else {
+          UserProfileCard({
+            displayName: this.displayName,
+            avatarUrl: this.avatarUrl,
+            presence: this.presence,
+            userId: this.userId,
+            isEditingName: this.isEditingName,
+            editName: this.editName,
+            onPickAvatar: () => {
+              this.pickAndUploadAvatar();
+            },
+            onStartEditName: () => {
+              this.isEditingName = true;
+            },
+            onSaveDisplayName: () => {
+              this.saveDisplayName();
+            },
+            onCancelEditName: () => {
+              this.isEditingName = false;
+              this.editName = this.displayName;
+            },
+            onEditNameChange: (name: string) => {
+              this.editName = name;
             }
-            .width('100%')
-            .padding({ top: 100 });
-          } else {
-            this.buildUserSection();
-            this.buildThemeSection();
-            this.buildPresenceSection();
-            this.buildRoomTagsSection();
-            this.buildDevicesSection();
-            this.buildSecuritySection();
-            this.buildBiometricSection();
-            this.buildCollaborationSection();
-            this.buildQRScannerSection();
-            this.buildLogoutSection();
-            this.buildAboutSection();
-          }
+          });
+
+          ThemeSettings({
+            colorModeType: this.colorModeType,
+            onSetColorMode: (mode: ColorModeType) => {
+              this.setColorMode(mode);
+            }
+          });
+
+          PresenceSettings({
+            presence: this.presence,
+            statusMsg: this.statusMsg,
+            showPresenceMenu: this.showPresenceMenu,
+            onSetPresence: (state: PresenceState) => {
+              this.setPresence(state);
+            },
+            onTogglePresenceMenu: () => {
+              this.showPresenceMenu = !this.showPresenceMenu;
+            },
+            onStatusMsgChange: (msg: string) => {
+              this.statusMsg = msg;
+            },
+            onSaveStatusMessage: () => {
+              this.setStatusMessage();
+            }
+          });
+
+          RoomTagsSettings({
+            favoriteRooms: this.favoriteRooms,
+            lowPriorityRooms: this.lowPriorityRooms,
+            allRooms: this.allRooms,
+            showRoomTagsMenu: this.showRoomTagsMenu,
+            onToggleFavorite: (room: Room) => {
+              this.toggleFavorite(room);
+            },
+            onToggleLowPriority: (room: Room) => {
+              this.toggleLowPriority(room);
+            },
+            onToggleRoomTagsMenu: () => {
+              this.showRoomTagsMenu = !this.showRoomTagsMenu;
+            }
+          });
+
+          DeviceManagement({
+            devices: this.devices,
+            currentDeviceId: this.authManager.getSession()?.deviceId || '',
+            onDeleteDevice: (deviceId: string) => {
+              this.deleteDevice(deviceId);
+            }
+          });
+
+          SecuritySettings({
+            onCheckDeviceSecurity: () => {
+              this.onCheckDeviceSecurity();
+            }
+          });
+
+          BiometricSettings({
+            onToggleBiometric: (enable: boolean) => {
+              this.onToggleBiometric(enable);
+            },
+            onVerifyBiometric: () => {
+              this.onVerifyBiometric();
+            }
+          });
+
+          CollaborationSettings({
+            onFindCollaborativeDevices: () => {
+              this.onFindCollaborativeDevices();
+            }
+          });
+
+          QRScannerSettings({
+            onScanQRCode: () => {
+              this.onScanQRCode();
+            }
+          });
+
+          AboutSection();
+
+          LogoutButton({
+            onLogout: () => {
+              this.handleLogout();
+            }
+          });
         }
-        .width('100%')
-        .backgroundColor(getThemeColors().bg)
       }
       .width('100%')
-      .height('100%')
+      .backgroundColor(getThemeColors().bg)
     }
-    .onReady((ctx: NavDestinationContext) => {
-      this.pathStack = ctx.pathStack;
-    })
-    .hideTitleBar(true)
+    .width('100%')
+    .height('100%')
   }
 
   async handleLogout() {
     try {
       await this.authManager.logout();
-      this.pathStack?.clear();
+      this.pathStack.clear();
     } catch (error) {
       console.error('Logout failed:', error);
       promptAction.showToast({ message: '退出失败' });
     }
-  }
-
-  @Builder
-  buildThemeSection() {
-    Column() {
-      Row() {
-        Text('外观设置')
-          .fontSize(16)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(getThemeColors().text);
-      }
-      .width('100%')
-      .padding({
-        left: 20,
-        right: 20,
-        top: 15,
-        bottom: 10
-      });
-
-      Column() {
-        this.ColorModeOptionBuilder('日间', 'light');
-        Divider().color(getThemeColors().divider);
-        this.ColorModeOptionBuilder('夜间', 'dark');
-        Divider().color(getThemeColors().divider);
-        this.ColorModeOptionBuilder('跟随系统', 'system');
-      }
-      .width('100%')
-      .backgroundColor(getThemeColors().surface);
-    }
-    .width('100%')
-    .margin({ top: 10 });
-  }
-
-  @Builder
-  ColorModeOptionBuilder(label: string, mode: ColorModeType) {
-    Row() {
-      Text(label)
-        .fontSize(14)
-        .fontColor(getThemeColors().text);
-
-      Blank();
-
-      if (this.colorModeType === mode) {
-        Image($r('app.media.check'))
-          .width(20)
-          .height(20)
-          .fillColor(getThemeColors().primary);
-      }
-    }
-    .width('100%')
-    .padding({
-      left: 20,
-      right: 20,
-      top: 14,
-      bottom: 14
-    })
-    .onClick(() => {
-      this.setColorMode(mode);
-    });
-  }
-
-  @Builder
-  buildUserSection() {
-    Column() {
-      Row() {
-        Text('用户资料')
-          .fontSize(16)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(getThemeColors().text);
-      }
-      .width('100%')
-      .padding({
-        left: 20,
-        right: 20,
-        top: 15,
-        bottom: 10
-      });
-
-      Column() {
-        Row() {
-          Stack() {
-            if (this.avatarUrl) {
-              Image(this.avatarUrl)
-                .width(60)
-                .height(60)
-                .borderRadius(30);
-            } else {
-              Text(this.getAvatarInitials())
-                .fontSize(24)
-                .fontWeight(FontWeight.Bold)
-                .fontColor('#ffffff')
-                .width(60)
-                .height(60)
-                .borderRadius(30)
-                .backgroundColor('#10a37f')
-                .textAlign(TextAlign.Center);
-            }
-
-            Row() {
-              Circle()
-                .width(14)
-                .height(14)
-                .fill(this.getPresenceColor(this.presence))
-                .stroke('#ffffff')
-                .strokeWidth(2);
-            }
-            .width(14)
-            .height(14)
-            .position({ x: 42, y: 42 });
-
-            Row() {
-              Text('✎')
-                .fontSize(10)
-                .fontColor('#ffffff')
-                .width(18)
-                .height(18)
-                .borderRadius(9)
-                .backgroundColor('#10a37f')
-                .textAlign(TextAlign.Center)
-                .onClick(() => {
-                  this.pickAndUploadAvatar();
-                });
-            }
-            .width(18)
-            .height(18)
-            .position({ x: 42, y: 42 });
-          }
-          .width(60)
-          .height(60)
-          .margin({ right: 15 });
-
-          Column() {
-            if (this.isEditingName) {
-              Row() {
-                TextInput({ text: this.editName })
-                  .width(150)
-                  .height(36)
-                  .fontSize(16)
-                  .backgroundColor(getThemeColors().bg)
-                  .borderRadius(8)
-                  .onChange((value: string) => {
-                    this.editName = value;
-                  });
-
-                Button('保存')
-                  .fontSize(12)
-                  .backgroundColor('#10a37f')
-                  .fontColor('#ffffff')
-                  .width(50)
-                  .height(30)
-                  .borderRadius(6)
-                  .margin({ left: 8 })
-                  .onClick(() => {
-                    this.saveDisplayName();
-                  });
-
-                Button('取消')
-                  .fontSize(12)
-                  .backgroundColor(getThemeColors().bg)
-                  .fontColor(getThemeColors().textSecondary)
-                  .width(50)
-                  .height(30)
-                  .borderRadius(6)
-                  .margin({ left: 5 })
-                  .onClick(() => {
-                    this.isEditingName = false;
-                    this.editName = this.displayName;
-                  });
-              }
-            } else {
-              Text(this.displayName || '未设置名称')
-                .fontSize(18)
-                .fontWeight(FontWeight.Medium)
-                .fontColor(getThemeColors().text)
-                .onClick(() => {
-                  this.isEditingName = true;
-                });
-
-              Text(this.userId)
-                .fontSize(12)
-                .fontColor(getThemeColors().textSecondary)
-                .margin({ top: 2 });
-            }
-          }
-          .alignItems(HorizontalAlign.Start)
-          .layoutWeight(1);
-        }
-        .width('100%')
-        .padding({
-          left: 20,
-          right: 20,
-          top: 15,
-          bottom: 15
-        });
-      }
-      .width('100%')
-      .backgroundColor(getThemeColors().surface);
-    }
-    .width('100%');
-  }
-
-  @Builder
-  buildPresenceSection() {
-    Column() {
-      Row() {
-        Text('在线状态')
-          .fontSize(16)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(getThemeColors().text);
-      }
-      .width('100%')
-      .padding({
-        left: 20,
-        right: 20,
-        top: 15,
-        bottom: 10
-      });
-
-      Column() {
-        Row() {
-          Text('当前状态')
-            .fontSize(14)
-            .fontColor(getThemeColors().textSecondary);
-
-          Blank();
-
-          Row() {
-            Circle()
-              .width(10)
-              .height(10)
-              .fill(this.getPresenceColor(this.presence));
-            Text(this.getPresenceText(this.presence))
-              .fontSize(14)
-              .fontColor(getThemeColors().text)
-              .margin({ left: 6 });
-          }
-          .onClick(() => {
-            this.showPresenceMenu = !this.showPresenceMenu;
-          });
-        }
-        .width('100%')
-        .padding({
-          left: 20,
-          right: 20,
-          top: 12,
-          bottom: 12
-        });
-
-        if (this.showPresenceMenu) {
-          Column() {
-            ForEach(['online', 'unavailable', 'offline'] as PresenceState[], (state: PresenceState) => {
-              Row() {
-                Circle()
-                  .width(10)
-                  .height(10)
-                  .fill(this.getPresenceColor(state));
-                Text(this.getPresenceText(state))
-                  .fontSize(14)
-                  .fontColor(getThemeColors().text)
-                  .margin({ left: 8 });
-                Blank();
-                if (this.presence === state) {
-                  Text('✓')
-                    .fontSize(14)
-                    .fontColor('#10a37f');
-                }
-              }
-              .width('100%')
-              .padding({
-                left: 20,
-                right: 20,
-                top: 10,
-                bottom: 10
-              })
-              .onClick(() => {
-                this.setPresence(state);
-              });
-            });
-          }
-          .width('100%')
-          .backgroundColor(getThemeColors().bg);
-        }
-
-        Divider().color(getThemeColors().divider);
-
-        Row() {
-          Text('状态消息')
-            .fontSize(14)
-            .fontColor(getThemeColors().textSecondary);
-        }
-        .width('100%')
-        .padding({ left: 20, right: 20, top: 12 });
-
-        TextInput({ text: this.statusMsg, placeholder: '设置状态消息' })
-          .width('calc(100% - 40)')
-          .height(36)
-          .fontSize(14)
-          .backgroundColor(getThemeColors().bg)
-          .borderRadius(8)
-          .margin({
-            left: 20,
-            right: 20,
-            top: 8,
-            bottom: 12
-          })
-          .onChange((value: string) => {
-            this.statusMsg = value;
-          })
-          .onSubmit(() => {
-            this.setStatusMessage();
-          });
-
-        Button('保存状态消息')
-          .fontSize(14)
-          .backgroundColor('#10a37f')
-          .fontColor('#ffffff')
-          .width('calc(100% - 40)')
-          .height(36)
-          .borderRadius(8)
-          .margin({ left: 20, right: 20, bottom: 12 })
-          .onClick(() => {
-            this.setStatusMessage();
-          });
-      }
-      .width('100%')
-      .backgroundColor(getThemeColors().surface);
-    }
-    .width('100%')
-    .margin({ top: 10 });
-  }
-
-  @Builder
-  buildRoomTagsSection() {
-    Column() {
-      Row() {
-        Text('房间标签')
-          .fontSize(16)
-          .fontWeight(FontWeight.Medium)
-          .fontColor('#333333');
-      }
-      .width('100%')
-      .padding({
-        left: 20,
-        right: 20,
-        top: 15,
-        bottom: 10
-      });
-
-      Column() {
-        Row() {
-          Text('收藏的房间')
-            .fontSize(14)
-            .fontColor('#666666');
-        }
-        .width('100%')
-        .padding({
-          left: 20,
-          right: 20,
-          top: 12,
-          bottom: 8
-        });
-
-        if (this.favoriteRooms.length === 0) {
-          Text('暂无收藏的房间')
-            .fontSize(12)
-            .fontColor('#999999')
-            .padding({ left: 20, bottom: 12 });
-        } else {
-          Column() {
-            ForEach(this.favoriteRooms, (room: Room) => {
-              Row() {
-                Text(room.getDisplayName())
-                  .fontSize(14)
-                  .fontColor('#333333')
-                  .layoutWeight(1);
-                Text('★')
-                  .fontSize(14)
-                  .fontColor('#FF9800');
-              }
-              .width('100%')
-              .padding({
-                left: 20,
-                right: 20,
-                top: 8,
-                bottom: 8
-              })
-              .onClick(() => {
-                this.toggleFavorite(room);
-              });
-            });
-          }
-          .width('100%')
-          .backgroundColor('#fafafa');
-        }
-
-        Divider().color('#f0f0f0').margin({ top: 8 });
-
-        Row() {
-          Text('低优先级的房间')
-            .fontSize(14)
-            .fontColor('#666666');
-        }
-        .width('100%')
-        .padding({
-          left: 20,
-          right: 20,
-          top: 12,
-          bottom: 8
-        });
-
-        if (this.lowPriorityRooms.length === 0) {
-          Text('暂无低优先级的房间')
-            .fontSize(12)
-            .fontColor('#999999')
-            .padding({ left: 20, bottom: 12 });
-        } else {
-          Column() {
-            ForEach(this.lowPriorityRooms, (room: Room) => {
-              Row() {
-                Text(room.getDisplayName())
-                  .fontSize(14)
-                  .fontColor('#333333')
-                  .layoutWeight(1);
-                Text('▼')
-                  .fontSize(14)
-                  .fontColor('#9E9E9E');
-              }
-              .width('100%')
-              .padding({
-                left: 20,
-                right: 20,
-                top: 8,
-                bottom: 8
-              })
-              .onClick(() => {
-                this.toggleLowPriority(room);
-              });
-            });
-          }
-          .width('100%')
-          .backgroundColor('#fafafa');
-        }
-
-        Divider().color('#f0f0f0').margin({ top: 8 });
-
-        Row() {
-          Text('管理所有房间标签')
-            .fontSize(14)
-            .fontColor('#10a37f');
-        }
-        .width('100%')
-        .padding({
-          left: 20,
-          right: 20,
-          top: 12,
-          bottom: 12
-        })
-        .onClick(() => {
-          this.showRoomTagsMenu = !this.showRoomTagsMenu;
-        });
-
-        if (this.showRoomTagsMenu) {
-          Column() {
-            ForEach(this.allRooms, (room: Room) => {
-              Row() {
-                Text(room.getDisplayName())
-                  .fontSize(14)
-                  .fontColor('#333333')
-                  .layoutWeight(1);
-
-                Text(this.favoriteRooms.some(r => r.id === room.id) ? '★' : '☆')
-                  .fontSize(14)
-                  .fontColor(this.favoriteRooms.some(r => r.id === room.id) ? '#FF9800' : '#CCCCCC')
-                  .onClick(() => {
-                    this.toggleFavorite(room);
-                  });
-
-                Text(this.lowPriorityRooms.some(r => r.id === room.id) ? '▼' : '▽')
-                  .fontSize(14)
-                  .fontColor(this.lowPriorityRooms.some(r => r.id === room.id) ? '#9E9E9E' : '#CCCCCC')
-                  .margin({ left: 12 })
-                  .onClick(() => {
-                    this.toggleLowPriority(room);
-                  });
-              }
-              .width('100%')
-              .padding({
-                left: 20,
-                right: 20,
-                top: 10,
-                bottom: 10
-              });
-            });
-          }
-          .width('100%')
-          .backgroundColor('#fafafa');
-        }
-      }
-      .width('100%')
-      .backgroundColor('#ffffff');
-    }
-    .width('100%')
-    .margin({ top: 10 });
-  }
-
-  @Builder
-  buildDevicesSection() {
-    Column() {
-      Row() {
-        Text('设备管理')
-          .fontSize(16)
-          .fontWeight(FontWeight.Medium)
-          .fontColor('#333333');
-      }
-      .width('100%')
-      .padding({
-        left: 20,
-        right: 20,
-        top: 15,
-        bottom: 10
-      });
-
-      Column() {
-        if (this.devices.length === 0) {
-          Text('暂无设备信息')
-            .fontSize(14)
-            .fontColor('#999999')
-            .padding({
-              left: 20,
-              right: 20,
-              top: 12,
-              bottom: 12
-            });
-        } else {
-          ForEach(this.devices, (device: Device) => {
-            Row() {
-              Column() {
-                Text(device.display_name || '未知设备')
-                  .fontSize(14)
-                  .fontColor('#333333');
-                Text(device.device_id || '')
-                  .fontSize(11)
-                  .fontColor('#999999')
-                  .margin({ top: 2 });
-              }
-              .alignItems(HorizontalAlign.Start)
-              .layoutWeight(1);
-
-              if (device.device_id === this.authManager.getSession()?.deviceId) {
-                Text('当前设备')
-                  .fontSize(12)
-                  .fontColor('#10a37f')
-                  .backgroundColor('#e8f5e9')
-                  .padding({
-                    left: 8,
-                    right: 8,
-                    top: 2,
-                    bottom: 2
-                  })
-                  .borderRadius(4);
-              } else {
-                Button('删除')
-                  .fontSize(12)
-                  .backgroundColor('#ffebee')
-                  .fontColor('#e53935')
-                  .height(28)
-                  .borderRadius(6)
-                  .onClick(() => {
-                    this.deleteDevice(device.device_id || '');
-                  });
-              }
-            }
-            .width('100%')
-            .padding({
-              left: 20,
-              right: 20,
-              top: 12,
-              bottom: 12
-            });
-          });
-        }
-      }
-      .width('100%')
-      .backgroundColor('#ffffff');
-    }
-    .width('100%')
-    .margin({ top: 10 });
-  }
-
-  @Builder
-  buildCollaborationSection() {
-    Column() {
-      Row() {
-        Text('跨设备协作')
-          .fontSize(16)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(getThemeColors().text);
-      }
-      .width('100%')
-      .padding({
-        left: 20,
-        right: 20,
-        top: 15,
-        bottom: 10
-      });
-
-      Column() {
-        Row() {
-          Column() {
-            Text('设备接续')
-              .fontSize(14)
-              .fontColor(getThemeColors().text);
-            Text('将当前会话切换到其他设备')
-              .fontSize(11)
-              .fontColor(getThemeColors().textSecondary)
-              .margin({ top: 2 });
-          }
-          .alignItems(HorizontalAlign.Start)
-          .layoutWeight(1);
-
-          Button('查找设备')
-            .fontSize(12)
-            .backgroundColor(getThemeColors().primary)
-            .fontColor('#ffffff')
-            .padding({
-              left: 12,
-              right: 12,
-              top: 6,
-              bottom: 6
-            })
-            .borderRadius(16)
-            .onClick(() => {
-              this.onFindCollaborativeDevices();
-            });
-        }
-        .width('100%')
-        .padding({
-          left: 20,
-          right: 20,
-          top: 12,
-          bottom: 12
-        });
-      }
-      .width('100%')
-      .backgroundColor(getThemeColors().surface);
-    }
-    .width('100%')
-    .margin({ top: 10 });
   }
 
   async onFindCollaborativeDevices() {
@@ -1003,169 +411,19 @@ struct SettingsPage {
     promptAction.showToast({ message: `发现 ${devices.length} 个可协作设备` });
   }
 
-  @Builder
-  buildSecuritySection() {
-    Column() {
-      Row() {
-        Text('🔒 安全与防诈')
-          .fontSize(16)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(getThemeColors().text);
-      }
-      .width('100%')
-      .padding({
-        left: 20,
-        right: 20,
-        top: 15,
-        bottom: 10
-      });
-
-      Column() {
-        Row() {
-          Column() {
-            Text('AI安全检测')
-              .fontSize(14)
-              .fontColor(getThemeColors().text);
-            Text('自动检测可疑消息和链接')
-              .fontSize(11)
-              .fontColor(getThemeColors().textSecondary)
-              .margin({ top: 2 });
-          }
-          .alignItems(HorizontalAlign.Start)
-          .layoutWeight(1);
-
-          Button('检测')
-            .fontSize(12)
-            .backgroundColor('#FF9800')
-            .fontColor('#ffffff')
-            .padding({
-              left: 12,
-              right: 12,
-              top: 6,
-              bottom: 6
-            })
-            .borderRadius(16)
-            .onClick(() => {
-              this.onCheckDeviceSecurity();
-            });
-        }
-        .width('100%')
-        .padding({
-          left: 20,
-          right: 20,
-          top: 12,
-          bottom: 12
-        });
-
-        Divider().color(getThemeColors().divider);
-
-        Row() {
-          Column() {
-            Text('诈骗风险提示')
-              .fontSize(14)
-              .fontColor(getThemeColors().text);
-            Text('长按消息进行安全检测')
-              .fontSize(11)
-              .fontColor(getThemeColors().textSecondary)
-              .margin({ top: 2 });
-          }
-          .alignItems(HorizontalAlign.Start)
-          .layoutWeight(1);
-
-          Image($r('app.media.message'))
-            .width(24)
-            .height(24)
-            .opacity(0.5);
-        }
-        .width('100%')
-        .padding({
-          left: 20,
-          right: 20,
-          top: 12,
-          bottom: 12
-        });
-      }
-      .width('100%')
-      .backgroundColor(getThemeColors().surface);
-    }
-    .width('100%')
-    .margin({ top: 10 });
-  }
-
   async onCheckDeviceSecurity() {
     const status = await this.deviceSecurityManager.checkDeviceSecurityStatus();
-    
+
     let message = '';
     if (status.isTrusted) {
-      message = '✅ 设备安全: 安全芯片已启用';
+      message = '设备安全: 安全芯片已启用';
     } else if (status.hasSecurityChip) {
-      message = '⚠️ 设备安全: 部分安全功能可用';
+      message = '设备安全: 部分安全功能可用';
     } else {
-      message = 'ℹ️ 设备安全: 使用软件级安全保护';
+      message = '设备安全: 使用软件级安全保护';
     }
-    
+
     promptAction.showToast({ message, duration: 3000 });
-  }
-
-  @Builder
-  buildQRScannerSection() {
-    Column() {
-      Row() {
-        Text('📷 扫码')
-          .fontSize(16)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(getThemeColors().text);
-      }
-      .width('100%')
-      .padding({
-        left: 20,
-        right: 20,
-        top: 15,
-        bottom: 10
-      });
-
-      Column() {
-        Row() {
-          Column() {
-            Text('扫描二维码加入房间')
-              .fontSize(14)
-              .fontColor(getThemeColors().text);
-            Text('扫描好友分享的房间链接')
-              .fontSize(11)
-              .fontColor(getThemeColors().textSecondary)
-              .margin({ top: 2 });
-          }
-          .alignItems(HorizontalAlign.Start)
-          .layoutWeight(1);
-
-          Button('扫码')
-            .fontSize(12)
-            .backgroundColor(getThemeColors().primary)
-            .fontColor('#ffffff')
-            .padding({
-              left: 16,
-              right: 16,
-              top: 8,
-              bottom: 8
-            })
-            .borderRadius(16)
-            .onClick(() => {
-              this.onScanQRCode();
-            });
-        }
-        .width('100%')
-        .padding({
-          left: 20,
-          right: 20,
-          top: 12,
-          bottom: 12
-        });
-      }
-      .width('100%')
-      .backgroundColor(getThemeColors().surface);
-    }
-    .width('100%')
-    .margin({ top: 10 });
   }
 
   async onScanQRCode() {
@@ -1183,96 +441,6 @@ struct SettingsPage {
       console.error('Scan error: %{public}s', JSON.stringify(error));
       promptAction.showToast({ message: '扫码失败' });
     }
-  }
-
-  @Builder
-  buildBiometricSection() {
-    Column() {
-      Row() {
-        Text('🔐 登录安全')
-          .fontSize(16)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(getThemeColors().text);
-      }
-      .width('100%')
-      .padding({
-        left: 20,
-        right: 20,
-        top: 15,
-        bottom: 10
-      });
-
-      Column() {
-        Row() {
-          Column() {
-            Text('生物识别登录')
-              .fontSize(14)
-              .fontColor(getThemeColors().text);
-            Text('使用指纹或面部识别快速登录')
-              .fontSize(11)
-              .fontColor(getThemeColors().textSecondary)
-              .margin({ top: 2 });
-          }
-          .alignItems(HorizontalAlign.Start)
-          .layoutWeight(1);
-
-          Toggle({ type: ToggleType.Switch, isOn: false })
-            .selectedColor(getThemeColors().primary)
-            .onChange((isOn: boolean) => {
-              this.onToggleBiometric(isOn);
-            });
-        }
-        .width('100%')
-        .padding({
-          left: 20,
-          right: 20,
-          top: 12,
-          bottom: 12
-        });
-
-        Divider().color(getThemeColors().divider);
-
-        Row() {
-          Column() {
-            Text('验证生物识别')
-              .fontSize(14)
-              .fontColor(getThemeColors().text);
-            Text('测试指纹或面部识别是否可用')
-              .fontSize(11)
-              .fontColor(getThemeColors().textSecondary)
-              .margin({ top: 2 });
-          }
-          .alignItems(HorizontalAlign.Start)
-          .layoutWeight(1);
-
-          Button('验证')
-            .fontSize(12)
-            .backgroundColor(getThemeColors().primary)
-            .fontColor('#ffffff')
-            .padding({
-              left: 16,
-              right: 16,
-              top: 8,
-              bottom: 8
-            })
-            .borderRadius(16)
-            .onClick(() => {
-              this.onVerifyBiometric();
-            });
-        }
-        .width('100%')
-        .padding({
-          left: 20,
-          right: 20,
-          top: 12,
-          bottom: 12
-        });
-      }
-      .width('100%')
-      .backgroundColor(getThemeColors().surface);
-    }
-    .width('100%')
-    .margin({ top: 10 });
   }
 
   async onToggleBiometric(enable: boolean) {
@@ -1293,219 +461,9 @@ struct SettingsPage {
   async onVerifyBiometric() {
     const success = await this.userAuthManager.authenticateWithFace();
     if (success) {
-      promptAction.showToast({ message: '✅ 生物识别验证成功' });
+      promptAction.showToast({ message: '生物识别验证成功' });
     } else {
-      promptAction.showToast({ message: '❌ 生物识别验证失败' });
+      promptAction.showToast({ message: '生物识别验证失败' });
     }
-  }
-
-  @Builder
-  buildAboutSection() {
-    Column() {
-      Row() {
-        Text('关于')
-          .fontSize(16)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(getThemeColors().text);
-      }
-      .width('100%')
-      .padding({
-        left: 20,
-        right: 20,
-        top: 15,
-        bottom: 10
-      });
-
-      Column() {
-        Row() {
-          Text('应用名称')
-            .fontSize(14)
-            .fontColor(getThemeColors().textSecondary);
-          Blank();
-          Text('Toona')
-            .fontSize(14)
-            .fontColor(getThemeColors().text);
-        }
-        .width('100%')
-        .padding({
-          left: 20,
-          right: 20,
-          top: 12,
-          bottom: 12
-        });
-
-        Divider().color(getThemeColors().divider);
-
-        Row() {
-          Text('版本')
-            .fontSize(14)
-            .fontColor(getThemeColors().textSecondary);
-          Blank();
-          Text('1.0.0')
-            .fontSize(14)
-            .fontColor(getThemeColors().text);
-        }
-        .width('100%')
-        .padding({
-          left: 20,
-          right: 20,
-          top: 12,
-          bottom: 12
-        });
-
-        Divider().color(getThemeColors().divider);
-
-        Row() {
-          Text('基于 Matrix 协议')
-            .fontSize(14)
-            .fontColor(getThemeColors().textSecondary);
-          Blank();
-          Text('v1.11')
-            .fontSize(14)
-            .fontColor(getThemeColors().text);
-        }
-        .width('100%')
-        .padding({
-          left: 20,
-          right: 20,
-          top: 12,
-          bottom: 12
-        });
-
-        Divider().color(getThemeColors().divider);
-
-        Row() {
-          Text('开源许可')
-            .fontSize(14)
-            .fontColor(getThemeColors().textSecondary);
-          Blank();
-          Text('Apache 2.0')
-            .fontSize(14)
-            .fontColor(getThemeColors().text);
-        }
-        .width('100%')
-        .padding({
-          left: 20,
-          right: 20,
-          top: 12,
-          bottom: 12
-        });
-
-        Divider().color(getThemeColors().divider);
-
-        Row() {
-          Text('关于应用')
-            .fontSize(14)
-            .fontColor(getThemeColors().textSecondary);
-        }
-        .width('100%')
-        .padding({ left: 20, right: 20, top: 12 });
-
-        Text('Toona 是一个基于 Matrix 协议的开源即时通讯客户端，为 HarmonyOS 设备提供安全、私密的聊天体验。')
-          .fontSize(12)
-          .fontColor(getThemeColors().textSecondary)
-          .padding({
-            left: 20,
-            right: 20,
-            top: 8,
-            bottom: 12
-          });
-
-        Divider().color(getThemeColors().divider);
-
-        Row() {
-          Text('隐私政策')
-            .fontSize(14)
-            .fontColor('#10a37f');
-          Blank();
-          Text('→')
-            .fontSize(14)
-            .fontColor('#10a37f');
-        }
-        .width('100%')
-        .padding({
-          left: 20,
-          right: 20,
-          top: 12,
-          bottom: 12
-        })
-        .onClick(() => {
-          promptAction.showToast({ message: '隐私政策页面开发中' });
-        });
-
-        Divider().color(getThemeColors().divider);
-
-        Row() {
-          Text('服务条款')
-            .fontSize(14)
-            .fontColor('#10a37f');
-          Blank();
-          Text('→')
-            .fontSize(14)
-            .fontColor('#10a37f');
-        }
-        .width('100%')
-        .padding({
-          left: 20,
-          right: 20,
-          top: 12,
-          bottom: 12
-        })
-        .onClick(() => {
-          promptAction.showToast({ message: '服务条款页面开发中' });
-        });
-
-        Divider().color(getThemeColors().divider);
-
-        Row() {
-          Text('开放源代码')
-            .fontSize(14)
-            .fontColor('#10a37f');
-          Blank();
-          Text('→')
-            .fontSize(14)
-            .fontColor('#10a37f');
-        }
-        .width('100%')
-        .padding({
-          left: 20,
-          right: 20,
-          top: 12,
-          bottom: 12
-        })
-        .onClick(() => {
-          promptAction.showToast({ message: '开源地址开发中' });
-        });
-      }
-      .width('100%')
-      .backgroundColor(getThemeColors().surface);
-    }
-    .width('100%')
-    .margin({ top: 10 });
-  }
-
-  @Builder
-  buildLogoutSection() {
-    Column() {
-      Button('退出登录')
-        .fontSize(16)
-        .fontColor('#e53935')
-        .backgroundColor($r('sys.color.white'))
-        .width('100%')
-        .height(48)
-        .borderRadius(8)
-        .margin({
-          top: 20,
-          left: 20,
-          right: 20,
-          bottom: 30
-        })
-        .onClick(() => {
-          this.handleLogout();
-        });
-    }
-    .width('100%')
-    .backgroundColor($r('sys.color.white'))
-    .margin({ top: 10 });
   }
 }

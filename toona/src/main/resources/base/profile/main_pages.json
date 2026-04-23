@@ -1,6 +1,5 @@
 {
   "src": [
-    "pages/MainShell",
     "pages/LoginPage",
     "pages/RegisterPage",
     "pages/MainPage",

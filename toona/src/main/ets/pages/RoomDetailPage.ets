@@ -12,6 +12,12 @@ import { DeviceSecurityManager } from '../services/DeviceSecurityManager';
 import { MessageStatus, PresenceState } from '../models/MatrixTypes';
 import { fileIo } from '@kit.CoreFileKit';
 import { getThemeColors } from '../utils/ThemeManager';
+import { MessageBubble } from './components/MessageBubble';
+import { MessageInputBar } from './components/MessageInputBar';
+import { MemberListPanel } from './components/MemberListPanel';
+import { MessageActionMenu } from './components/MessageActionMenu';
+import { ReplyQuote } from './components/ReplyQuote';
+import { EditMessage } from './components/EditMessage';
 
 interface MemberPresence {
   userId: string;
@@ -19,7 +25,7 @@ interface MemberPresence {
   displayName: string;
 }
 
-interface ReplyQuote {
+interface ReplyQuoteData {
   eventId: string;
   sender: string;
   body: string;
@@ -38,19 +44,6 @@ interface RelatesTo {
   'm.in_reply_to': InReplyTo;
 }
 
-interface RoomDetailThemeColors {
-  bg: string;
-  text: string;
-  textSecondary: string;
-  inputBg: string;
-  primary: string;
-  error: string;
-  divider: string;
-  headerBg: string;
-  messageBg: string;
-  outgoingBg: string;
-}
-
 @Builder
 export function RoomDetailPageBuilder(name: string, param: Object) {
   RoomDetailPage({
@@ -59,7 +52,6 @@ export function RoomDetailPageBuilder(name: string, param: Object) {
   })
 }
 
-@Entry
 @Component
 struct RoomDetailPage {
   @State roomId: string = '';
@@ -71,7 +63,7 @@ struct RoomDetailPage {
   @State typingUsers: string[] = [];
   @State memberPresences: MemberPresence[] = [];
   @State showMembersPanel: boolean = false;
-  @State replyQuote: ReplyQuote | null = null;
+  @State replyQuote: ReplyQuoteData | null = null;
   @State showReplyMenu: boolean = false;
   @State selectedMessage: Message | null = null;
   @State roomTopic: string = '';
@@ -92,7 +84,7 @@ struct RoomDetailPage {
   private mediaLibraryManager: MediaLibraryManager = MediaLibraryManager.getInstance();
   private shareManager: ShareManager = ShareManager.getInstance();
   private deviceSecurityManager: DeviceSecurityManager = DeviceSecurityManager.getInstance();
-  private pathStack: NavPathStack | null = null;
+  @Prop pathStack: NavPathStack;
 
   aboutToAppear() {
     this.loadRoomTopic();
@@ -107,7 +99,7 @@ struct RoomDetailPage {
     this.syncManager.setRoomLeftCallback((leftRoomId: string) => {
       if (leftRoomId === this.roomId) {
         promptAction.showToast({ message: '已离开房间' });
-        this.pathStack?.pop();
+this.pathStack.pop();
       }
     });
 
@@ -508,22 +500,6 @@ struct RoomDetailPage {
     return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
   }
 
-  getRoomThemeColors(): RoomDetailThemeColors {
-    const base = getThemeColors();
-    return {
-      bg: base.bg,
-      text: base.text,
-      textSecondary: base.textSecondary,
-      inputBg: base.inputBg,
-      primary: base.primary,
-      error: '#e53935',
-      divider: base.divider,
-      headerBg: base.surface,
-      messageBg: base.surface,
-      outgoingBg: '#10a37f'
-    };
-  }
-
   getTimeGroupLabel(timestamp: number): string {
     const date = new Date(timestamp);
     const today = new Date();
@@ -550,563 +526,107 @@ struct RoomDetailPage {
     return currentDate !== prevDate;
   }
 
-  build() {
-    NavDestination() {
-      Stack() {
-        Column() {
-          Row() {
-            Column() {
-              Text(this.roomName)
-                .fontSize(18)
-                .fontWeight(FontWeight.Medium)
-                .maxLines(1)
-                .textOverflow({ overflow: TextOverflow.Ellipsis })
-                .fontColor(this.getRoomThemeColors().text);
-              if (this.roomTopic) {
-                Text(this.roomTopic)
-                  .fontSize(12)
-                  .maxLines(1)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
-                  .fontColor(this.getRoomThemeColors().textSecondary);
-              }
-            }
-            .layoutWeight(1)
-            .alignItems(HorizontalAlign.Start);
+  onMessageLongPress(message: Message) {
+    this.selectedMessage = message;
+    this.showReplyMenu = true;
+  }
 
-            Button('Eyes')
-              .fontSize(18)
-              .backgroundColor('transparent')
-              .fontColor(this.getRoomThemeColors().textSecondary)
-              .width(36)
-              .height(36)
-              .onClick(() => {
-                this.showMembersPanel = !this.showMembersPanel;
-              });
+build() {
+    Stack() {
+      Column() {
+        this.buildHeader();
+        this.buildRoomMenu();
+        this.buildTypingIndicator();
+        this.buildReplyQuote();
+        this.buildEditMessage();
+        this.buildMessageList();
+        this.buildInputBar();
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor(getThemeColors().bg);
 
-            Button('Phone')
-              .fontSize(16)
-              .backgroundColor('transparent')
-              .fontColor(this.getRoomThemeColors().textSecondary)
-              .width(36)
-              .height(36)
-              .onClick(() => {
-                this.startVoiceCall();
-              });
-
-            Image($r('app.media.menu'))
-              .width(24)
-              .height(24)
-              .objectFit(ImageFit.Contain)
-              .fillColor(this.getRoomThemeColors().textSecondary)
-              .onClick(() => {
-                this.showMenu = !this.showMenu;
-              });
+      if (this.showMembersPanel) {
+        MemberListPanel({
+          memberPresences: this.memberPresences,
+          showMembersPanel: this.showMembersPanel,
+          onClose: () => {
+            this.showMembersPanel = false;
           }
-          .width('100%')
-          .height(56)
-          .padding({ left: 10, right: 10 })
-          .backgroundColor(this.getRoomThemeColors().headerBg);
+        });
+      }
 
-          if (this.showMenu) {
-            Column() {
-              Button('分享房间')
-                .fontSize(16)
-                .backgroundColor(this.getRoomThemeColors().bg)
-                .fontColor(this.getRoomThemeColors().primary)
-                .width('100%')
-                .height(44)
-                .onClick(() => {
-                  this.showMenu = false;
-                  this.shareRoom();
-                });
-              Button('离开房间')
-                .fontSize(16)
-                .backgroundColor(this.getRoomThemeColors().bg)
-                .fontColor(this.getRoomThemeColors().error)
-                .width('100%')
-                .height(44)
-                .onClick(() => {
-                  this.showMenu = false;
-                  this.leaveRoom();
-                });
-            }
-            .width(160)
-            .backgroundColor(this.getRoomThemeColors().bg)
-            .borderRadius(8)
-            .shadow({
-              radius: 10,
-              color: 'rgba(0, 0, 0, 0.15)',
-              offsetX: 0,
-              offsetY: 2
-            })
-            .position({ x: '60%', y: 60 })
-            .onClick(() => {
-              this.showMenu = false;
-            });
-          }
-
-          if (this.typingUsers.length > 0) {
-            Row() {
-              Text('对方正在输入...')
-                .fontSize(12)
-                .fontColor(this.getRoomThemeColors().textSecondary)
-                .margin({ left: 15, top: 5, bottom: 5 });
-            }
-            .width('100%')
-            .backgroundColor(this.getRoomThemeColors().bg);
-          }
-
-          if (this.replyQuote) {
-            Row() {
-              Column() {
-                Row() {
-                  Text('回复: ')
-                    .fontSize(12)
-                    .fontColor(this.getRoomThemeColors().primary);
-                  Text(this.getReplySenderName(this.replyQuote.sender))
-                    .fontSize(12)
-                    .fontColor(this.getRoomThemeColors().textSecondary);
-                }
-
-                Text(this.replyQuote.body)
-                  .fontSize(12)
-                  .fontColor(this.getRoomThemeColors().textSecondary)
-                  .maxLines(1)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis });
-              }
-              .alignItems(HorizontalAlign.Start)
-              .layoutWeight(1);
-
-              Button('✕')
-                .fontSize(12)
-                .backgroundColor('transparent')
-                .fontColor(this.getRoomThemeColors().textSecondary)
-                .width(24)
-                .height(24)
-                .onClick(() => {
-                  this.cancelReply();
-                });
-            }
-            .width('100%')
-            .padding({
-              left: 15,
-              right: 10,
-              top: 8,
-              bottom: 8
-            })
-            .backgroundColor(this.getRoomThemeColors().inputBg);
-          }
-
-          if (this.editingMessage) {
-            Row() {
-              Column() {
-                Row() {
-                  Text('编辑消息')
-                    .fontSize(12)
-                    .fontColor(this.getRoomThemeColors().primary);
-                  Text(': ')
-                    .fontSize(12)
-                    .fontColor(this.getRoomThemeColors().textSecondary);
-                  Text(this.editingMessage.getMessageBody())
-                    .fontSize(12)
-                    .fontColor(this.getRoomThemeColors().textSecondary)
-                    .maxLines(1)
-                    .textOverflow({ overflow: TextOverflow.Ellipsis })
-                    .layoutWeight(1);
-                }
-
-                TextInput({ text: this.editText, placeholder: '输入修改后的消息' })
-                  .fontSize(14)
-                  .backgroundColor(this.getRoomThemeColors().bg)
-                  .borderRadius(8)
-                  .height(36)
-                  .margin({ top: 4 })
-                  .onChange((value: string) => {
-                    this.editText = value;
-                  });
-              }
-              .alignItems(HorizontalAlign.Start)
-              .layoutWeight(1);
-
-              Column() {
-                Button('✕')
-                  .fontSize(12)
-                  .backgroundColor('transparent')
-                  .fontColor(this.getRoomThemeColors().textSecondary)
-                  .width(24)
-                  .height(24)
-                  .onClick(() => {
-                    this.cancelEdit();
-                  });
-
-                Button('保存')
-                  .fontSize(12)
-                  .backgroundColor(this.getRoomThemeColors().primary)
-                  .fontColor('#ffffff')
-                  .width(48)
-                  .height(28)
-                  .borderRadius(6)
-                  .margin({ top: 4 })
-                  .enabled(this.editText.trim().length > 0)
-                  .onClick(() => {
-                    this.saveEdit();
-                  });
-              }
-              .alignItems(HorizontalAlign.Center);
-            }
-            .width('100%')
-            .padding({
-              left: 15,
-              right: 10,
-              top: 8,
-              bottom: 8
-            })
-            .backgroundColor(this.getRoomThemeColors().inputBg);
-          }
-
-          if (this.isLoading) {
-            Column() {
-              LoadingProgress()
-                .width(40)
-                .height(40)
-                .color(this.getRoomThemeColors().primary);
-            }
-            .width('100%')
-            .layoutWeight(1)
-            .justifyContent(FlexAlign.Center);
-          } else if (this.messages.length === 0) {
-            Column() {
-              Text('暂无消息')
-                .fontSize(16)
-                .fontColor(this.getRoomThemeColors().textSecondary);
-              Text('发送第一条消息')
-                .fontSize(14)
-                .fontColor(this.getRoomThemeColors().textSecondary)
-                .opacity(0.6)
-                .margin({ top: 5 });
-            }
-            .width('100%')
-            .layoutWeight(1)
-            .justifyContent(FlexAlign.Center);
-          } else {
-            List({ scroller: this.scroller }) {
-              ForEach(this.messages, (message: Message, index: number) => {
-                ListItem() {
-                  Column() {
-                    if (this.shouldShowTimeGroup(index)) {
-                      Text(this.getTimeGroupLabel(message.timestamp))
-                        .fontSize(12)
-                        .fontColor(this.getRoomThemeColors().textSecondary)
-                        .padding({ top: 10, bottom: 5 });
-                    }
-                    if (message.isOutgoing) {
-                      this.outgoingMessage(message);
-                    } else {
-                      this.incomingMessage(message);
-                    }
-                  }
-                  .width('100%');
-                }
-              });
-            }
-            .width('100%')
-            .layoutWeight(1)
-            .padding({
-              left: 15,
-              right: 15,
-              top: 10,
-              bottom: 10
-            })
-            .onClick(() => {
-              this.showMenu = false;
-              this.showMembersPanel = false;
-              this.showMessageAction = false;
-            });
-          }
-
-          Row() {
-            if (!this.editingMessage) {
-              TextInput({ placeholder: '输入消息...', text: this.inputText })
-                .fontSize(16)
-                .backgroundColor(this.getRoomThemeColors().inputBg)
-                .borderRadius(20)
-                .height(40)
-                .layoutWeight(1)
-                .onChange((value: string) => {
-                  this.onInputChange(value);
-                })
-                .onSubmit(() => {
-                  this.sendMessage();
-                });
-            }
-
-            Button('Voice')
-              .fontSize(16)
-              .backgroundColor('transparent')
-              .fontColor(this.getRoomThemeColors().textSecondary)
-              .borderRadius(20)
-              .width(36)
-              .height(36)
-              .margin({ left: 5 })
-              .onClick(() => {
-                this.startVoiceCall();
-              });
-
-            Row() {
-              Button('Photo')
-                .fontSize(18)
-                .backgroundColor('transparent')
-                .fontColor(this.getRoomThemeColors().textSecondary)
-                .borderRadius(20)
-                .width(40)
-                .height(40)
-                .margin({ left: 5 })
-                .onClick(() => {
-                  this.pickAndUploadImage();
-                });
-
-              Button('Image')
-                .fontSize(18)
-                .backgroundColor('transparent')
-                .fontColor(this.getRoomThemeColors().textSecondary)
-                .borderRadius(20)
-                .width(40)
-                .height(40)
-                .margin({ left: 5 })
-                .onClick(() => {
-                  this.pickAndUploadImage();
-                });
-            }
-
-            Button('Send')
-              .fontSize(16)
-              .fontColor('#ffffff')
-              .backgroundColor(this.getRoomThemeColors().primary)
-              .borderRadius(20)
-              .width(60)
-              .height(40)
-              .margin({ left: 5 })
-              .enabled(this.inputText.trim().length > 0 && !this.editingMessage)
-              .onClick(() => {
-                this.sendMessage();
-              });
-          }
-          .width('100%')
-          .padding({
-            left: 15,
-            right: 15,
-            top: 10,
-            bottom: 10
-          })
-          .backgroundColor(this.getRoomThemeColors().bg);
+      MessageActionMenu({
+        showReplyMenu: this.showReplyMenu,
+        selectedMessage: this.selectedMessage!,
+        onReply: (message: Message) => {
+          this.startReply(message);
+        },
+        onCopy: (message: Message) => {
+          this.copyMessage(message);
+        },
+        onDelete: (message: Message) => {
+          this.deleteMessage(message);
+        },
+        onEdit: (message: Message) => {
+          this.startEdit(message);
+        },
+        onSecurityCheck: (message: Message) => {
+          this.checkMessageSecurity(message);
+        },
+        onShare: (message: Message) => {
+          this.shareMessage(message);
+        },
+        onClose: () => {
+          this.showReplyMenu = false;
+          this.selectedMessage = null;
         }
+      });
+    }
+    .width('100%')
+    .height('100%');
+  }
+}
         .width('100%')
         .height('100%')
-        .backgroundColor(this.getRoomThemeColors().bg);
+        .backgroundColor(getThemeColors().bg);
 
         if (this.showMembersPanel) {
-          Column() {
-            Row() {
-              Text('成员列表')
-                .fontSize(16)
-                .fontWeight(FontWeight.Medium)
-                .fontColor(this.getRoomThemeColors().text);
-              Blank();
-              Button('✕')
-                .fontSize(16)
-                .backgroundColor('transparent')
-                .fontColor(this.getRoomThemeColors().textSecondary)
-                .width(30)
-                .height(30)
-                .onClick(() => {
-                  this.showMembersPanel = false;
-                });
+          MemberListPanel({
+            memberPresences: this.memberPresences,
+            showMembersPanel: this.showMembersPanel,
+            onClose: () => {
+              this.showMembersPanel = false;
             }
-            .width('100%')
-            .padding({
-              left: 15,
-              right: 15,
-              top: 12,
-              bottom: 12
-            });
-
-            Divider().color(this.getRoomThemeColors().divider);
-
-            if (this.memberPresences.length === 0) {
-              Text('暂无成员信息')
-                .fontSize(14)
-                .fontColor(this.getRoomThemeColors().textSecondary)
-                .padding(15);
-            } else {
-              Scroll() {
-                Column() {
-                  ForEach(this.memberPresences, (member: MemberPresence) => {
-                    Row() {
-                      Stack() {
-                        Text(member.displayName.charAt(0).toUpperCase())
-                          .fontSize(16)
-                          .fontWeight(FontWeight.Bold)
-                          .fontColor('#ffffff')
-                          .width(36)
-                          .height(36)
-                          .borderRadius(18)
-                          .backgroundColor(this.getRoomThemeColors().primary)
-                          .textAlign(TextAlign.Center);
-
-                        Circle()
-                          .width(10)
-                          .height(10)
-                          .fill(this.getPresenceColor(member.presence))
-                          .stroke(this.getRoomThemeColors().bg)
-                          .strokeWidth(1.5)
-                          .position({ x: 26, y: 26 });
-                      }
-                      .width(36)
-                      .height(36)
-                      .margin({ right: 12 });
-
-                      Column() {
-                        Text(member.displayName)
-                          .fontSize(14)
-                          .fontColor(this.getRoomThemeColors().text);
-                        Text(this.getPresenceText(member.presence))
-                          .fontSize(12)
-                          .fontColor(this.getRoomThemeColors().textSecondary);
-                      }
-                      .alignItems(HorizontalAlign.Start)
-                      .layoutWeight(1);
-
-                      Text(member.userId.split(':')[0].replace('@', ''))
-                        .fontSize(11)
-                        .fontColor(this.getRoomThemeColors().textSecondary);
-                    }
-                    .width('100%')
-                    .padding({
-                      left: 15,
-                      right: 15,
-                      top: 10,
-                      bottom: 10
-                    });
-                  });
-                }
-                .width('100%');
-              }
-              .layoutWeight(1);
-            }
-          }
-          .width('70%')
-          .height('100%')
-          .backgroundColor(this.getRoomThemeColors().bg)
-          .shadow({
-            radius: 10,
-            color: 'rgba(0, 0, 0, 0.15)',
-            offsetX: -2,
-            offsetY: 0
-          })
-          .position({ x: '30%', y: 0 });
-        }
-
-        if (this.showReplyMenu && this.selectedMessage) {
-          Column() {
-            Column() {
-              Text('回复')
-                .fontSize(14)
-                .fontColor(this.getRoomThemeColors().text)
-                .width('100%')
-                .padding({ left: 15, top: 12, bottom: 12 })
-                .onClick(() => {
-                  this.startReply(this.selectedMessage!);
-                });
-
-              Divider().color(this.getRoomThemeColors().divider);
-
-              Text('复制')
-                .fontSize(14)
-                .fontColor(this.getRoomThemeColors().text)
-                .width('100%')
-                .padding({ left: 15, top: 12, bottom: 12 })
-                .onClick(() => {
-                  this.copyMessage(this.selectedMessage!);
-                });
-
-              if (this.selectedMessage.isOutgoing) {
-                Divider().color(this.getRoomThemeColors().divider);
-
-                Text('删除')
-                  .fontSize(14)
-                  .fontColor(this.getRoomThemeColors().error)
-                  .width('100%')
-                  .padding({ left: 15, top: 12, bottom: 12 })
-                  .onClick(() => {
-                    this.deleteMessage(this.selectedMessage!);
-                  });
-
-                Divider().color(this.getRoomThemeColors().divider);
-
-                Text('编辑')
-                  .fontSize(14)
-                  .fontColor(this.getRoomThemeColors().primary)
-                  .width('100%')
-                  .padding({ left: 15, top: 12, bottom: 12 })
-                  .onClick(() => {
-                    this.startEdit(this.selectedMessage!);
-                  });
-              }
-
-              Divider().color(this.getRoomThemeColors().divider);
-
-              Text('安全检测')
-                .fontSize(14)
-                .fontColor('#FF9800')
-                .width('100%')
-                .padding({ left: 15, top: 12, bottom: 12 })
-                .onClick(() => {
-                  this.checkMessageSecurity(this.selectedMessage!);
-                });
-
-              Divider().color(this.getRoomThemeColors().divider);
-
-              Text('分享')
-                .fontSize(14)
-                .fontColor(this.getRoomThemeColors().primary)
-                .width('100%')
-                .padding({ left: 15, top: 12, bottom: 12 })
-                .onClick(() => {
-                  this.shareMessage(this.selectedMessage!);
-                });
-
-              Divider().color(this.getRoomThemeColors().divider);
-
-              Text('取消')
-                .fontSize(14)
-                .fontColor(this.getRoomThemeColors().textSecondary)
-                .width('100%')
-                .padding({ left: 15, top: 12, bottom: 12 })
-                .onClick(() => {
-                  this.showReplyMenu = false;
-                  this.selectedMessage = null;
-                });
-            }
-            .width(160)
-            .backgroundColor(this.getRoomThemeColors().bg)
-            .borderRadius(8)
-            .shadow({
-              radius: 10,
-              color: 'rgba(0, 0, 0, 0.15)',
-              offsetX: 0,
-              offsetY: 2
-            });
-          }
-          .width('100%')
-          .height('100%')
-          .justifyContent(FlexAlign.Center)
-          .alignItems(HorizontalAlign.Center)
-          .backgroundColor('rgba(0, 0, 0, 0.3)')
-          .onClick(() => {
-            this.showReplyMenu = false;
-            this.selectedMessage = null;
           });
         }
+
+        MessageActionMenu({
+          showReplyMenu: this.showReplyMenu,
+          selectedMessage: this.selectedMessage!,
+          onReply: (message: Message) => {
+            this.startReply(message);
+          },
+          onCopy: (message: Message) => {
+            this.copyMessage(message);
+          },
+          onDelete: (message: Message) => {
+            this.deleteMessage(message);
+          },
+          onEdit: (message: Message) => {
+            this.startEdit(message);
+          },
+          onSecurityCheck: (message: Message) => {
+            this.checkMessageSecurity(message);
+          },
+          onShare: (message: Message) => {
+            this.shareMessage(message);
+          },
+          onClose: () => {
+            this.showReplyMenu = false;
+            this.selectedMessage = null;
+          }
+        });
       }
       .width('100%')
       .height('100%');
@@ -1117,239 +637,224 @@ struct RoomDetailPage {
   }
 
   @Builder
-  outgoingMessage(message: Message) {
-    Column() {
-      if (message.replyEventId) {
-        Row() {
-          Text('↳ ')
+  buildHeader() {
+    Row() {
+      Column() {
+        Text(this.roomName)
+          .fontSize(18)
+          .fontWeight(FontWeight.Medium)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .fontColor(getThemeColors().text);
+        if (this.roomTopic) {
+          Text(this.roomTopic)
             .fontSize(12)
-            .fontColor(this.getRoomThemeColors().primary);
-          Text('回复消息')
-            .fontSize(12)
-            .fontColor(this.getRoomThemeColors().textSecondary);
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .fontColor(getThemeColors().textSecondary);
         }
-        .width('100%')
-        .padding({ left: 12, right: 12, top: 4 });
       }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start);
 
-      if (message.isImageMessage()) {
-        Image(this.mediaManager.getThumbnailUrl(message.content['url'] as string, 200, 200, 'scale'))
-          .width(200)
-          .height(200)
-          .borderRadius(18)
-          .objectFit(ImageFit.Cover)
-          .margin(8)
-          .onClick(() => {
-            promptAction.showToast({ message: '图片: ' + message.getMessageBody() });
-          })
-          .gesture(
-            LongPressGesture()
-              .onAction(() => {
-                this.selectedMessage = message;
-                this.showReplyMenu = true;
-              })
-          );
-      } else if (message.isFileMessage()) {
-        Row() {
-          Image($r('app.media.add'))
-            .width(40)
-            .height(40)
-            .borderRadius(8)
-            .backgroundColor(this.getRoomThemeColors().inputBg)
-            .padding(8);
-          Column() {
-            Text(message.getMessageBody())
-              .fontSize(14)
-              .fontColor('#ffffff')
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis });
-            Text('文件')
-              .fontSize(12)
-              .fontColor('#cccccc');
-          }
-          .layoutWeight(1)
-          .margin({ left: 8 });
-        }
-        .backgroundColor(this.getRoomThemeColors().outgoingBg)
-        .borderRadius(18)
-        .padding(12)
-        .alignItems(VerticalAlign.Center)
-        .gesture(
-          LongPressGesture()
-            .onAction(() => {
-              this.selectedMessage = message;
-              this.showReplyMenu = true;
-            })
-        );
-      } else {
-        Row() {
-          Text(message.getMessageBody())
-            .fontSize(16)
-            .fontColor('#ffffff')
-            .margin({
-              left: 12,
-              right: 12,
-              top: 8,
-              bottom: 8
-            });
+      Button('Eyes')
+        .fontSize(18)
+        .backgroundColor('transparent')
+        .fontColor(getThemeColors().textSecondary)
+        .width(36)
+        .height(36)
+        .onClick(() => {
+          this.showMembersPanel = !this.showMembersPanel;
+        });
 
-          if (message.status === MessageStatus.SENDING) {
-            Text('...')
-              .fontSize(12)
-              .fontColor('#cccccc')
-              .margin({ right: 8 });
-          } else if (message.status === MessageStatus.FAILED) {
-            Text('!')
-              .fontSize(12)
-              .fontColor('#e53935')
-              .margin({ right: 8 });
-          }
-        }
-        .backgroundColor(this.getRoomThemeColors().outgoingBg)
-        .borderRadius(18)
-        .alignItems(VerticalAlign.Bottom)
-        .gesture(
-          LongPressGesture()
-            .onAction(() => {
-              this.selectedMessage = message;
-              this.showReplyMenu = true;
-            })
-        );
-      }
+      Button('Phone')
+        .fontSize(16)
+        .backgroundColor('transparent')
+        .fontColor(getThemeColors().textSecondary)
+        .width(36)
+        .height(36)
+        .onClick(() => {
+          this.startVoiceCall();
+        });
 
-      Text(this.formatTime(message.timestamp))
-        .fontSize(11)
-        .fontColor(this.getRoomThemeColors().textSecondary)
-        .margin({ top: 2 });
+      Image($r('app.media.menu'))
+        .width(24)
+        .height(24)
+        .objectFit(ImageFit.Contain)
+        .fillColor(getThemeColors().textSecondary)
+        .onClick(() => {
+          this.showMenu = !this.showMenu;
+        });
     }
     .width('100%')
-    .alignItems(HorizontalAlign.End)
-    .margin({ top: 5, bottom: 5 });
+    .height(56)
+    .padding({ left: 10, right: 10 })
+    .backgroundColor(getThemeColors().surface);
   }
 
   @Builder
-  incomingMessage(message: Message) {
-    Column() {
-      if (message.replyEventId) {
-        Row() {
-          Text('↳ ')
-            .fontSize(12)
-            .fontColor(this.getRoomThemeColors().primary);
-          Text('回复消息')
-            .fontSize(12)
-            .fontColor(this.getRoomThemeColors().textSecondary);
-        }
-        .width('100%')
-        .padding({ left: 12, right: 12, top: 4 });
-      }
-
-      if (message.isImageMessage()) {
-        Image(this.mediaManager.getThumbnailUrl(message.content['url'] as string, 200, 200, 'scale'))
-          .width(200)
-          .height(200)
-          .borderRadius(18)
-          .objectFit(ImageFit.Cover)
-          .margin(8)
+  buildRoomMenu() {
+    if (this.showMenu) {
+      Column() {
+        Button('分享房间')
+          .fontSize(16)
+          .backgroundColor(getThemeColors().bg)
+          .fontColor(getThemeColors().primary)
+          .width('100%')
+          .height(44)
           .onClick(() => {
-            promptAction.showToast({ message: '图片: ' + message.getMessageBody() });
-          })
-          .gesture(
-            LongPressGesture()
-              .onAction(() => {
-                this.selectedMessage = message;
-                this.showReplyMenu = true;
-              })
-          );
-      } else if (message.isFileMessage()) {
-        Row() {
-          Image($r('app.media.add'))
-            .width(40)
-            .height(40)
-            .borderRadius(8)
-            .backgroundColor(this.getRoomThemeColors().inputBg)
-            .padding(8);
-          Column() {
-            Text(message.getMessageBody())
-              .fontSize(14)
-              .fontColor(this.getRoomThemeColors().text)
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis });
-            Text('文件')
-              .fontSize(12)
-              .fontColor(this.getRoomThemeColors().textSecondary);
-          }
-          .layoutWeight(1)
-          .margin({ left: 8 });
-        }
-        .backgroundColor(this.getRoomThemeColors().messageBg)
-        .borderRadius(18)
-        .padding(12)
-        .alignItems(VerticalAlign.Center)
-        .gesture(
-          LongPressGesture()
-            .onAction(() => {
-              this.selectedMessage = message;
-              this.showReplyMenu = true;
-            })
-        );
-      } else {
-        Row() {
-          Text(message.getMessageBody())
-            .fontSize(16)
-            .fontColor(this.getRoomThemeColors().text)
-            .margin({
-              left: 12,
-              right: 12,
-              top: 8,
-              bottom: 8
-            });
-        }
-        .backgroundColor(this.getRoomThemeColors().messageBg)
-        .borderRadius(18)
-        .alignItems(VerticalAlign.Bottom)
-        .gesture(
-          LongPressGesture()
-            .onAction(() => {
-              this.selectedMessage = message;
-              this.showReplyMenu = true;
-            })
-        );
+            this.showMenu = false;
+            this.shareRoom();
+          });
+        Button('离开房间')
+          .fontSize(16)
+          .backgroundColor(getThemeColors().bg)
+          .fontColor('#e53935')
+          .width('100%')
+          .height(44)
+          .onClick(() => {
+            this.showMenu = false;
+            this.leaveRoom();
+          });
       }
-
-      Text(this.formatTime(message.timestamp))
-        .fontSize(11)
-        .fontColor(this.getRoomThemeColors().textSecondary)
-        .margin({ top: 2 });
-    }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
-    .margin({ top: 5, bottom: 5 });
-  }
-
-  getPresenceText(presence: PresenceState): string {
-    switch (presence) {
-      case 'online':
-        return '在线';
-      case 'offline':
-        return '离线';
-      case 'unavailable':
-        return '离开';
-      default:
-        return '未知';
+      .width(160)
+      .backgroundColor(getThemeColors().bg)
+      .borderRadius(8)
+      .shadow({
+        radius: 10,
+        color: 'rgba(0, 0, 0, 0.15)',
+        offsetX: 0,
+        offsetY: 2
+      })
+      .position({ x: '60%', y: 60 })
+      .onClick(() => {
+        this.showMenu = false;
+      });
     }
   }
 
-  getPresenceColor(presence: PresenceState): string {
-    switch (presence) {
-      case 'online':
-        return '#4CAF50';
-      case 'offline':
-        return '#9E9E9E';
-      case 'unavailable':
-        return '#FF9800';
-      default:
-        return '#9E9E9E';
+  @Builder
+  buildTypingIndicator() {
+    if (this.typingUsers.length > 0) {
+      Row() {
+        Text('对方正在输入...')
+          .fontSize(12)
+          .fontColor(getThemeColors().textSecondary)
+          .margin({ left: 15, top: 5, bottom: 5 });
+      }
+      .width('100%')
+      .backgroundColor(getThemeColors().bg);
     }
+  }
+
+  @Builder
+  buildReplyQuote() {
+    ReplyQuote({
+      replyQuote: this.replyQuote,
+      onCancel: () => {
+        this.cancelReply();
+      }
+    });
+  }
+
+  @Builder
+  buildEditMessage() {
+    EditMessage({
+      editingMessage: this.editingMessage!,
+      editText: this.editText,
+      onCancel: () => {
+        this.cancelEdit();
+      },
+      onSave: (text: string) => {
+        this.editText = text;
+        this.saveEdit();
+      }
+    });
+  }
+
+  @Builder
+  buildMessageList() {
+    if (this.isLoading) {
+      Column() {
+        LoadingProgress()
+          .width(40)
+          .height(40)
+          .color(getThemeColors().primary);
+      }
+      .width('100%')
+      .layoutWeight(1)
+      .justifyContent(FlexAlign.Center);
+    } else if (this.messages.length === 0) {
+      Column() {
+        Text('暂无消息')
+          .fontSize(16)
+          .fontColor(getThemeColors().textSecondary);
+        Text('发送第一条消息')
+          .fontSize(14)
+          .fontColor(getThemeColors().textSecondary)
+          .opacity(0.6)
+          .margin({ top: 5 });
+      }
+      .width('100%')
+      .layoutWeight(1)
+      .justifyContent(FlexAlign.Center);
+    } else {
+      List({ scroller: this.scroller }) {
+        ForEach(this.messages, (message: Message, index: number) => {
+          ListItem() {
+            Column() {
+              if (this.shouldShowTimeGroup(index)) {
+                Text(this.getTimeGroupLabel(message.timestamp))
+                  .fontSize(12)
+                  .fontColor(getThemeColors().textSecondary)
+                  .padding({ top: 10, bottom: 5 });
+              }
+              MessageBubble({
+                message: message,
+                isOutgoing: message.isOutgoing,
+                onLongPress: (msg: Message) => {
+                  this.onMessageLongPress(msg);
+                }
+              });
+            }
+            .width('100%');
+          }
+        });
+      }
+      .width('100%')
+      .layoutWeight(1)
+      .padding({
+        left: 15,
+        right: 15,
+        top: 10,
+        bottom: 10
+      })
+      .onClick(() => {
+        this.showMenu = false;
+        this.showMembersPanel = false;
+        this.showMessageAction = false;
+      });
+    }
+  }
+
+  @Builder
+  buildInputBar() {
+    MessageInputBar({
+      inputText: this.inputText,
+      editingMessage: this.editingMessage,
+      onVoiceClick: () => {
+        this.startVoiceCall();
+      },
+      onInputChange: (text: string) => {
+        this.onInputChange(text);
+      },
+      onSendMessage: () => {
+        this.sendMessage();
+      },
+      onPickImage: () => {
+        this.pickAndUploadImage();
+      }
+    });
   }
 
   getMessageSenderName(message: Message): string {
