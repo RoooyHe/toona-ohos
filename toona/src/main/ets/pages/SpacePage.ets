@@ -11,113 +11,17 @@ interface SpaceItem {
 
 @Builder
 export function SpacePageBuilder(name: string, param: Object) {
-  SpacePage()
-}
-
-@Entry
-@Component
-struct SpaceListItem {
-  @ObjectLink item: SpaceItem;
-  @State isExpanded: boolean = false;
-  onToggle: (roomId: string) => void = () => {
-  };
-  onNavigateToSpace: (space: Room) => void = () => {
-  };
-  onNavigateToRoom: (room: Room) => void = () => {
-  };
-
-  aboutToAppear() {
-    this.isExpanded = this.item.isExpanded;
-  }
-
-  build() {
-    Column() {
-      Row() {
-        if (this.item.level > 0) {
-          Blank().width(20 * this.item.level);
-        }
-
-        if (this.item.children.length > 0) {
-          Text(this.isExpanded ? '▼' : '▶')
-            .fontSize(12)
-            .fontColor(getThemeColors().textSecondary)
-            .width(20)
-            .onClick(() => {
-              this.isExpanded = !this.isExpanded;
-              this.onToggle(this.item.room.id);
-            });
-        } else {
-          Blank().width(20);
-        }
-
-        Text(this.item.room.getDisplayName()
-          .charAt(0)
-          .toUpperCase())
-          .fontSize(18)
-          .fontWeight(FontWeight.Bold)
-          .fontColor('#ffffff')
-          .width(36)
-          .height(36)
-          .borderRadius(18)
-          .backgroundColor(getThemeColors().primary)
-          .textAlign(TextAlign.Center);
-
-        Text(this.item.room.getDisplayName())
-          .fontSize(16)
-          .fontColor(getThemeColors().text)
-          .margin({ left: 12 })
-          .layoutWeight(1);
-
-        if (this.item.children.length > 0) {
-          Text(`${this.item.children.length}`)
-            .fontSize(12)
-            .fontColor(getThemeColors().textSecondary)
-            .backgroundColor(getThemeColors().inputBg)
-            .borderRadius(10)
-            .padding({
-              left: 8,
-              right: 8,
-              top: 2,
-              bottom: 2
-            });
-        }
-      }
-      .width('100%')
-      .padding({
-        top: 12,
-        bottom: 12,
-        left: 20,
-        right: 20
-      })
-      .backgroundColor(this.item.level === 0 ? getThemeColors().bg : getThemeColors().surface)
-      .onClick(() => {
-        if (this.item.room.isSpace === true) {
-          this.onNavigateToSpace(this.item.room);
-        } else {
-          this.onNavigateToRoom(this.item.room);
-        }
-      });
-
-      if (this.isExpanded && this.item.children.length > 0) {
-        ForEach(this.item.children, (child: SpaceItem) => {
-          SpaceListItem({
-            item: child,
-            onToggle: this.onToggle,
-            onNavigateToSpace: this.onNavigateToSpace,
-            onNavigateToRoom: this.onNavigateToRoom
-          });
-        });
-      }
-    }
-  }
+  SpacePage({
+    pathStack: ((param as Record<string, Object>)['pathStack'] as NavPathStack) || new NavPathStack()
+  })
 }
 
 @Component
 export struct SpacePage {
-  @Prop pathStack: NavPathStack;
   @State spaceItems: SpaceItem[] = [];
   @State isLoading: boolean = true;
   @State navCtx: NavDestinationContext | null = null;
+  @State pathStack: NavPathStack = new NavPathStack();
   private roomManager: RoomManager = RoomManager.getInstance();
   private expandedSpaces: Set<string> = new Set();
 
@@ -217,7 +121,7 @@ export struct SpacePage {
       console.error('navigateToSpaceDetail: no pathStack available');
       return;
     }
-    const param: Record<string, string> = {
+    const param: Record<string, Object> = {
       "spaceId": space.id,
       "spaceName": space.getDisplayName()
     };
@@ -230,9 +134,10 @@ export struct SpacePage {
       console.error('navigateToRoom: no pathStack available');
       return;
     }
-    const param: Record<string, string> = {
+    const param: Record<string, Object> = {
       "roomId": room.id,
-      "roomName": room.getDisplayName()
+      "roomName": room.getDisplayName(),
+      "pathStack": stack
     };
     stack.pushPathByName('RoomDetailPage', param);
   }
@@ -243,14 +148,16 @@ export struct SpacePage {
       console.error('navigateToJoinSpace: no pathStack available');
       return;
     }
-    stack.pushPathByName('JoinSpacePage', undefined);
+    const param: Record<string, Object> = {
+      "pathStack": stack
+    };
+    stack.pushPathByName('JoinSpacePage', param);
   }
 
   build() {
-    NavDestination() {
-      Stack() {
-        Column() {
-          Divider().color(getThemeColors().divider);
+    Stack() {
+      Column() {
+        Divider().color(getThemeColors().divider);
 
           if (this.isLoading) {
             Column() {
@@ -321,8 +228,5 @@ export struct SpacePage {
       .width('100%')
       .height('100%');
     }
-    .onReady((ctx: NavDestinationContext) => {
-      this.navCtx = ctx;
-    })
   }
 }

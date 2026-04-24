@@ -4,22 +4,6 @@
 
 Toona is a Matrix client for HarmonyOS (鸿蒙OS), modeled after ElementX/Element Android. Uses **ArkTS strict mode** with MVVM + Repository pattern.
 
-```
-toona/src/main/ets/
-├── network/clients/     # Per-feature HTTP clients (Message, Room, User, etc.)
-├── network/             # MatrixHttpClient (entry point)
-├── models/types/        # Matrix type definitions (Event, RoomState, etc.)
-├── models/              # DataModels.ets (Session, Room, Message, User)
-├── database/            # SQLite (LocalDatabase.ets)
-├── storage/             # SecureStorage for session tokens
-├── services/            # Auth, Sync, Room, Message, Presence managers
-├── pages/               # UI pages
-├── utils/               # ThemeManager, MxcUtils
-├── toonaability/        # Entry point (ToonaAbility)
-├── toonabackupability/  # Backup extension ability
-└── toonacontinueability/# Continue ability
-```
-
 ## Build Commands
 
 | Command | Description |
@@ -35,8 +19,84 @@ Framework: `@ohos/hypium`
 
 - Unit tests: `toona/src/test/**/*.test.ets` — run via DevEco Studio test runner or `hvigor test`
 - Ohos tests: `toona/src/ohosTest/ets/test/*.test.ets`
+- Single test: right-click a test function in DevEco Studio > Run.
 
-Single test: right-click a test function in DevEco Studio > Run.
+## Navigation Architecture
+
+Uses **NavPathStack / NavDestination** (NOT `@ohos.router`).
+
+### Entry point
+`ToonaAbility.ets` calls `windowStage.loadContent('pages/LoginPage')` — this is the sole entry. All further navigation uses `NavPathStack.pushPathByName()`.
+
+### Two @Entry container pages
+Both are full navigation containers with their own `NavDestination()` + `NavPathStack`:
+
+| Page | Role |
+|------|------|
+| `LoginPage` | Loaded first by `loadContent`. Replaced by MainPage after login. |
+| `MainPage` | Main app shell with tabs (message list / spaces). |
+
+### Child pages (no @Entry, no NavDestination)
+Receive `pathStack` via `@Prop` from the parent container:
+
+| Page | Decorator | pathStack |
+|------|-----------|-----------|
+| `RoomDetailPage` | `@Component` | `@Prop pathStack: NavPathStack` |
+| `SearchPage` | `@Component` | `@Prop pathStack: NavPathStack` |
+| `JoinRoomPage` | `@Component` | `@Prop pathStack: NavPathStack` |
+| `JoinSpacePage` | `@Component` | `@Prop pathStack: NavPathStack` |
+| `SettingsPage` | `@Component` | `@Prop pathStack: NavPathStack` |
+
+### NavPathStack pattern for @Entry containers
+```typescript
+@Entry
+@Component
+struct MyContainerPage {
+  @State pathStack: NavPathStack = new NavPathStack();
+
+  build() {
+    NavDestination() {
+      // content, may include child pages via pushPathByName
+    }
+    .onReady((ctx: NavDestinationContext) => {
+      this.pathStack = ctx.pathStack;
+    })
+    .hideTitleBar(true);
+  }
+}
+```
+
+### Navigation to replace current container (e.g. Login → Main)
+```typescript
+this.pathStack.clear();
+this.pathStack.pushPathByName('MainPage', undefined);
+```
+`replacePath(NavPathInfo)` is unreliable on root containers — use `clear()` + `pushPathByName()` instead.
+
+### Navigation to push child pages
+```typescript
+this.pathStack.pushPathByName('RoomDetailPage', { "roomId": room.id, "roomName": room.getDisplayName() } as Record<string, string>);
+```
+
+## Adding a Page
+
+1. Create `.ets` in `toona/src/main/ets/pages/`
+2. Add a `@Builder` export function (required by `router_map.json`):
+   ```typescript
+   @Builder
+   export function MyPageBuilder(name: string, param: Object) {
+     MyPage({ ... })
+   }
+   ```
+3. Add entry to `router_map.json`:
+   ```json
+   {
+     "name": "MyPage",
+     "pageSourceFile": "src/main/ets/pages/MyPage.ets",
+     "buildFunction": "MyPageBuilder"
+   }
+   ```
+4. Add page name to `main_pages.json` `src` array
 
 ## Code Style
 
@@ -52,6 +112,7 @@ Single test: right-click a test function in DevEco Studio > Run.
 - `fetch()` — use `@ohos.net.http`
 - `@ohos.pullToRefresh`
 - `placeholderFontColor` (use `placeholderColor`)
+- `@ohos.router` — use `NavPathStack` / `NavDestination`
 
 ### ALWAYS Use
 - Explicit type annotations; intermediate typed variables for object literals
@@ -60,6 +121,8 @@ Single test: right-click a test function in DevEco Studio > Run.
 - Top-level enum definitions (NOT inside classes)
 - `@Component` decorator on every UI struct
 - Property initialization or defaults
+- `NavDestination()` in `build()` for `@Entry` pages
+- `@Builder` export function above page struct (for router_map registration)
 
 ### Naming Conventions
 
@@ -73,7 +136,7 @@ Single test: right-click a test function in DevEco Studio > Run.
 ### Import Style
 ```typescript
 // Group order: external -> internal -> local, use relative paths
-import router from '@ohos.router';
+import promptAction from '@ohos.promptAction';
 import { AuthManager } from '../services/AuthManager';
 import { Room, Message } from '../models/DataModels';
 ```
@@ -93,18 +156,50 @@ throw 'something went wrong';
 ```
 
 ### Component Structure
+
+**@Entry container page** (has NavDestination, owns NavPathStack):
 ```typescript
+@Builder
+export function ContainerPageBuilder(name: string, param: Object) {
+  ContainerPage()
+}
+
 @Entry
 @Component
-struct MyPage {
-  @State data: string = '';
-  @StorageLink('colorMode') colorMode: number = 0;
-  onCallback: (id: string) => void = () => {};  // callbacks need defaults
+struct ContainerPage {
+  @State pathStack: NavPathStack = new NavPathStack();
+  onCallback: (id: string) => void = () => {};
 
-  aboutToAppear() { }  // Use instead of constructor
+  aboutToAppear() { }
 
   build() {
-    Column() { }
+    NavDestination() {
+      // content
+    }
+    .onReady((ctx: NavDestinationContext) => {
+      this.pathStack = ctx.pathStack;
+    })
+    .hideTitleBar(true);
+  }
+}
+```
+
+**Child page** (no @Entry, no NavDestination, receives pathStack via @Prop):
+```typescript
+@Builder
+export function ChildPageBuilder(name: string, param: Object) {
+  ChildPage({
+    someId: (param as Record<string, string>)['someId'] || ''
+  })
+}
+
+@Component
+struct ChildPage {
+  @State someId: string = '';
+  @Prop pathStack: NavPathStack;
+
+  build() {
+    Column() { /* content */ }
   }
 }
 ```
@@ -138,8 +233,19 @@ ESLint config: `code-linter.json5`
 2. Response type to `models/types/*.ets`
 3. Wrapper in corresponding Manager service
 
-### Add page
-1. Create `.ets` in `toona/src/main/ets/pages/`
-2. Add page sourceFile + buildFunction to `router_map.json`
-3. Add page name to `main_pages.json` src list
-4. Register in `ToonaAbility` if needed
+### Project Structure
+```
+toona/src/main/ets/
+├── network/clients/     # Per-feature HTTP clients (Message, Room, User, etc.)
+├── network/             # MatrixHttpClient (entry point)
+├── models/types/        # Matrix type definitions (Event, RoomState, etc.)
+├── models/              # DataModels.ets (Session, Room, Message, User)
+├── database/            # SQLite (LocalDatabase.ets)
+├── storage/             # SecureStorage for session tokens
+├── services/            # Auth, Sync, Room, Message, Presence managers
+├── pages/               # UI pages
+├── utils/               # ThemeManager, MxcUtils
+├── toonaability/        # Entry point (ToonaAbility)
+├── toonabackupability/  # Backup extension ability
+└── toonacontinueability/# Continue ability
+```

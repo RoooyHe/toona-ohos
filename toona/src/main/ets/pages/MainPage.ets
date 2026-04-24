@@ -40,6 +40,7 @@ struct MainPage {
   private syncManager: SyncManager = SyncManager.getInstance();
   private roomManager: RoomManager = RoomManager.getInstance();
   @State pathStack: NavPathStack = new NavPathStack();
+  private isNavigating: boolean = false;
 
   aboutToAppear() {
     this.syncStatus = 'syncing';
@@ -149,17 +150,41 @@ struct MainPage {
   }
 
   navigateToSearch() {
-      this.pathStack.pushPathByName('SearchPage', undefined);
+      if (this.isNavigating) {
+        return;
+      }
+      this.isNavigating = true;
+      const param: Record<string, Object> = {
+        "pathStack": this.pathStack
+      };
+      this.pathStack.pushPathByName('SearchPage', param);
+      setTimeout(() => { this.isNavigating = false; }, 500);
   }
 
   navigateToJoinRoom() {
-      this.pathStack.pushPathByName('JoinRoomPage', undefined);
+      if (this.isNavigating) {
+        return;
+      }
+      this.isNavigating = true;
+      const param: Record<string, Object> = {
+        "pathStack": this.pathStack
+      };
+      this.pathStack.pushPathByName('JoinRoomPage', param);
+      setTimeout(() => { this.isNavigating = false; }, 500);
   }
 
   navigateToSetting() {
-      if (this.pathStack) {
-        this.pathStack.pushPathByName('SettingsPage', undefined);
+      if (this.isNavigating) {
+        return;
       }
+      this.isNavigating = true;
+      if (this.pathStack) {
+        const param: Record<string, Object> = {
+          "pathStack": this.pathStack
+        };
+        this.pathStack.pushPathByName('SettingsPage', param);
+      }
+      setTimeout(() => { this.isNavigating = false; }, 500);
   }
 
   setFilter(filter: FilterType) {
@@ -413,15 +438,16 @@ struct MainPage {
           filterType: this.currentFilter,
           onNavigateToRoom: (room: Room) => {
             if (room.isSpace === true) {
-              const param: Record<string, string> = {
+              const param: Record<string, Object> = {
                 "spaceId": room.id,
                 "spaceName": room.getDisplayName()
               };
               this.pathStack.pushPathByName('SpaceDetailPage', param);
             } else {
-              const param: Record<string, string> = {
+              const param: Record<string, Object> = {
                 "roomId": room.id,
-                "roomName": room.getDisplayName()
+                "roomName": room.getDisplayName(),
+                "pathStack": this.pathStack
               };
               this.pathStack.pushPathByName('RoomDetailPage', param);
             }

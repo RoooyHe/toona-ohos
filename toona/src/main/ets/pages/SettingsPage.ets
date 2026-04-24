@@ -31,7 +31,9 @@ import { LogoutButton } from './components/settings/LogoutButton';
 
 @Builder
 export function SettingsPageBuilder(name: string, param: Object) {
-  SettingsPage()
+  SettingsPage({
+    pathStack: ((param as Record<string, Object>)['pathStack'] as NavPathStack) || new NavPathStack()
+  })
 }
 
 @Component
@@ -251,141 +253,142 @@ export struct SettingsPage {
   }
 
   build() {
-    Scroll() {
-      Column() {
-        SettingsHeader();
+    NavDestination() {
+      Scroll() {
+        Column() {
+          SettingsHeader();
 
-        if (this.isLoading) {
-          Column() {
-            LoadingProgress()
-              .width(40)
-              .height(40);
-            Text('加载中...')
-              .fontSize(14)
-              .fontColor('#999999')
-              .margin({ top: 10 });
+          if (this.isLoading) {
+            Column() {
+              LoadingProgress()
+                .width(40)
+                .height(40);
+              Text('加载中...')
+                .fontSize(14)
+                .fontColor('#999999')
+                .margin({ top: 10 });
+            }
+            .width('100%')
+            .padding({ top: 100 });
+          } else {
+            UserProfileCard({
+              displayName: this.displayName,
+              avatarUrl: this.avatarUrl,
+              presence: this.presence,
+              userId: this.userId,
+              isEditingName: this.isEditingName,
+              editName: this.editName,
+              onPickAvatar: () => {
+                this.pickAndUploadAvatar();
+              },
+              onStartEditName: () => {
+                this.isEditingName = true;
+              },
+              onSaveDisplayName: () => {
+                this.saveDisplayName();
+              },
+              onCancelEditName: () => {
+                this.isEditingName = false;
+                this.editName = this.displayName;
+              },
+              onEditNameChange: (name: string) => {
+                this.editName = name;
+              }
+            });
+
+            ThemeSettings({
+              colorModeType: this.colorModeType,
+              onSetColorMode: (mode: ColorModeType) => {
+                this.setColorMode(mode);
+              }
+            });
+
+            PresenceSettings({
+              presence: this.presence,
+              statusMsg: this.statusMsg,
+              showPresenceMenu: this.showPresenceMenu,
+              onSetPresence: (state: PresenceState) => {
+                this.setPresence(state);
+              },
+              onTogglePresenceMenu: () => {
+                this.showPresenceMenu = !this.showPresenceMenu;
+              },
+              onStatusMsgChange: (msg: string) => {
+                this.statusMsg = msg;
+              },
+              onSaveStatusMessage: () => {
+                this.setStatusMessage();
+              }
+            });
+
+            RoomTagsSettings({
+              favoriteRooms: this.favoriteRooms,
+              lowPriorityRooms: this.lowPriorityRooms,
+              allRooms: this.allRooms,
+              showRoomTagsMenu: this.showRoomTagsMenu,
+              onToggleFavorite: (room: Room) => {
+                this.toggleFavorite(room);
+              },
+              onToggleLowPriority: (room: Room) => {
+                this.toggleLowPriority(room);
+              },
+              onToggleRoomTagsMenu: () => {
+                this.showRoomTagsMenu = !this.showRoomTagsMenu;
+              }
+            });
+
+            DeviceManagement({
+              devices: this.devices,
+              currentDeviceId: this.authManager.getSession()?.deviceId || '',
+              onDeleteDevice: (deviceId: string) => {
+                this.deleteDevice(deviceId);
+              }
+            });
+
+            SecuritySettings({
+              onCheckDeviceSecurity: () => {
+                this.onCheckDeviceSecurity();
+              }
+            });
+
+            BiometricSettings({
+              onToggleBiometric: (enable: boolean) => {
+                this.onToggleBiometric(enable);
+              },
+              onVerifyBiometric: () => {
+                this.onVerifyBiometric();
+              }
+            });
+
+            CollaborationSettings({
+              onFindCollaborativeDevices: () => {
+                this.onFindCollaborativeDevices();
+              }
+            });
+
+            QRScannerSettings({
+              onScanQRCode: () => {
+                this.onScanQRCode();
+              }
+            });
+
+            AboutSection();
+
+            LogoutButton({
+              onLogout: () => {
+                this.handleLogout();
+              }
+            });
           }
-          .width('100%')
-          .padding({ top: 100 });
-        } else {
-          UserProfileCard({
-            displayName: this.displayName,
-            avatarUrl: this.avatarUrl,
-            presence: this.presence,
-            userId: this.userId,
-            isEditingName: this.isEditingName,
-            editName: this.editName,
-            onPickAvatar: () => {
-              this.pickAndUploadAvatar();
-            },
-            onStartEditName: () => {
-              this.isEditingName = true;
-            },
-            onSaveDisplayName: () => {
-              this.saveDisplayName();
-            },
-            onCancelEditName: () => {
-              this.isEditingName = false;
-              this.editName = this.displayName;
-            },
-            onEditNameChange: (name: string) => {
-              this.editName = name;
-            }
-          });
-
-          ThemeSettings({
-            colorModeType: this.colorModeType,
-            onSetColorMode: (mode: ColorModeType) => {
-              this.setColorMode(mode);
-            }
-          });
-
-          PresenceSettings({
-            presence: this.presence,
-            statusMsg: this.statusMsg,
-            showPresenceMenu: this.showPresenceMenu,
-            onSetPresence: (state: PresenceState) => {
-              this.setPresence(state);
-            },
-            onTogglePresenceMenu: () => {
-              this.showPresenceMenu = !this.showPresenceMenu;
-            },
-            onStatusMsgChange: (msg: string) => {
-              this.statusMsg = msg;
-            },
-            onSaveStatusMessage: () => {
-              this.setStatusMessage();
-            }
-          });
-
-          RoomTagsSettings({
-            favoriteRooms: this.favoriteRooms,
-            lowPriorityRooms: this.lowPriorityRooms,
-            allRooms: this.allRooms,
-            showRoomTagsMenu: this.showRoomTagsMenu,
-            onToggleFavorite: (room: Room) => {
-              this.toggleFavorite(room);
-            },
-            onToggleLowPriority: (room: Room) => {
-              this.toggleLowPriority(room);
-            },
-            onToggleRoomTagsMenu: () => {
-              this.showRoomTagsMenu = !this.showRoomTagsMenu;
-            }
-          });
-
-          DeviceManagement({
-            devices: this.devices,
-            currentDeviceId: this.authManager.getSession()?.deviceId || '',
-            onDeleteDevice: (deviceId: string) => {
-              this.deleteDevice(deviceId);
-            }
-          });
-
-          SecuritySettings({
-            onCheckDeviceSecurity: () => {
-              this.onCheckDeviceSecurity();
-            }
-          });
-
-          BiometricSettings({
-            onToggleBiometric: (enable: boolean) => {
-              this.onToggleBiometric(enable);
-            },
-            onVerifyBiometric: () => {
-              this.onVerifyBiometric();
-            }
-          });
-
-          CollaborationSettings({
-            onFindCollaborativeDevices: () => {
-              this.onFindCollaborativeDevices();
-            }
-          });
-
-          QRScannerSettings({
-            onScanQRCode: () => {
-              this.onScanQRCode();
-            }
-          });
-
-          AboutSection();
-
-          LogoutButton({
-            onLogout: () => {
-              this.handleLogout();
-            }
-          });
         }
       }
-      .width('100%')
-      .backgroundColor(getThemeColors().bg)
     }
     .width('100%')
     .height('100%')
+    .hideTitleBar(true);
   }
 
-  async handleLogout() {
+async handleLogout() {
     try {
       await this.authManager.logout();
       this.pathStack.clear();

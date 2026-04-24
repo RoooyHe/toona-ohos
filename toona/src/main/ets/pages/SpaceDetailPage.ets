@@ -6,8 +6,8 @@ import { getThemeColors } from '../utils/ThemeManager';
 @Builder
 export function SpaceDetailPageBuilder(name: string, param: Object) {
   SpaceDetailPage({
-    spaceId: (param as Record<string, string>)['spaceId'] || '',
-    spaceName: (param as Record<string, string>)['spaceName'] || '空间'
+    spaceId: ((param as Record<string, Object>)['spaceId'] as string) || '',
+    spaceName: ((param as Record<string, Object>)['spaceName'] as string) || '空间'
   })
 }
 
@@ -63,9 +63,10 @@ struct SpaceRoomItem {
         console.error('SpaceRoomItem navigateToRoom: pathStack is null');
         return;
       }
-      const param: Record<string, string> = {
+      const param: Record<string, Object> = {
         "roomId": this.room.id,
-        "roomName": this.room.getDisplayName()
+        "roomName": this.room.getDisplayName(),
+        "pathStack": stack
       };
       stack.pushPathByName('RoomDetailPage', param);
     });

@@ -47,8 +47,9 @@ interface RelatesTo {
 @Builder
 export function RoomDetailPageBuilder(name: string, param: Object) {
   RoomDetailPage({
-    roomId: (param as Record<string, string>)['roomId'] || '',
-    roomName: (param as Record<string, string>)['roomName'] || '聊天室'
+    roomId: ((param as Record<string, Object>)['roomId'] as string) || '',
+    roomName: ((param as Record<string, Object>)['roomName'] as string) || '聊天室',
+    pathStack: ((param as Record<string, Object>)['pathStack'] as NavPathStack) || new NavPathStack()
   })
 }
 
@@ -84,7 +85,7 @@ struct RoomDetailPage {
   private mediaLibraryManager: MediaLibraryManager = MediaLibraryManager.getInstance();
   private shareManager: ShareManager = ShareManager.getInstance();
   private deviceSecurityManager: DeviceSecurityManager = DeviceSecurityManager.getInstance();
-  @Prop pathStack: NavPathStack;
+  pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
     this.loadRoomTopic();
@@ -99,7 +100,7 @@ struct RoomDetailPage {
     this.syncManager.setRoomLeftCallback((leftRoomId: string) => {
       if (leftRoomId === this.roomId) {
         promptAction.showToast({ message: '已离开房间' });
-this.pathStack.pop();
+        this.pathStack.pop();
       }
     });
 
@@ -531,111 +532,6 @@ this.pathStack.pop();
     this.showReplyMenu = true;
   }
 
-build() {
-    Stack() {
-      Column() {
-        this.buildHeader();
-        this.buildRoomMenu();
-        this.buildTypingIndicator();
-        this.buildReplyQuote();
-        this.buildEditMessage();
-        this.buildMessageList();
-        this.buildInputBar();
-      }
-      .width('100%')
-      .height('100%')
-      .backgroundColor(getThemeColors().bg);
-
-      if (this.showMembersPanel) {
-        MemberListPanel({
-          memberPresences: this.memberPresences,
-          showMembersPanel: this.showMembersPanel,
-          onClose: () => {
-            this.showMembersPanel = false;
-          }
-        });
-      }
-
-      MessageActionMenu({
-        showReplyMenu: this.showReplyMenu,
-        selectedMessage: this.selectedMessage!,
-        onReply: (message: Message) => {
-          this.startReply(message);
-        },
-        onCopy: (message: Message) => {
-          this.copyMessage(message);
-        },
-        onDelete: (message: Message) => {
-          this.deleteMessage(message);
-        },
-        onEdit: (message: Message) => {
-          this.startEdit(message);
-        },
-        onSecurityCheck: (message: Message) => {
-          this.checkMessageSecurity(message);
-        },
-        onShare: (message: Message) => {
-          this.shareMessage(message);
-        },
-        onClose: () => {
-          this.showReplyMenu = false;
-          this.selectedMessage = null;
-        }
-      });
-    }
-    .width('100%')
-    .height('100%');
-  }
-}
-        .width('100%')
-        .height('100%')
-        .backgroundColor(getThemeColors().bg);
-
-        if (this.showMembersPanel) {
-          MemberListPanel({
-            memberPresences: this.memberPresences,
-            showMembersPanel: this.showMembersPanel,
-            onClose: () => {
-              this.showMembersPanel = false;
-            }
-          });
-        }
-
-        MessageActionMenu({
-          showReplyMenu: this.showReplyMenu,
-          selectedMessage: this.selectedMessage!,
-          onReply: (message: Message) => {
-            this.startReply(message);
-          },
-          onCopy: (message: Message) => {
-            this.copyMessage(message);
-          },
-          onDelete: (message: Message) => {
-            this.deleteMessage(message);
-          },
-          onEdit: (message: Message) => {
-            this.startEdit(message);
-          },
-          onSecurityCheck: (message: Message) => {
-            this.checkMessageSecurity(message);
-          },
-          onShare: (message: Message) => {
-            this.shareMessage(message);
-          },
-          onClose: () => {
-            this.showReplyMenu = false;
-            this.selectedMessage = null;
-          }
-        });
-      }
-      .width('100%')
-      .height('100%');
-    }
-    .onReady((ctx: NavDestinationContext) => {
-      this.pathStack = ctx.pathStack;
-    })
-  }
-
   @Builder
   buildHeader() {
     Row() {
@@ -855,6 +751,65 @@ build() {
         this.pickAndUploadImage();
       }
     });
+  }
+
+  build() {
+    NavDestination() {
+      Stack() {
+        Column() {
+          this.buildHeader();
+          this.buildRoomMenu();
+          this.buildTypingIndicator();
+          this.buildReplyQuote();
+          this.buildEditMessage();
+          this.buildMessageList();
+          this.buildInputBar();
+        }
+        .width('100%')
+        .height('100%')
+        .backgroundColor(getThemeColors().bg);
+
+        if (this.showMembersPanel) {
+          MemberListPanel({
+            memberPresences: this.memberPresences,
+            showMembersPanel: this.showMembersPanel,
+            onClose: () => {
+              this.showMembersPanel = false;
+            }
+          });
+        }
+
+        MessageActionMenu({
+          showReplyMenu: this.showReplyMenu,
+          selectedMessage: this.selectedMessage!,
+          onReply: (message: Message) => {
+            this.startReply(message);
+          },
+          onCopy: (message: Message) => {
+            this.copyMessage(message);
+          },
+          onDelete: (message: Message) => {
+            this.deleteMessage(message);
+          },
+          onEdit: (message: Message) => {
+            this.startEdit(message);
+          },
+          onSecurityCheck: (message: Message) => {
+            this.checkMessageSecurity(message);
+          },
+          onShare: (message: Message) => {
+            this.shareMessage(message);
+          },
+          onClose: () => {
+            this.showReplyMenu = false;
+            this.selectedMessage = null;
+          }
+        });
+      }
+      .width('100%')
+      .height('100%');
+    }
+    .hideTitleBar(true);
   }
 
   getMessageSenderName(message: Message): string {

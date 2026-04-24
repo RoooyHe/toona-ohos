@@ -5,6 +5,7 @@ import { UserAuthManager } from '../services/UserAuthManager';
 import { getThemeColors } from '../utils/ThemeManager';
 import { Context, ConfigurationConstant } from '@kit.AbilityKit';
 import http from '@ohos.net.http';
+import router from '@ohos.router';
 
 function extractHomeServerUrl(jsonString: string): string | null {
   const regex = /"m\.homeserver"\s*:\s*\{\s*"base_url"\s*:\s*"([^"]+)"/;
@@ -34,7 +35,6 @@ struct LoginPage {
   private authManager: AuthManager = AuthManager.getInstance();
   private secureStorage: SecureStorage = SecureStorage.getInstance();
   private userAuthManager: UserAuthManager = UserAuthManager.getInstance();
-  private pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
     // Force light mode on launch
@@ -149,7 +149,11 @@ struct LoginPage {
         duration: 2000
       });
 
-      this.pathStack.replacePath(new NavPathInfo('MainPage', undefined));
+      try {
+        router.replaceUrl({ url: 'pages/MainPage' });
+      } catch (e) {
+        console.error('Navigation failed:', e);
+      }
     } catch (error) {
       console.error('Login failed:', error);
       const errorMsg: string = error instanceof Error ? error.message : String(error);
@@ -170,7 +174,7 @@ struct LoginPage {
   }
 
   handleRegister() {
-    this.pathStack.pushPathByName('RegisterPage', undefined);
+    router.pushUrl({ url: 'pages/RegisterPage' });
   }
 
   handleSSOLogin() {
@@ -197,7 +201,11 @@ struct LoginPage {
       const savedToken = await this.secureStorage.loadString('saved_access_token');
       if (savedToken) {
         promptAction.showToast({ message: '验证成功，正在登录...' });
-        this.pathStack.replacePath(new NavPathInfo('MainPage', undefined));
+        try {
+          router.replaceUrl({ url: 'pages/MainPage' });
+        } catch (e) {
+          console.error('Navigation failed:', e);
+        }
       } else {
         promptAction.showToast({ message: '请先使用密码登录以启用生物识别' });
       }
@@ -372,9 +380,6 @@ struct LoginPage {
       .width('100%')
       .height('100%');
     }
-    .onReady((ctx: NavDestinationContext) => {
-      this.pathStack = ctx.pathStack;
-    })
     .hideTitleBar(true);
   }
 }

@@ -17,7 +17,9 @@ interface DirectorySearchResponse {
 
 @Builder
 export function JoinRoomPageBuilder(name: string, param: Object) {
-  JoinRoomPage()
+  JoinRoomPage({
+    pathStack: ((param as Record<string, Object>)['pathStack'] as NavPathStack) || new NavPathStack()
+  })
 }
 
 @Component
@@ -74,9 +76,10 @@ struct JoinRoomPage {
       inviteUsers: [userId]
     };
     const roomId = await this.roomManager.createRoom(options);
-    const param: Record<string, string> = {
+    const param: Record<string, Object> = {
       "roomId": roomId,
-      "roomName": userId
+      "roomName": userId,
+      "pathStack": this.pathStack
     };
     this.pathStack.pushPathByName('RoomDetailPage', param);
   }
@@ -150,18 +153,19 @@ struct JoinRoomPage {
   }
 
   build() {
-    Stack() {
-      Column() {
-        Row() {
-          Text('加入房间')
-            .fontSize(18)
-            .fontWeight(FontWeight.Medium)
-            .fontColor(getThemeColors().text)
-            .layoutWeight(1);
-        }
-        .width('100%')
-        .padding({ left: 10, right: 10 })
-        .backgroundColor(getThemeColors().bg);
+    NavDestination() {
+      Stack() {
+        Column() {
+          Row() {
+            Text('加入房间')
+              .fontSize(18)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(getThemeColors().text)
+              .layoutWeight(1);
+          }
+          .width('100%')
+          .padding({ left: 10, right: 10 })
+          .backgroundColor(getThemeColors().bg);
 
         Column() {
           TextInput({ placeholder: '搜索用户进行私聊', text: this.searchQuery })
@@ -384,4 +388,5 @@ struct JoinRoomPage {
     .width('100%')
     .height('100%');
   }
+  .hideTitleBar(true);
 }

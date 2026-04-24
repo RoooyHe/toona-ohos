@@ -22,7 +22,9 @@ interface PublicRoomsResponse {
 
 @Builder
 export function JoinSpacePageBuilder(name: string, param: Object) {
-  JoinSpacePage()
+  JoinSpacePage({
+    pathStack: ((param as Record<string, Object>)['pathStack'] as NavPathStack) || new NavPathStack()
+  })
 }
 
 @Component

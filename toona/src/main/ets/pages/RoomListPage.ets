@@ -19,9 +19,8 @@ export function RoomListPageBuilder(name: string, param: Object) {
   RoomListPage({ filterType: param as FilterType })
 }
 
-  @Entry
-  @Component
-  struct RoomListPage {
+@Component
+struct RoomListPage {
   @State filterType: FilterType = FilterType.ALL;
   @State rooms: Room[] = [];
   @State isLoading: boolean = true;
@@ -315,121 +314,119 @@ export function RoomListPageBuilder(name: string, param: Object) {
   }
 
   build() {
-    NavDestination() {
-      Stack() {
-        Column() {
-          if (this.showSearch) {
-            Row() {
-              TextInput({ placeholder: '搜索房间...', text: this.searchQuery })
-                .width('100%')
-                .height(40)
-                .fontSize(16)
-                .backgroundColor(getThemeColors().inputBg)
-                .borderRadius(20)
-                .padding({ left: 15, right: 40 })
-                .onChange((value: string) => {
-                  this.searchQuery = value;
-                })
-                .onSubmit(() => {
-                });
-
-              Button('✕')
-                .fontSize(14)
-                .backgroundColor('transparent')
-                .fontColor(getThemeColors().textSecondary)
-                .width(30)
-                .height(30)
-                .position({ x: '85%', y: 5 })
-                .onClick(() => {
-                  this.toggleSearch();
-                });
-            }
-            .width('100%')
-            .padding({
-              left: 20,
-              right: 20,
-              top: 10,
-              bottom: 10
-            })
-            .backgroundColor(getThemeColors().bg);
-          }
-
-          if (this.isLoading) {
-            Column() {
-              LoadingProgress()
-                .width(40)
-                .height(40)
-                .color(getThemeColors().primary);
-              Text('加载中...')
-                .fontSize(14)
-                .fontColor(getThemeColors().textSecondary)
-                .margin({ top: 10 });
-            }
-            .width('100%')
-            .layoutWeight(1)
-            .justifyContent(FlexAlign.Center);
-          } else if (this.getFilteredRooms().length === 0) {
-            Column() {
-              Text(this.searchQuery ? '没有找到房间' : '暂无房间')
-                .fontSize(16)
-                .fontColor(getThemeColors().textSecondary);
-              Text(this.searchQuery ? '尝试其他关键词' : '点击上方 + 创建新房间')
-                .fontSize(14)
-                .fontColor(getThemeColors().textSecondary)
-                .opacity(0.6)
-                .margin({ top: 5 });
-            }
-            .width('100%')
-            .layoutWeight(1)
-            .justifyContent(FlexAlign.Center);
-          } else {
-            Column() {
-              this.buildRoomListContent();
-            }
-            .width('100%')
-            .layoutWeight(1);
-          }
-        }
-        .width('100%')
-        .height('100%')
-        .backgroundColor(getThemeColors().bg);
-
-        Column() {
+    Stack() {
+      Column() {
+        if (this.showSearch) {
           Row() {
-            Button('搜索')
-              .fontSize(12)
-              .backgroundColor(getThemeColors().bg)
-              .fontColor(getThemeColors().primary)
+            TextInput({ placeholder: '搜索房间...', text: this.searchQuery })
+              .width('100%')
+              .height(40)
+              .fontSize(16)
+              .backgroundColor(getThemeColors().inputBg)
               .borderRadius(20)
-              .height(32)
+              .padding({ left: 15, right: 40 })
+              .onChange((value: string) => {
+                this.searchQuery = value;
+              })
+              .onSubmit(() => {
+              });
+
+            Button('✕')
+              .fontSize(14)
+              .backgroundColor('transparent')
+              .fontColor(getThemeColors().textSecondary)
+              .width(30)
+              .height(30)
+              .position({ x: '85%', y: 5 })
               .onClick(() => {
                 this.toggleSearch();
               });
           }
-          .width(50)
-          .height(50)
-          .backgroundColor(getThemeColors().bg)
-          .borderRadius(25)
-          .justifyContent(FlexAlign.Center)
-          .alignItems(VerticalAlign.Center)
-          .shadow({
-            radius: 6,
-            color: 'rgba(0, 0, 0, 0.1)',
-            offsetX: 0,
-            offsetY: 2
+          .width('100%')
+          .padding({
+            left: 20,
+            right: 20,
+            top: 10,
+            bottom: 10
           })
-          .onClick(() => {
-            this.toggleSearch();
-          });
+          .backgroundColor(getThemeColors().bg);
         }
-        .width('100%')
-        .justifyContent(FlexAlign.End)
-        .alignItems(HorizontalAlign.End)
-        .padding({ right: 20, bottom: 20 });
+
+        if (this.isLoading) {
+          Column() {
+            LoadingProgress()
+              .width(40)
+              .height(40)
+              .color(getThemeColors().primary);
+            Text('加载中...')
+              .fontSize(14)
+              .fontColor(getThemeColors().textSecondary)
+              .margin({ top: 10 });
+          }
+          .width('100%')
+          .layoutWeight(1)
+          .justifyContent(FlexAlign.Center);
+        } else if (this.getFilteredRooms().length === 0) {
+          Column() {
+            Text(this.searchQuery ? '没有找到房间' : '暂无房间')
+              .fontSize(16)
+              .fontColor(getThemeColors().textSecondary);
+            Text(this.searchQuery ? '尝试其他关键词' : '点击上方 + 创建新房间')
+              .fontSize(14)
+              .fontColor(getThemeColors().textSecondary)
+              .opacity(0.6)
+              .margin({ top: 5 });
+          }
+          .width('100%')
+          .layoutWeight(1)
+          .justifyContent(FlexAlign.Center);
+        } else {
+          Column() {
+            this.buildRoomListContent();
+          }
+          .width('100%')
+          .layoutWeight(1);
+        }
       }
       .width('100%')
-      .height('100%');
+      .height('100%')
+      .backgroundColor(getThemeColors().bg);
+
+      Column() {
+        Row() {
+          Button('搜索')
+            .fontSize(12)
+            .backgroundColor(getThemeColors().bg)
+            .fontColor(getThemeColors().primary)
+            .borderRadius(20)
+            .height(32)
+            .onClick(() => {
+              this.toggleSearch();
+            });
+        }
+        .width(50)
+        .height(50)
+        .backgroundColor(getThemeColors().bg)
+        .borderRadius(25)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(VerticalAlign.Center)
+        .shadow({
+          radius: 6,
+          color: 'rgba(0, 0, 0, 0.1)',
+          offsetX: 0,
+          offsetY: 2
+        })
+        .onClick(() => {
+          this.toggleSearch();
+        });
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.End)
+      .alignItems(HorizontalAlign.End)
+      .padding({ right: 20, bottom: 20 });
     }
+    .width('100%')
+    .height('100%');
   }
 }
 
