@@ -26,7 +26,6 @@ struct RoomListPage {
   @State isLoading: boolean = true;
   @State isRefreshing: boolean = false;
   @State searchQuery: string = '';
-  @State showSearch: boolean = false;
   @State favoriteRoomIds: string[] = [];
   private roomManager: RoomManager = RoomManager.getInstance();
   private roomTagManager: RoomTagManager = RoomTagManager.getInstance();
@@ -306,52 +305,10 @@ struct RoomListPage {
     return '';
   }
 
-  toggleSearch() {
-    this.showSearch = !this.showSearch;
-    if (!this.showSearch) {
-      this.searchQuery = '';
-    }
-  }
 
   build() {
     Stack() {
       Column() {
-        if (this.showSearch) {
-          Row() {
-            TextInput({ placeholder: '搜索房间...', text: this.searchQuery })
-              .width('100%')
-              .height(40)
-              .fontSize(16)
-              .backgroundColor(getThemeColors().inputBg)
-              .borderRadius(20)
-              .padding({ left: 15, right: 40 })
-              .onChange((value: string) => {
-                this.searchQuery = value;
-              })
-              .onSubmit(() => {
-              });
-
-            Button('✕')
-              .fontSize(14)
-              .backgroundColor('transparent')
-              .fontColor(getThemeColors().textSecondary)
-              .width(30)
-              .height(30)
-              .position({ x: '85%', y: 5 })
-              .onClick(() => {
-                this.toggleSearch();
-              });
-          }
-          .width('100%')
-          .padding({
-            left: 20,
-            right: 20,
-            top: 10,
-            bottom: 10
-          })
-          .backgroundColor(getThemeColors().bg);
-        }
-
         if (this.isLoading) {
           Column() {
             LoadingProgress()
@@ -391,39 +348,6 @@ struct RoomListPage {
       .width('100%')
       .height('100%')
       .backgroundColor(getThemeColors().bg);
-
-      Column() {
-        Row() {
-          Button('搜索')
-            .fontSize(12)
-            .backgroundColor(getThemeColors().bg)
-            .fontColor(getThemeColors().primary)
-            .borderRadius(20)
-            .height(32)
-            .onClick(() => {
-              this.toggleSearch();
-            });
-        }
-        .width(50)
-        .height(50)
-        .backgroundColor(getThemeColors().bg)
-        .borderRadius(25)
-        .justifyContent(FlexAlign.Center)
-        .alignItems(VerticalAlign.Center)
-        .shadow({
-          radius: 6,
-          color: 'rgba(0, 0, 0, 0.1)',
-          offsetX: 0,
-          offsetY: 2
-        })
-        .onClick(() => {
-          this.toggleSearch();
-        });
-      }
-      .width('100%')
-      .justifyContent(FlexAlign.End)
-      .alignItems(HorizontalAlign.End)
-      .padding({ right: 20, bottom: 20 });
     }
     .width('100%')
     .height('100%');

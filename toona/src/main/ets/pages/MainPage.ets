@@ -22,7 +22,7 @@ export function MainPageBuilder(name: string, param: Object) {
   MainPage()
 }
 
-// ⚠️ 修复点1：删除了 @Entry 装饰器，避免渲染管线冲突
+// ⚠️ 注意：不要在这里加 @Entry，它现在是 Navigation 的子页面
 @Component
 struct MainPage {
   @State currentIndex: number = 0;
@@ -40,7 +40,7 @@ struct MainPage {
   private syncManager: SyncManager = SyncManager.getInstance();
   private roomManager: RoomManager = RoomManager.getInstance();
 
-  // ⚠️ 修复点2：删除了 @State 修饰符！严禁代理 NavPathStack 系统对象
+  // ⚠️ 严禁使用 @State 修饰 NavPathStack 系统对象，否则会引起底层指针丢失导致闪退
   pathStack: NavPathStack = new NavPathStack();
 
   private isNavigating: boolean = false;
@@ -173,6 +173,19 @@ struct MainPage {
       "pathStack": this.pathStack
     };
     this.pathStack.pushPathByName('JoinRoomPage', param);
+    setTimeout(() => { this.isNavigating = false; }, 500);
+  }
+
+  // ✅ 新增：动态跳转到加入/创建空间页
+  navigateToJoinSpace() {
+    if (this.isNavigating) {
+      return;
+    }
+    this.isNavigating = true;
+    const param: Record<string, Object> = {
+      "pathStack": this.pathStack
+    };
+    this.pathStack.pushPathByName('JoinSpacePage', param);
     setTimeout(() => { this.isNavigating = false; }, 500);
   }
 
@@ -345,7 +358,12 @@ struct MainPage {
           offsetY: 4
         })
         .onClick(() => {
-          this.navigateToJoinRoom();
+          // ✅ 修复点：根据当前的 Tab 动态跳转：0是房间，1是空间
+          if (this.currentIndex === 0) {
+            this.navigateToJoinRoom();
+          } else if (this.currentIndex === 1) {
+            this.navigateToJoinSpace();
+          }
         });
 
         Blank();
@@ -434,11 +452,14 @@ struct MainPage {
       })
       .backgroundColor(getThemeColors().bg);
 
-      this.FilterBarBuilder();
+      // ✅ 修改点：仅在消息页(Index 0)显示过滤栏
+      if (this.currentIndex === 0) {
+        this.FilterBarBuilder();
+      }
 
       if (this.currentIndex === 0) {
         RoomListPage({
-          filterType: this.currentFilter,
+          filterType: this.currentFilter, // （别忘了去 RoomListPage.ets 里把 filterType 改为 @Prop）
           onNavigateToRoom: (room: Room) => {
             if (room.isSpace === true) {
               const param: Record<string, Object> = {
