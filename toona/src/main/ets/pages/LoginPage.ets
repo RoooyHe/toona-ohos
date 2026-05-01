@@ -5,7 +5,6 @@ import { UserAuthManager } from '../services/UserAuthManager';
 import { getThemeColors } from '../utils/ThemeManager';
 import { Context, ConfigurationConstant } from '@kit.AbilityKit';
 import http from '@ohos.net.http';
-import router from '@ohos.router';
 
 function extractHomeServerUrl(jsonString: string): string | null {
   const regex = /"m\.homeserver"\s*:\s*\{\s*"base_url"\s*:\s*"([^"]+)"/;
@@ -16,10 +15,7 @@ function extractHomeServerUrl(jsonString: string): string | null {
   return null;
 }
 
-@Builder
-export function LoginPageBuilder(name: string, param: Object) {
-  LoginPage()
-}
+// 🎯 已删除这里的 @Builder export function LoginPageBuilder... 避免与 @Entry 冲突
 
 @Entry
 @Component
@@ -36,8 +32,9 @@ struct LoginPage {
   private secureStorage: SecureStorage = SecureStorage.getInstance();
   private userAuthManager: UserAuthManager = UserAuthManager.getInstance();
 
+  pathStack: NavPathStack = new NavPathStack();
+
   aboutToAppear() {
-    // Force light mode on launch
     AppStorage.setOrCreate('colorMode', ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT);
     this.colorMode = ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT;
     this.loadSavedCredentials();
@@ -150,7 +147,11 @@ struct LoginPage {
       });
 
       try {
-        router.replaceUrl({ url: 'pages/MainPage' });
+        if (this.pathStack) {
+          this.pathStack.clear();
+          const param: Record<string, Object> = {};
+          this.pathStack.pushPathByName('MainPage', param);
+        }
       } catch (e) {
         console.error('Navigation failed:', e);
       }
@@ -174,7 +175,10 @@ struct LoginPage {
   }
 
   handleRegister() {
-    router.pushUrl({ url: 'pages/RegisterPage' });
+    if (this.pathStack) {
+      const param: Record<string, Object> = {};
+      this.pathStack.pushPathByName('RegisterPage', param);
+    }
   }
 
   handleSSOLogin() {
@@ -202,7 +206,11 @@ struct LoginPage {
       if (savedToken) {
         promptAction.showToast({ message: '验证成功，正在登录...' });
         try {
-          router.replaceUrl({ url: 'pages/MainPage' });
+          if (this.pathStack) {
+            this.pathStack.clear();
+            const param: Record<string, Object> = {};
+            this.pathStack.pushPathByName('MainPage', param);
+          }
         } catch (e) {
           console.error('Navigation failed:', e);
         }
@@ -216,7 +224,7 @@ struct LoginPage {
   }
 
   build() {
-    NavDestination() {
+    Navigation(this.pathStack) {
       Stack() {
         Column() {
           Column() {
@@ -380,6 +388,7 @@ struct LoginPage {
       .width('100%')
       .height('100%');
     }
-    .hideTitleBar(true);
+    .hideTitleBar(true)
+    .mode(NavigationMode.Stack)
   }
 }

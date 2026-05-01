@@ -22,7 +22,7 @@ export function MainPageBuilder(name: string, param: Object) {
   MainPage()
 }
 
-@Entry
+// ⚠️ 修复点1：删除了 @Entry 装饰器，避免渲染管线冲突
 @Component
 struct MainPage {
   @State currentIndex: number = 0;
@@ -39,7 +39,10 @@ struct MainPage {
   private authManager: AuthManager = AuthManager.getInstance();
   private syncManager: SyncManager = SyncManager.getInstance();
   private roomManager: RoomManager = RoomManager.getInstance();
-  @State pathStack: NavPathStack = new NavPathStack();
+
+  // ⚠️ 修复点2：删除了 @State 修饰符！严禁代理 NavPathStack 系统对象
+  pathStack: NavPathStack = new NavPathStack();
+
   private isNavigating: boolean = false;
 
   aboutToAppear() {
@@ -150,41 +153,41 @@ struct MainPage {
   }
 
   navigateToSearch() {
-      if (this.isNavigating) {
-        return;
-      }
-      this.isNavigating = true;
-      const param: Record<string, Object> = {
-        "pathStack": this.pathStack
-      };
-      this.pathStack.pushPathByName('SearchPage', param);
-      setTimeout(() => { this.isNavigating = false; }, 500);
+    if (this.isNavigating) {
+      return;
+    }
+    this.isNavigating = true;
+    const param: Record<string, Object> = {
+      "pathStack": this.pathStack
+    };
+    this.pathStack.pushPathByName('SearchPage', param);
+    setTimeout(() => { this.isNavigating = false; }, 500);
   }
 
   navigateToJoinRoom() {
-      if (this.isNavigating) {
-        return;
-      }
-      this.isNavigating = true;
-      const param: Record<string, Object> = {
-        "pathStack": this.pathStack
-      };
-      this.pathStack.pushPathByName('JoinRoomPage', param);
-      setTimeout(() => { this.isNavigating = false; }, 500);
+    if (this.isNavigating) {
+      return;
+    }
+    this.isNavigating = true;
+    const param: Record<string, Object> = {
+      "pathStack": this.pathStack
+    };
+    this.pathStack.pushPathByName('JoinRoomPage', param);
+    setTimeout(() => { this.isNavigating = false; }, 500);
   }
 
   navigateToSetting() {
-      if (this.isNavigating) {
-        return;
-      }
-      this.isNavigating = true;
-      if (this.pathStack) {
-        const param: Record<string, Object> = {
-          "pathStack": this.pathStack
-        };
-        this.pathStack.pushPathByName('SettingsPage', param);
-      }
-      setTimeout(() => { this.isNavigating = false; }, 500);
+    if (this.isNavigating) {
+      return;
+    }
+    this.isNavigating = true;
+    if (this.pathStack) {
+      const param: Record<string, Object> = {
+        "pathStack": this.pathStack
+      };
+      this.pathStack.pushPathByName('SettingsPage', param);
+    }
+    setTimeout(() => { this.isNavigating = false; }, 500);
   }
 
   setFilter(filter: FilterType) {
