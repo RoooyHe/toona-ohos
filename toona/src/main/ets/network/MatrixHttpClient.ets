@@ -3,14 +3,33 @@ import { MediaHttpClient } from './clients/MediaHttpClient';
 import { RoomHttpClient } from './clients/RoomHttpClient';
 import { MessageHttpClient } from './clients/MessageHttpClient';
 import { UserHttpClient } from './clients/UserHttpClient';
-import { DeviceHttpClient } from './clients/DeviceHttpClient';
+import { DeviceAuthData, DeviceHttpClient } from './clients/DeviceHttpClient';
 import { FilterHttpClient } from './clients/FilterHttpClient';
 import { PresenceHttpClient } from './clients/PresenceHttpClient';
 import { ThirdpartyHttpClient } from './clients/ThirdpartyHttpClient';
 import { OpenIdHttpClient } from './clients/OpenIdHttpClient';
 import { VoipHttpClient } from './clients/VoipHttpClient';
 import { HttpVersion } from './clients/BaseHttpClient';
-import { PushRuleAction, RoomAvatarContent, SetPresenceRequest, QueryKeysRequest, UploadKeysRequest, ClaimKeysRequest, QueryRoomKeysRequest, UploadRoomKeysRequest, UploadRoomKeysRoomsData, KeyBackupSessionData, SignatureRequest, Filter, UpdateDeviceRequest, OpenIdRequest, PushRule, SetNotificationMarkerRequest, SetReadMarkersRequest, PublicRoom } from '../models/MatrixTypes';
+import {
+  PushRuleAction,
+  RoomAvatarContent,
+  SetPresenceRequest,
+  QueryKeysRequest,
+  UploadKeysRequest,
+  ClaimKeysRequest,
+  QueryRoomKeysRequest,
+  UploadRoomKeysRequest,
+  UploadRoomKeysRoomsData,
+  KeyBackupSessionData,
+  SignatureRequest,
+  Filter,
+  UpdateDeviceRequest,
+  OpenIdRequest,
+  PushRule,
+  SetNotificationMarkerRequest,
+  SetReadMarkersRequest,
+  PublicRoom
+} from '../models/MatrixTypes';
 
 export class MatrixHttpClient {
   private baseClient: BaseHttpClient;
@@ -310,59 +329,62 @@ export class MatrixHttpClient {
     return this.deviceClient.updateDevice(deviceId, update);
   }
 
-  async deleteDevice(deviceId: string): Promise<void> {
-    return this.deviceClient.deleteDevice(deviceId);
+  // 2. 找到原来的 deleteDevice，增加 authData 参数
+  deleteDevice(deviceId: string, authData?: DeviceAuthData): Promise<void> {
+    return this.deviceClient.deleteDevice(deviceId, authData);
   }
 
-  async deleteDevices(deviceIds: string[]): Promise<void> {
-    return this.deviceClient.deleteDevices(deviceIds);
+  // 3. 补充上批量删除的透传方法（如果您需要用到的话）
+  deleteDevices(deviceIds: string[], authData?: DeviceAuthData): Promise<void> {
+    return this.deviceClient.deleteDevices(deviceIds, authData);
   }
 
-  async queryKeys(request: QueryKeysRequest) {
+  // ✅ 加上 : Promise<Record<string, Object>> 即可
+  queryKeys(request: Record<string, Object>): Promise<Record<string, Object>> {
     return this.deviceClient.queryKeys(request);
   }
 
-  async uploadKeys(request: UploadKeysRequest) {
+  uploadKeys(request: Record<string, Object>): Promise<Record<string, Object>> {
     return this.deviceClient.uploadKeys(request);
   }
 
-  async claimKeys(request: ClaimKeysRequest) {
+  claimKeys(request: Record<string, Object>): Promise<Record<string, Object>> {
     return this.deviceClient.claimKeys(request);
   }
 
-  async queryRoomKeys(request: QueryRoomKeysRequest) {
+  queryRoomKeys(request: Record<string, Object>): Promise<Record<string, Object>> {
     return this.deviceClient.queryRoomKeys(request);
   }
 
-  async uploadRoomKeys(request: UploadRoomKeysRequest) {
+  uploadRoomKeys(request: Record<string, Object>): Promise<Record<string, Object>> {
     return this.deviceClient.uploadRoomKeys(request);
   }
 
-  async getRoomKeys(roomId: string, sessionId: string) {
-    return this.deviceClient.getRoomKeys(roomId, sessionId);
+  getRoomKeys(version?: string): Promise<Record<string, Object>> {
+    return this.deviceClient.getRoomKeys(version);
   }
 
-  async putRoomKeys(roomId: string, sessionId: string, data: KeyBackupSessionData): Promise<void> {
-    return this.deviceClient.putRoomKeys(roomId, sessionId, data);
+  putRoomKeys(version: string, request: Record<string, Object>): Promise<Record<string, Object>> {
+    return this.deviceClient.putRoomKeys(version, request);
   }
 
   async getKeyBackupVersion() {
     return this.deviceClient.getKeyBackupVersion();
   }
 
-  async putKeyBackupVersion(version: string, data: Record<string, string | object>): Promise<void> {
-    return this.deviceClient.putKeyBackupVersion(version, data);
+  putKeyBackupVersion(version: string, request: Record<string, Object>): Promise<Record<string, Object>> {
+    return this.deviceClient.putKeyBackupVersion(version, request);
   }
 
-  async createKeyBackupVersion(data: Record<string, string | object>) {
-    return this.deviceClient.createKeyBackupVersion(data);
+  createKeyBackupVersion(request: Record<string, Object>): Promise<Record<string, Object>> {
+    return this.deviceClient.createKeyBackupVersion(request);
   }
 
-  async deleteKeyBackupVersion(version: string): Promise<void> {
+  deleteKeyBackupVersion(version: string): Promise<Record<string, Object>> {
     return this.deviceClient.deleteKeyBackupVersion(version);
   }
 
-  async uploadSignatures(request: SignatureRequest) {
+  uploadSignatures(request: Record<string, Object>): Promise<Record<string, Object>> {
     return this.deviceClient.uploadSignatures(request);
   }
 

@@ -110,11 +110,15 @@ export class BaseHttpClient {
       } else {
         let errcode: string = 'UNKNOWN';
         let errorMsg: string = '';
+        let session: string = ''; // ✅ 新增：提取 Session
+
         try {
           if (typeof result.result === 'string') {
-            const parsed: Record<string, string> = JSON.parse(result.result) as Record<string, string>;
-            errcode = parsed['errcode'] || 'UNKNOWN';
-            errorMsg = parsed['error'] || '';
+            // ✅ 使用 Record<string, Object> 解析，确保兼容 UIA 的复杂结构
+            const parsed: Record<string, Object> = JSON.parse(result.result) as Record<string, Object>;
+            errcode = (parsed['errcode'] as string) || 'UNKNOWN';
+            errorMsg = (parsed['error'] as string) || '';
+            session = (parsed['session'] as string) || '';
           } else {
             errcode = 'UNKNOWN';
             errorMsg = String(result.result);
@@ -123,6 +127,12 @@ export class BaseHttpClient {
           errcode = 'PARSE_ERROR';
           errorMsg = 'Failed to parse error response';
         }
+
+        // ✅ 核心修复：如果是 401 且含有 session，说明是 UIA 安全验证，抛出特定标识
+        if (result.responseCode === 401 && session) {
+          throw new Error(`UIA_REQUIRED:${session}`);
+        }
+
         throw new Error(`${errcode}: ${errorMsg}`);
       }
     } finally {
@@ -178,8 +188,9 @@ export class BaseHttpClient {
     return this.request<T>('PUT', endpoint, body);
   }
 
-  public async delete<T>(endpoint: string): Promise<T> {
-    return this.request<T>('DELETE', endpoint);
+  // ✅ 修复：让 DELETE 方法也支持传递 Body 参数（UIA 密码验证必须放入 Body）
+  public async delete<T>(endpoint: string, body?: Record<string, string | object>): Promise<T> {
+    return this.request<T>('DELETE', endpoint, body);
   }
 
   public async upload<T>(
@@ -188,6 +199,7 @@ export class BaseHttpClient {
     contentType: string,
     fileName: string
   ): Promise<T> {
+    // ... 省略 Upload，无需改动
     const url = this.buildUrl(endpoint);
     const headers = this.buildHeaders();
     headers['Content-Type'] = contentType;

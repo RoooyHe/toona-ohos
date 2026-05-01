@@ -1,6 +1,7 @@
 import { MatrixHttpClient, MatrixConfig } from '../network/MatrixHttpClient';
 import { Device, DevicesResponse, UpdateDeviceRequest } from '../models/MatrixTypes';
 import { AuthManager } from './AuthManager';
+import { DeviceAuthData } from '../network/clients/DeviceHttpClient';
 
 export class DeviceManager {
   private static instance: DeviceManager;
@@ -62,23 +63,23 @@ export class DeviceManager {
     }
   }
 
-  async deleteDevice(deviceId: string): Promise<void> {
+  // 修复单删方法
+  async deleteDevice(deviceId: string, authData?: DeviceAuthData): Promise<void> {
     try {
-      await this.ensureHttpClient().deleteDevice(deviceId);
+      await this.ensureHttpClient().deleteDevice(deviceId, authData);
     } catch (error) {
-      console.error('Failed to delete device:', error);
-      const errMsg: string = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to delete device: ${errMsg}`);
+      // ✅ 修复：显式断言为 Error 类型
+      throw error as Error;
     }
   }
 
-  async deleteDevices(deviceIds: string[]): Promise<void> {
+  // 修复批量删除方法
+  async deleteDevices(deviceIds: string[], authData?: DeviceAuthData): Promise<void> {
     try {
-      await this.ensureHttpClient().deleteDevices(deviceIds);
+      await this.ensureHttpClient().deleteDevices(deviceIds, authData);
     } catch (error) {
-      console.error('Failed to delete devices:', error);
-      const errMsg: string = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to delete devices: ${errMsg}`);
+      // ✅ 修复：显式断言为 Error 类型
+      throw error as Error;
     }
   }
 

@@ -6,6 +6,32 @@ export interface Device {
   session_id?: string;
 }
 
+/**
+ * Matrix 协议中的设备信息结构
+ * 严格按照 Matrix C-S API 规范定义
+ */
+export interface DeviceInfo {
+  /**
+   * 设备的唯一标识符
+   */
+  device_id: string;
+
+  /**
+   * 设备的显示名称（用户可修改）
+   */
+  display_name?: string;
+
+  /**
+   * 该设备最后一次被服务器看到的 IP 地址
+   */
+  last_seen_ip?: string;
+
+  /**
+   * 该设备最后一次被服务器看到的时间戳（毫秒）
+   */
+  last_seen_ts?: number;
+}
+
 export interface DevicesResponse {
   devices: Device[];
 }
