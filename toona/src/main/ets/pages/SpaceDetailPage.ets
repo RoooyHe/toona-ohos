@@ -6,15 +6,18 @@ import { getThemeColors } from '../utils/ThemeManager';
 @Builder
 export function SpaceDetailPageBuilder(name: string, param: Object) {
   SpaceDetailPage({
-    spaceId: ((param as Record<string, Object>)['spaceId'] as string) || '',
-    spaceName: ((param as Record<string, Object>)['spaceName'] as string) || '空间'
+    // 修复点3：增加 param 判空保护，防止取属性时报 undefined 错误
+    spaceId: param ? (((param as Record<string, Object>)['spaceId'] as string) || '') : '',
+    spaceName: param ? (((param as Record<string, Object>)['spaceName'] as string) || '空间') : '空间'
   })
 }
 
 @Component
 struct SpaceRoomItem {
+  // @Prop 修饰自定义的简单数据结构没有问题
   @Prop room: Room = new Room('');
-  @Prop pathStack: NavPathStack = new NavPathStack();
+  // 修复点1：去掉 @Prop 修饰符，改为普通属性，防止深拷贝引发底层指针异常
+  pathStack?: NavPathStack;
 
   aboutToAppear() {
   }
@@ -73,7 +76,7 @@ struct SpaceRoomItem {
   }
 }
 
-@Entry
+// 修复点2：已删除 @Entry 装饰器
 @Component
 struct SpaceDetailPage {
   @State spaceName: string = '';
