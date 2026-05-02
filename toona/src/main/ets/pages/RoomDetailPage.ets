@@ -246,9 +246,11 @@ struct RoomDetailPage {
 
   async checkTypingUsers() {
     try {
-      const typing = await this.roomManager.getTypingUsers(this.roomId);
-      const currentUserId = this.authManager.getUserId();
-      this.typingUsers = typing.filter(id => id !== currentUserId);
+      // 暂时屏蔽掉，因为获取 typing 是从 sync 流里拿，而不是主动发 GET 请求
+      // const typing = await this.roomManager.getTypingUsers(this.roomId);
+      // const currentUserId = this.authManager.getUserId();
+      // this.typingUsers = typing.filter(id => id !== currentUserId);
+      return;
     } catch (error) {
       console.error('Failed to check typing users:', error);
     }
@@ -458,7 +460,7 @@ struct RoomDetailPage {
   // 3. 上传并发送 m.audio 类型的 Matrix 消息
   async uploadAndSendAudio(audioBuffer: ArrayBuffer, fileName: string, fileSize: number) {
     try {
-      // 复用你的 uploadImage 接口（只要是二进制文件，底层都能传）
+      // 1. 上传音频文件
       const uploadResult = (await this.mediaManager.uploadImage(audioBuffer, fileName)) as Object;
 
       let mxcUrl: string = '';
@@ -469,22 +471,31 @@ struct RoomDetailPage {
       }
 
       if (mxcUrl) {
-        // 构建音频专属的 info
+        // 1. 构建音频专属的 info
         const audioInfo: Record<string, Object> = {
           'size': fileSize as Object,
           'mimetype': 'audio/mp4' as Object
         };
 
-        // msgtype 必须是 m.audio 才能在 Matrix 中被识别为语音消息
+        // ✅ 2. 核心修复：显式声明一个空的 Record 对象，用来代替匿名的 {}
+        const voiceFlag: Record<string, Object> = {};
+
+        // 3. 构建发送内容
         const audioMessageContent: Record<string, string | object> = {
           'msgtype': 'm.audio',
-          'body': '语音消息.m4a',
+          'body': '语音消息',
           'url': mxcUrl,
-          'info': audioInfo as object
+          'info': audioInfo as object,
+
+          // 将声明好的 voiceFlag 赋值进去，完美绕过 ArkTS 的匿名对象检查
+          'org.matrix.msc3245.voice': voiceFlag as object,
+          'm.voice': voiceFlag as object
         };
 
         await this.messageManager.sendMessage(this.roomId, 'm.room.message', audioMessageContent);
-        // this.loadMessages(); // 可选：刷新列表
+
+        // 发送完刷新一下，让你自己的 UI 也能看到
+        this.loadMessages();
       }
     } catch (error) {
       console.error('Failed to send audio:', (error as Error).message);

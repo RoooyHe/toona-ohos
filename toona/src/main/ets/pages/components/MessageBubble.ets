@@ -63,6 +63,7 @@ export struct MessageBubble {
       }
 
       if (this.message.isImageMessage()) {
+        // 1. 图片消息气泡
         Image(this.mediaManager.getThumbnailUrl(this.message.content['url'] as string, 200, 200, 'scale'))
           .width(200)
           .height(200)
@@ -78,7 +79,47 @@ export struct MessageBubble {
                 this.onLongPress(this.message);
               })
           );
+      } else if (this.message.content && this.message.content['msgtype'] === 'm.audio') {
+        // ✅ 2. 新增：语音/音频消息气泡
+        Row() {
+          // 播放图标 (暂时复用麦克风图标 app.media.phone，有播放图标可以替换成 app.media.play)
+          Image($r('app.media.phone'))
+            .width(20)
+            .height(20)
+            .fillColor(this.isOutgoing ? '#ffffff' : this.getThemeColors().primary)
+
+          Text('语音消息')
+            .fontSize(16)
+            .fontColor(this.isOutgoing ? '#ffffff' : this.getThemeColors().text)
+            .margin({ left: 8 })
+
+          if (this.message.status === MessageStatus.SENDING) {
+            Text('...')
+              .fontSize(12)
+              .fontColor('#cccccc')
+              .margin({ left: 8 });
+          } else if (this.message.status === MessageStatus.FAILED) {
+            Text('!')
+              .fontSize(12)
+              .fontColor('#e53935')
+              .margin({ left: 8 });
+          }
+        }
+        .backgroundColor(this.isOutgoing ? this.getThemeColors().outgoingBg : this.getThemeColors().messageBg)
+        .borderRadius(18)
+        .padding({ left: 16, right: 16, top: 10, bottom: 10 }) // 加大 padding，让气泡饱满
+        .alignItems(VerticalAlign.Center)
+        .onClick(() => {
+          promptAction.showToast({ message: '语音播放功能开发中...' });
+        })
+        .gesture(
+          LongPressGesture()
+            .onAction(() => {
+              this.onLongPress(this.message);
+            })
+        );
       } else if (this.message.isFileMessage()) {
+        // 3. 其他文件附件气泡
         Row() {
           Image($r('app.media.add'))
             .width(40)
@@ -110,6 +151,7 @@ export struct MessageBubble {
             })
         );
       } else {
+        // 4. 普通文本消息气泡
         Row() {
           Text(this.message.getMessageBody())
             .fontSize(16)

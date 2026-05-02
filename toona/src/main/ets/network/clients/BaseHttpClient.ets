@@ -201,9 +201,7 @@ export class BaseHttpClient {
     contentType: string,
     fileName: string
   ): Promise<T> {
-    // ✅ 修复 1：媒体上传必须使用 _matrix/media/v3 的基础 URL
-    // 如果你之前的 endpoint 只是 '/upload'，我们需要拼接完整的媒体路径
-    let url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}/_matrix/media/v3${endpoint}`;
+    let url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}${endpoint}`;
 
     // ✅ 修复 2：调用 buildHeaders，它会自动注入 Authorization: Bearer {token}
     const headers = this.buildHeaders();
