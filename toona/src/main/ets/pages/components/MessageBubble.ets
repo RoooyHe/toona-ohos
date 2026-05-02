@@ -2,6 +2,8 @@ import promptAction from '@ohos.promptAction';
 import { Message, MessageStatus } from '../../models/DataModels';
 import { MediaManager } from '../../services/MediaManager';
 import { getThemeColors } from '../../utils/ThemeManager';
+import media from '@ohos.multimedia.media';
+import fileIo from '@ohos.file.fs';
 
 interface BubbleThemeColors {
   bg: string;
@@ -19,11 +21,152 @@ interface BubbleThemeColors {
 @Component
 export struct MessageBubble {
   @ObjectLink message: Message;
+  // 🎙️ 语音相关状态
+  @State isPlaying: boolean = false;
+  @State playProgress: number = 0;
+  private avPlayer: media.AVPlayer | null = null;
+  private durationMs: number = 0;
+
+  // 🌀 微信同款动画状态：当前点亮的声波格数 (1, 2, 3)
+  @State waveIndex: number = 3; // 默认静止时显示满格(3)
+  private animationInterval: number = -1; // 定时器 ID
   isOutgoing: boolean = false;
-  onLongPress: (message: Message) => void = () => {};
+  onLongPress: (message: Message) => void = () => {
+  };
   private mediaManager: MediaManager = MediaManager.getInstance();
 
   aboutToAppear(): void {
+    // 解析语音消息的时长 (如果有的话)
+    if (this.message.content && this.message.content['msgtype'] === 'm.audio') {
+      const info = this.message.content['info'] as Record<string, Object>;
+      if (info && info['duration']) {
+        this.durationMs = info['duration'] as number;
+      }
+    }
+  }
+
+  // 计算语音气泡的动态宽度 (最小 80px，最大 240px)
+  getVoiceBubbleWidth(): number {
+    const minWidth = 80;
+    const maxWidth = 240;
+
+    // 如果没有获取到时长，给一个默认宽度
+    if (!this.durationMs || this.durationMs <= 0) {
+      return 120;
+    }
+
+    const durationSeconds = this.durationMs / 1000;
+    // 假设 60 秒达到最大宽度，按对数/线性比例计算
+    let width = minWidth + (durationSeconds / 60) * (maxWidth - minWidth);
+    return Math.min(Math.max(width, minWidth), maxWidth);
+  }
+
+  // 格式化时长显示 (如 12")
+  getVoiceDurationText(): string {
+    if (!this.durationMs || this.durationMs <= 0) {
+      return '';
+    }
+    return `${Math.round(this.durationMs / 1000)}"`;
+  }
+
+  // 🔊 播放或暂停语音
+  async togglePlayVoice() {
+    if (this.isPlaying && this.avPlayer) {
+      await this.avPlayer.stop();
+      this.isPlaying = false;
+      this.playProgress = 0;
+      this.stopPlayAnimation(); // ✅ 停止动画
+      return;
+    }
+
+    try {
+      if (!this.avPlayer) {
+        this.avPlayer = await media.createAVPlayer();
+        this.setupPlayerListeners();
+      } else {
+        await this.avPlayer.reset();
+      }
+
+      const mxcUrl = this.message.content['url'] as string;
+      const httpUrl = this.mediaManager.getHttpUrl(mxcUrl);
+
+      this.isPlaying = true;
+      this.playProgress = 0;
+      this.startPlayAnimation(); // ✅ 启动动画
+
+      this.avPlayer.url = httpUrl;
+
+    } catch (err) {
+      console.error('播放失败:', err);
+      this.isPlaying = false;
+      this.stopPlayAnimation(); // ✅ 失败时停止动画
+      promptAction.showToast({ message: '语音播放失败' });
+    }
+  }
+
+  // 🎧 设置播放器监听器
+  private setupPlayerListeners() {
+    if (!this.avPlayer) {
+      return;
+    }
+
+    this.avPlayer.on('stateChange', async (state: string) => {
+      switch (state) {
+        case 'initialized':
+          await this.avPlayer?.prepare();
+          break;
+        case 'prepared':
+          await this.avPlayer?.play();
+          break;
+        case 'completed':
+          this.isPlaying = false;
+          this.playProgress = 0;
+          this.stopPlayAnimation(); // ✅ 播放完毕停止动画
+          await this.avPlayer?.stop();
+          break;
+        case 'stopped':
+          this.isPlaying = false;
+          this.stopPlayAnimation(); // ✅ 停止动画
+          break;
+        case 'error':
+          console.error('播放器报错');
+          this.isPlaying = false;
+          this.stopPlayAnimation(); // ✅ 报错停止动画
+          break;
+      }
+    });
+
+    // 监听播放进度，用于做 UI 动画（如果需要）
+    this.avPlayer.on('timeUpdate', (time: number) => {
+      if (this.durationMs > 0) {
+        this.playProgress = time / this.durationMs;
+      }
+    });
+  }
+
+  // 启动播放动画 (1 -> 2 -> 3 循环)
+  startPlayAnimation() {
+    this.waveIndex = 1;
+    // 每 400ms 切换一帧，模拟声波向外扩散
+    this.animationInterval = setInterval(() => {
+      this.waveIndex = (this.waveIndex % 3) + 1;
+    }, 400);
+  }
+
+  // 停止播放动画，恢复满格静止状态
+  stopPlayAnimation() {
+    if (this.animationInterval !== -1) {
+      clearInterval(this.animationInterval);
+      this.animationInterval = -1;
+    }
+    this.waveIndex = 3; // 停止时恢复显示完整声波
+  }
+
+  // 组件销毁时释放播放器
+  aboutToDisappear() {
+    if (this.avPlayer) {
+      this.avPlayer.release();
+    }
   }
 
   getThemeColors(): BubbleThemeColors {
@@ -80,37 +223,52 @@ export struct MessageBubble {
               })
           );
       } else if (this.message.content && this.message.content['msgtype'] === 'm.audio') {
-        // ✅ 2. 新增：语音/音频消息气泡
+        // ✅ 微信同款语音气泡
         Row() {
-          // 播放图标 (暂时复用麦克风图标 app.media.phone，有播放图标可以替换成 app.media.play)
-          Image($r('app.media.phone'))
-            .width(20)
-            .height(20)
-            .fillColor(this.isOutgoing ? '#ffffff' : this.getThemeColors().primary)
+          // 发送方的排版：时长在左，波形在右
+          if (this.isOutgoing) {
+            Text(this.getVoiceDurationText())
+              .fontSize(14).fontColor($r('sys.color.white') ).opacity(0.8).margin({ right: 8 })
+          }
 
-          Text('语音消息')
-            .fontSize(16)
-            .fontColor(this.isOutgoing ? '#ffffff' : this.getThemeColors().text)
-            .margin({ left: 8 })
+          // 🌀 纯代码手绘的三段式声波 (模拟微信效果)
+          Row({ space: 3 }) { // 接收方声波朝右
+            // 第一点 (永远亮)
+            Circle({ width: 4, height: 4 })
 
-          if (this.message.status === MessageStatus.SENDING) {
-            Text('...')
-              .fontSize(12)
-              .fontColor('#cccccc')
-              .margin({ left: 8 });
-          } else if (this.message.status === MessageStatus.FAILED) {
-            Text('!')
-              .fontSize(12)
-              .fontColor('#e53935')
-              .margin({ left: 8 });
+            // 第二条弧线 (根据波形索引决定是否显示)
+            Text(')')
+              .fontSize(16)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(this.isOutgoing ? '#ffffff' : this.getThemeColors().primary)
+              .opacity(this.waveIndex >= 2 ? 1 : 0) // 隐藏时用透明度，保持占位
+
+            // 第三条弧线
+            Text(')')
+              .fontSize(20)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(this.isOutgoing ? '#ffffff' : this.getThemeColors().primary)
+              .opacity(this.waveIndex >= 3 ? 1 : 0)
+              .margin({ left: -6 }) // 紧凑一点
+          }
+          .width(24) // 锁定图标区域宽度
+          // 如果是自己发出去的，让声波朝左
+          .rotate({ angle: this.isOutgoing ? 180 : 0, centerX: '50%', centerY: '50%' })
+
+          // 接收方的排版：波形在左，时长在右
+          if (!this.isOutgoing) {
+            Text(this.getVoiceDurationText())
+              .fontSize(14).fontColor(this.getThemeColors().text).opacity(0.8).margin({ left: 8 })
           }
         }
         .backgroundColor(this.isOutgoing ? this.getThemeColors().outgoingBg : this.getThemeColors().messageBg)
         .borderRadius(18)
-        .padding({ left: 16, right: 16, top: 10, bottom: 10 }) // 加大 padding，让气泡饱满
+        .padding({ left: 16, right: 16, top: 10, bottom: 10 })
+        .width(this.getVoiceBubbleWidth())
+        .justifyContent(this.isOutgoing ? FlexAlign.End : FlexAlign.Start)
         .alignItems(VerticalAlign.Center)
         .onClick(() => {
-          promptAction.showToast({ message: '语音播放功能开发中...' });
+          this.togglePlayVoice();
         })
         .gesture(
           LongPressGesture()
