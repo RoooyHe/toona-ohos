@@ -282,7 +282,7 @@ struct JoinRoomPage {
                 this.roomAddress = value;
               });
 
-            Button('📷')
+            Button('Scan')
               .fontSize(20)
               .backgroundColor(getThemeColors().primary)
               .fontColor('#ffffff')

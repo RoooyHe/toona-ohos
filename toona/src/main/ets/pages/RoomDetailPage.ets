@@ -10,7 +10,7 @@ import { AuthManager } from '../services/AuthManager';
 import { ShareManager } from '../services/ShareManager';
 import { DeviceSecurityManager } from '../services/DeviceSecurityManager';
 import { MessageStatus, PresenceState } from '../models/MatrixTypes';
-import { fileIo } from '@kit.CoreFileKit';
+import { fileIo, picker } from '@kit.CoreFileKit';
 import { getThemeColors } from '../utils/ThemeManager';
 import { MessageBubble } from './components/MessageBubble';
 import { MessageInputBar } from './components/MessageInputBar';
@@ -213,6 +213,84 @@ struct RoomDetailPage {
     } catch (error) {
       console.error('Failed to pick image: %{public}s', JSON.stringify(error));
       promptAction.showToast({ message: '选择图片失败' });
+    }
+  }
+
+  // 唤起系统相册选择图片
+  async handleSelectImage() {
+    try {
+      // 1. 配置图片选择器参数
+      let photoSelectOptions = new picker.PhotoSelectOptions();
+      photoSelectOptions.MIMEType = picker.PhotoViewMIMETypes.IMAGE_TYPE;
+      photoSelectOptions.maxSelectNumber = 1;
+
+      // 2. 实例化并拉起选择器
+      let photoPicker = new picker.PhotoViewPicker();
+      let photoSelectResult = await photoPicker.select(photoSelectOptions);
+
+      // 3. 检查是否选择了图片
+      if (photoSelectResult && photoSelectResult.photoUris && photoSelectResult.photoUris.length > 0) {
+        let imageUri = photoSelectResult.photoUris[0];
+
+        promptAction.showToast({ message: '正在准备发送图片...' });
+
+        // ✅ 修正 1：使用已引入的 fileIo 替代未引入的 fs
+        let file = fileIo.openSync(imageUri, fileIo.OpenMode.READ_ONLY);
+        let stat = fileIo.statSync(imageUri); // statSync 推荐直接传 uri 或路径
+        let buffer = new ArrayBuffer(stat.size);
+        fileIo.readSync(file.fd, buffer);
+        fileIo.closeSync(file);
+
+        let fileName = `image_${new Date().getTime()}.jpg`;
+
+        // 5. 调用上传逻辑
+        await this.uploadAndSendImage(buffer, fileName, stat.size);
+      }
+    } catch (error) {
+      console.error('PhotoPicker failed or user canceled:', error);
+    }
+  }
+
+  // 上传图片并发送到房间
+  async uploadAndSendImage(imageBuffer: ArrayBuffer, fileName: string, fileSize: number) {
+    try {
+      // 1. 上传图片并显式断言为 Object，消灭 any
+      const uploadResult = (await this.mediaManager.uploadImage(imageBuffer, fileName)) as Object;
+
+      // 2. 提取真正的 mxc 链接
+      let mxcUrl: string = '';
+      if (typeof uploadResult === 'string') {
+        mxcUrl = uploadResult as string;
+      } else {
+        mxcUrl = (uploadResult as Record<string, string>)['content_uri'];
+      }
+
+      if (mxcUrl) {
+        // 3. 构建嵌套的 info 对象
+        const imageInfo: Record<string, Object> = {
+          'size': fileSize as Object,
+          'mimetype': 'image/jpeg' as Object
+        };
+
+        // 4. 构建发送内容，完美匹配 messageManager 的参数要求
+        const imageMessageContent: Record<string, string | object> = {
+          'msgtype': 'm.image',
+          'body': fileName,
+          'url': mxcUrl,
+          'info': imageInfo as object // 显式断言为 object
+        };
+
+        // ✅ 核心修复：使用项目中专门负责发送消息的 messageManager
+        await this.messageManager.sendMessage(this.roomId, 'm.room.message', imageMessageContent);
+
+        promptAction.showToast({ message: '图片发送成功' });
+
+        // 发送完如果想马上在列表看到，可以取消这行注释刷新一下列表
+        // this.loadMessages();
+      }
+    } catch (error) {
+      console.error('Failed to send image:', (error as Error).message);
+      promptAction.showToast({ message: '图片发送失败' });
     }
   }
 
@@ -553,22 +631,20 @@ struct RoomDetailPage {
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Start);
 
-      Button('Eyes')
-        .fontSize(18)
-        .backgroundColor('transparent')
-        .fontColor(getThemeColors().textSecondary)
-        .width(36)
-        .height(36)
+      Image($r('app.media.fllow'))
+        .width(24)
+        .height(24)
+        .objectFit(ImageFit.Contain)
+        .fillColor(getThemeColors().textSecondary)
         .onClick(() => {
           this.showMembersPanel = !this.showMembersPanel;
         });
 
-      Button('Phone')
-        .fontSize(16)
-        .backgroundColor('transparent')
-        .fontColor(getThemeColors().textSecondary)
-        .width(36)
-        .height(36)
+      Image($r('app.media.tel'))
+        .width(24)
+        .height(24)
+        .objectFit(ImageFit.Contain)
+        .fillColor(getThemeColors().textSecondary)
         .onClick(() => {
           this.startVoiceCall();
         });
@@ -698,24 +774,54 @@ struct RoomDetailPage {
       List({ scroller: this.scroller }) {
         ForEach(this.messages, (message: Message, index: number) => {
           ListItem() {
+            // ✅ 修复 1：ListItem 内部必须只有一个根容器（Column）
             Column() {
+
+              // 1. 显示时间分组（如果需要）
               if (this.shouldShowTimeGroup(index)) {
                 Text(this.getTimeGroupLabel(message.timestamp))
                   .fontSize(12)
                   .fontColor(getThemeColors().textSecondary)
                   .padding({ top: 10, bottom: 5 });
               }
-              MessageBubble({
-                message: message,
-                isOutgoing: message.isOutgoing,
-                onLongPress: (msg: Message) => {
-                  this.onMessageLongPress(msg);
-                }
-              });
+
+              // ✅ 修复 2：使用循环项 'message' 进行判断，而不是 'this.event'
+              // 注意：请确保您的 Message 类中有 type 属性，如果没有，可能需要 message.rawEvent.type
+              if (message.type === 'm.room.member') {
+                // 2. 成员变更提示（居中灰色小字）
+                Text(`${message.sender} 加入了房间`)
+                  .fontSize(12)
+                  .fontColor(Color.Gray)
+                  .textAlign(TextAlign.Center)
+                  .width('100%')
+                  .margin({ top: 5, bottom: 5 });
+
+              } else if (message.type === 'm.room.create') {
+                // 3. 房间创建提示
+                Text(`${message.sender} 创建了该房间`)
+                  .fontSize(12)
+                  .fontColor(Color.Gray)
+                  .textAlign(TextAlign.Center)
+                  .width('100%')
+                  .margin({ top: 5, bottom: 5 });
+
+              } else if (message.type === 'm.room.message') {
+                // 4. 正常的聊天气泡
+                MessageBubble({
+                  message: message,
+                  isOutgoing: message.isOutgoing,
+                  onLongPress: (msg: Message) => {
+                    this.onMessageLongPress(msg);
+                  }
+                });
+              } else {
+                // 5. 其他不显示的事件（占位，不占高度）
+                Row().height(0)
+              }
             }
-            .width('100%');
+            .width('100%')
           }
-        });
+        }, (item: Message) => item.eventId) // 建议加上 KeyGenerator 提高性能
       }
       .width('100%')
       .layoutWeight(1)
@@ -729,7 +835,7 @@ struct RoomDetailPage {
         this.showMenu = false;
         this.showMembersPanel = false;
         this.showMessageAction = false;
-      });
+      })
     }
   }
 
@@ -748,7 +854,7 @@ struct RoomDetailPage {
         this.sendMessage();
       },
       onPickImage: () => {
-        this.pickAndUploadImage();
+        this.handleSelectImage();
       }
     });
   }

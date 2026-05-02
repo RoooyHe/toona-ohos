@@ -35,7 +35,23 @@ export interface CreateRoomOptions {
   visibility?: 'public' | 'private';
 }
 
+interface GeneratedTypeLiteralInterface_2 {
+  size: number;
+  mimetype: string;
+}
+
+interface GeneratedTypeLiteralInterface_1 {
+  msgtype: string;
+  body: string;
+  url: import("../models/MatrixTypes").MediaUploadResponse;
+  info: GeneratedTypeLiteralInterface_2;
+}
+
 export class RoomManager {
+  sendMessage(roomId: string, arg1: string,
+    imageMessageContent: GeneratedTypeLiteralInterface_1) {
+    throw new Error('Method not implemented.');
+  }
   private static instance: RoomManager;
   private httpClient: MatrixHttpClient;
   private authManager: AuthManager;

@@ -1,6 +1,6 @@
-import promptAction from '@ohos.promptAction';
 import { Message } from '../../models/DataModels';
 import { getThemeColors } from '../../utils/ThemeManager';
+// 引入鸿蒙原生相册选择器和文件系统模块
 
 interface InputBarThemeColors {
   bg: string;
@@ -14,10 +14,15 @@ interface InputBarThemeColors {
 export struct MessageInputBar {
   @Prop inputText: string = '';
   @Prop editingMessage: Message | null = null;
-  onVoiceClick: () => void = () => {};
-  onInputChange: (text: string) => void = () => {};
-  onSendMessage: () => void = () => {};
-  onPickImage: () => void = () => {};
+  onVoiceClick: () => void = () => {
+  };
+  onInputChange: (text: string) => void = () => {
+  };
+  onSendMessage: () => void = () => {
+  };
+  onPickImage: () => void = () => {
+  };
+
 
   getThemeColors(): InputBarThemeColors {
     const base = getThemeColors();
@@ -32,14 +37,11 @@ export struct MessageInputBar {
 
   build() {
     Row() {
-      Button('Voice')
-        .fontSize(16)
-        .backgroundColor('transparent')
-        .fontColor(this.getThemeColors().textSecondary)
-        .borderRadius(20)
-        .width(36)
-        .height(36)
-        .margin({ left: 5 })
+      Image($r('app.media.phone'))
+        .width(24)
+        .height(24)
+        .objectFit(ImageFit.Contain)
+        .fillColor(getThemeColors().textSecondary)
         .onClick(() => {
           this.onVoiceClick();
         });
@@ -60,13 +62,11 @@ export struct MessageInputBar {
       }
 
       Row() {
-        Button('Photo')
-          .fontSize(18)
-          .backgroundColor('transparent')
-          .fontColor(this.getThemeColors().textSecondary)
-          .borderRadius(20)
-          .width(40)
-          .height(40)
+        Image($r('app.media.pic'))
+          .width(24)
+          .height(24)
+          .objectFit(ImageFit.Contain)
+          .fillColor(getThemeColors().textSecondary)
           .margin({ left: 5 })
           .onClick(() => {
             this.onPickImage();
