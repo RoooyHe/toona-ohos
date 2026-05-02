@@ -33,6 +33,7 @@ export class MediaManager {
     return this.httpClient;
   }
 
+  // 核心的底层上传方法 (保持你原有的逻辑不变)
   async uploadMedia(
     data: ArrayBuffer,
     contentType: string,
@@ -47,21 +48,25 @@ export class MediaManager {
     }
   }
 
+  // ✅ 修复 1：复用 uploadMedia 方法，避免直接操作 this.httpClient 导致空指针
   async uploadImage(data: ArrayBuffer, fileName: string): Promise<string> {
     const response = await this.uploadMedia(data, 'image/jpeg', fileName);
     return response.content_uri;
   }
 
+  // ✅ 修复 2：音频同理
   async uploadAudio(data: ArrayBuffer, fileName: string): Promise<string> {
-    const response = await this.uploadMedia(data, 'audio/mpeg', fileName);
+    const response = await this.uploadMedia(data, 'audio/mp4', fileName); // 录音一般是 m4a/mp4
     return response.content_uri;
   }
 
+  // ✅ 修复 3：视频同理
   async uploadVideo(data: ArrayBuffer, fileName: string): Promise<string> {
     const response = await this.uploadMedia(data, 'video/mp4', fileName);
     return response.content_uri;
   }
 
+  // ✅ 修复 4：通用文件同理
   async uploadFile(data: ArrayBuffer, fileName: string, mimeType: string = 'application/octet-stream'): Promise<string> {
     const response = await this.uploadMedia(data, mimeType, fileName);
     return response.content_uri;
