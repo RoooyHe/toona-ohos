@@ -19,6 +19,8 @@ import { MessageActionMenu } from './components/MessageActionMenu';
 import { ReplyQuote } from './components/ReplyQuote';
 import { EditMessage } from './components/EditMessage';
 import { media } from '@kit.MediaKit';
+import abilityAccessCtrl, { Permissions } from '@ohos.abilityAccessCtrl';
+import common from '@ohos.app.ability.common';
 
 interface MemberPresence {
   userId: string;
@@ -299,8 +301,35 @@ struct RoomDetailPage {
     }
   }
 
-  // 1. 开始录音
+  // 🎙️ 动态申请麦克风权限
+  async requestMicrophonePermission(): Promise<boolean> {
+    const atManager = abilityAccessCtrl.createAtManager();
+    const context = getContext(this) as common.UIAbilityContext;
+    try {
+      // 唤起系统权限弹窗
+      const data = await atManager.requestPermissionsFromUser(context, ['ohos.permission.MICROPHONE']);
+      const grantStatus = data.authResults[0];
+
+      if (grantStatus === abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED) {
+        return true; // 用户点击了允许
+      } else {
+        promptAction.showToast({ message: '需要麦克风权限才能录制语音' });
+        return false; // 用户点击了拒绝
+      }
+    } catch (err) {
+      console.error('Failed to request permission:', err);
+      return false;
+    }
+  }
+
+  // 1. 开始录音 (修改后的版本)
   async startRecording() {
+    // ✅ 每次录音前，先检查并申请权限
+    const hasPermission = await this.requestMicrophonePermission();
+    if (!hasPermission) {
+      return; // 如果没有权限，直接终止录音逻辑
+    }
+
     try {
       this.avRecorder = await media.createAVRecorder();
       const context = getContext(this);
@@ -310,7 +339,7 @@ struct RoomDetailPage {
       const file = fileIo.openSync(this.audioPath, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE);
       this.audioFd = file.fd;
 
-      // 配置录音参数 (AAC 格式，M4A 容器，最通用的语音消息格式)
+      // 配置录音参数
       let avProfile: media.AVRecorderProfile = {
         audioBitrate: 48000,
         audioChannels: 1,
@@ -332,7 +361,7 @@ struct RoomDetailPage {
       promptAction.showToast({ message: '正在录音... 松开发送' });
     } catch (err) {
       console.error('Failed to start recording:', err);
-      promptAction.showToast({ message: '无法启动录音，请检查权限' });
+      promptAction.showToast({ message: '无法启动录音设备' });
     }
   }
 
