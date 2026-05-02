@@ -19,8 +19,11 @@ import { MessageActionMenu } from './components/MessageActionMenu';
 import { ReplyQuote } from './components/ReplyQuote';
 import { EditMessage } from './components/EditMessage';
 import { media } from '@kit.MediaKit';
-import abilityAccessCtrl, { Permissions } from '@ohos.abilityAccessCtrl';
+import abilityAccessCtrl from '@ohos.abilityAccessCtrl';
 import common from '@ohos.app.ability.common';
+// 1. 引入必要的动画库
+import curves from '@ohos.curves';
+
 
 interface MemberPresence {
   userId: string;
@@ -54,6 +57,56 @@ export function RoomDetailPageBuilder(name: string, param: Object) {
     roomName: ((param as Record<string, Object>)['roomName'] as string) || '聊天室',
     pathStack: ((param as Record<string, Object>)['pathStack'] as NavPathStack) || new NavPathStack()
   })
+}
+
+// 2. 定义录音提示弹窗组件
+@CustomDialog
+export struct RecordingDialog {
+  controller: CustomDialogController
+  @Prop isRecording: boolean = false
+  @State waveScale: number = 1.0
+
+  aboutToAppear() {
+    // 简单的呼吸灯动画，模拟音量变化
+    animateTo({
+      duration: 800,
+      curve: curves.springMotion(),
+      iterations: -1, // 无限循环
+      playMode: PlayMode.Alternate
+    }, () => {
+      this.waveScale = 1.3;
+    })
+  }
+
+  build() {
+    Column() {
+      Stack() {
+        // 背景波纹
+        Circle()
+          .width(60)
+          .height(60)
+          .opacity(0.3)
+          .scale({ x: this.waveScale, y: this.waveScale })
+
+        // 麦克风图标 (请确保 app.media.phone 是麦克风图标，如果不是可以换一个)
+        Image($r('app.media.phone'))
+          .width(40)
+          .height(40)
+          .fillColor(Color.White)
+      }
+      .margin({ top: 20, bottom: 15 })
+
+      Text(this.isRecording ? '松开 发送' : '手指上滑，取消发送')
+        .fontSize(14)
+        .fontColor(Color.White)
+        .margin({ bottom: 20 })
+    }
+    .width(140)
+    .height(140)
+    .backgroundColor('rgba(0,0,0,0.6)') // 半透明黑底
+    .borderRadius(16)
+    .justifyContent(FlexAlign.Center)
+  }
 }
 
 @Component
@@ -92,6 +145,13 @@ struct RoomDetailPage {
   private mediaLibraryManager: MediaLibraryManager = MediaLibraryManager.getInstance();
   private shareManager: ShareManager = ShareManager.getInstance();
   private deviceSecurityManager: DeviceSecurityManager = DeviceSecurityManager.getInstance();
+  // 声明录音弹窗控制器
+  recordingDialogController: CustomDialogController = new CustomDialogController({
+    builder: RecordingDialog({ isRecording: this.isRecording }),
+    alignment: DialogAlignment.Center, // 屏幕居中显示
+    autoCancel: false, // 禁用点击空白处关闭
+    customStyle: true // 使用我们自己定义的圆角和背景
+  });
   pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
@@ -322,24 +382,20 @@ struct RoomDetailPage {
     }
   }
 
-  // 1. 开始录音 (修改后的版本)
+  // 1. 开始录音
   async startRecording() {
-    // ✅ 每次录音前，先检查并申请权限
     const hasPermission = await this.requestMicrophonePermission();
     if (!hasPermission) {
-      return; // 如果没有权限，直接终止录音逻辑
+      return;
     }
 
     try {
       this.avRecorder = await media.createAVRecorder();
       const context = getContext(this);
-
-      // 生成录音文件保存路径 (缓存在本地)
       this.audioPath = context.cacheDir + '/voice_' + Date.now() + '.m4a';
       const file = fileIo.openSync(this.audioPath, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE);
       this.audioFd = file.fd;
 
-      // 配置录音参数
       let avProfile: media.AVRecorderProfile = {
         audioBitrate: 48000,
         audioChannels: 1,
@@ -358,7 +414,9 @@ struct RoomDetailPage {
       await this.avRecorder.start();
 
       this.isRecording = true;
-      promptAction.showToast({ message: '正在录音... 松开发送' });
+      // ✅ 关键改动 1：拉起半透明的波纹动画弹窗
+      this.recordingDialogController.open();
+      // 删掉这行 Toast：promptAction.showToast({ message: '正在录音... 松开发送' });
     } catch (err) {
       console.error('Failed to start recording:', err);
       promptAction.showToast({ message: '无法启动录音设备' });
@@ -373,23 +431,26 @@ struct RoomDetailPage {
         await this.avRecorder.release();
         this.avRecorder = undefined;
         this.isRecording = false;
+
+        // ✅ 关键改动 2：关闭动画弹窗
+        this.recordingDialogController.close();
+
         fileIo.closeSync(this.audioFd);
 
-        // 将生成的音频文件读取为 ArrayBuffer
         let file = fileIo.openSync(this.audioPath, fileIo.OpenMode.READ_ONLY);
         let stat = fileIo.statSync(this.audioPath);
         let buffer = new ArrayBuffer(stat.size);
         fileIo.readSync(file.fd, buffer);
         fileIo.closeSync(file);
 
-        promptAction.showToast({ message: '录音结束，正在发送...' });
+        // 删掉这行，不需要提示了：promptAction.showToast({ message: '录音结束，正在发送...' });
 
-        // 调用上传和发送
         const fileName = `voice_${Date.now()}.m4a`;
         await this.uploadAndSendAudio(buffer, fileName, stat.size);
       } catch (err) {
         console.error('Failed to stop recording:', err);
         this.isRecording = false;
+        this.recordingDialogController.close(); // 发生错误时也要关闭弹窗
       }
     }
   }

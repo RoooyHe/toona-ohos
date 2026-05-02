@@ -35,7 +35,8 @@ export class BaseHttpClient {
     return url;
   }
 
-  public buildUrl(endpoint: string, queryParams?: Record<string, string | number>, version: HttpVersion = 'v3'): string {
+  public buildUrl(endpoint: string, queryParams?: Record<string, string | number>,
+    version: HttpVersion = 'v3'): string {
     console.info('BaseHttpClient: buildUrl called, baseUrl: ' + this.baseUrl + ', endpoint: ' + endpoint);
     let url = `${this.baseUrl}/_matrix/client/${version}${endpoint}`;
     if (queryParams) {
@@ -140,7 +141,8 @@ export class BaseHttpClient {
     }
   }
 
-  public async get<T>(endpoint: string, queryParams?: Record<string, string | number>, version: HttpVersion = 'v3'): Promise<T> {
+  public async get<T>(endpoint: string, queryParams?: Record<string, string | number>,
+    version: HttpVersion = 'v3'): Promise<T> {
     return this.request<T>('GET', endpoint, undefined, queryParams, version);
   }
 
@@ -199,18 +201,26 @@ export class BaseHttpClient {
     contentType: string,
     fileName: string
   ): Promise<T> {
-    // ... 省略 Upload，无需改动
-    const url = this.buildUrl(endpoint);
+    // ✅ 修复 1：媒体上传必须使用 _matrix/media/v3 的基础 URL
+    // 如果你之前的 endpoint 只是 '/upload'，我们需要拼接完整的媒体路径
+    let url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}/_matrix/media/v3${endpoint}`;
+
+    // ✅ 修复 2：调用 buildHeaders，它会自动注入 Authorization: Bearer {token}
     const headers = this.buildHeaders();
     headers['Content-Type'] = contentType;
-    headers['Content-Disposition'] = `attachment; filename="${fileName}"`;
+
+    // Matrix 要求带上 filename 参数在 URL 中，但这取决于你的 MediaHttpClient 怎么传
+    // 标准做法是在查询参数中加上 ?filename=...
+    if (!url.includes('filename=')) {
+      url += `?filename=${encodeURIComponent(fileName)}`;
+    }
 
     const httpRequest = http.createHttp();
 
     try {
       const result = await new Promise<http.HttpResponse>((resolve, reject) => {
         const options: http.HttpRequestOptions = {
-          method: http.RequestMethod.PUT,
+          method: http.RequestMethod.POST, // ✅ 媒体上传是 POST 请求
           header: headers,
           extraData: data,
           expectDataType: http.HttpDataType.STRING
@@ -225,26 +235,24 @@ export class BaseHttpClient {
         });
       });
 
+      console.info(`[HTTP] POST MEDIA ${url} - Status: ${result.responseCode}`);
+
       if (result.responseCode >= 200 && result.responseCode < 300) {
         if (typeof result.result === 'string' && result.result.length > 0) {
           return JSON.parse(result.result) as T;
         }
         return Object() as T;
       } else {
-        let errcode: string = 'UNKNOWN';
-        let errorMsg: string = '';
+        let errcode = 'UNKNOWN';
+        let errorMsg = String(result.result);
         try {
           if (typeof result.result === 'string') {
-            const parsed: Record<string, string> = JSON.parse(result.result) as Record<string, string>;
+            const parsed = JSON.parse(result.result) as Record<string, string>;
             errcode = parsed['errcode'] || 'UNKNOWN';
-            errorMsg = parsed['error'] || '';
-          } else {
-            errcode = 'UNKNOWN';
-            errorMsg = String(result.result);
+            errorMsg = parsed['error'] || errorMsg;
           }
-        } catch {
-          errcode = 'PARSE_ERROR';
-          errorMsg = 'Failed to parse error response';
+        } catch (e) {
+          // 解析失败忽略
         }
         throw new Error(`${errcode}: ${errorMsg}`);
       }
