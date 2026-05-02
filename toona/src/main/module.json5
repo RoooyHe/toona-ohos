@@ -13,6 +13,15 @@
     "requestPermissions": [
       {
         "name": "ohos.permission.INTERNET"
+      },
+      // ✅ 增加麦克风权限
+      {
+        "name": "ohos.permission.MICROPHONE",
+        "reason": "$string:microphone_reason",
+        "usedScene": {
+          "abilities": ["EntryAbility"],
+          "when": "inuse"
+        }
       }
     ],
     "pages": "$profile:main_pages",

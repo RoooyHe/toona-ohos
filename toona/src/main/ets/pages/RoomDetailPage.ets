@@ -18,6 +18,7 @@ import { MemberListPanel } from './components/MemberListPanel';
 import { MessageActionMenu } from './components/MessageActionMenu';
 import { ReplyQuote } from './components/ReplyQuote';
 import { EditMessage } from './components/EditMessage';
+import { media } from '@kit.MediaKit';
 
 interface MemberPresence {
   userId: string;
@@ -72,6 +73,10 @@ struct RoomDetailPage {
   @State messageActionType: string = '';
   @State editingMessage: Message | null = null;
   @State editText: string = '';
+  @State isRecording: boolean = false;
+  private avRecorder: media.AVRecorder | undefined = undefined;
+  private audioPath: string = '';
+  private audioFd: number = -1;
   private roomManager: RoomManager = RoomManager.getInstance();
   private syncManager: SyncManager = SyncManager.getInstance();
   private messageManager: MessageManager = MessageManager.getInstance();
@@ -291,6 +296,109 @@ struct RoomDetailPage {
     } catch (error) {
       console.error('Failed to send image:', (error as Error).message);
       promptAction.showToast({ message: '图片发送失败' });
+    }
+  }
+
+  // 1. 开始录音
+  async startRecording() {
+    try {
+      this.avRecorder = await media.createAVRecorder();
+      const context = getContext(this);
+
+      // 生成录音文件保存路径 (缓存在本地)
+      this.audioPath = context.cacheDir + '/voice_' + Date.now() + '.m4a';
+      const file = fileIo.openSync(this.audioPath, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE);
+      this.audioFd = file.fd;
+
+      // 配置录音参数 (AAC 格式，M4A 容器，最通用的语音消息格式)
+      let avProfile: media.AVRecorderProfile = {
+        audioBitrate: 48000,
+        audioChannels: 1,
+        audioCodec: media.CodecMimeType.AUDIO_AAC,
+        audioSampleRate: 48000,
+        fileFormat: media.ContainerFormatType.CFT_MPEG_4A,
+      };
+
+      let avConfig: media.AVRecorderConfig = {
+        audioSourceType: media.AudioSourceType.AUDIO_SOURCE_TYPE_MIC,
+        profile: avProfile,
+        url: 'fd://' + this.audioFd,
+      };
+
+      await this.avRecorder.prepare(avConfig);
+      await this.avRecorder.start();
+
+      this.isRecording = true;
+      promptAction.showToast({ message: '正在录音... 松开发送' });
+    } catch (err) {
+      console.error('Failed to start recording:', err);
+      promptAction.showToast({ message: '无法启动录音，请检查权限' });
+    }
+  }
+
+  // 2. 停止录音并触发发送
+  async stopAndSendRecording() {
+    if (this.avRecorder && this.isRecording) {
+      try {
+        await this.avRecorder.stop();
+        await this.avRecorder.release();
+        this.avRecorder = undefined;
+        this.isRecording = false;
+        fileIo.closeSync(this.audioFd);
+
+        // 将生成的音频文件读取为 ArrayBuffer
+        let file = fileIo.openSync(this.audioPath, fileIo.OpenMode.READ_ONLY);
+        let stat = fileIo.statSync(this.audioPath);
+        let buffer = new ArrayBuffer(stat.size);
+        fileIo.readSync(file.fd, buffer);
+        fileIo.closeSync(file);
+
+        promptAction.showToast({ message: '录音结束，正在发送...' });
+
+        // 调用上传和发送
+        const fileName = `voice_${Date.now()}.m4a`;
+        await this.uploadAndSendAudio(buffer, fileName, stat.size);
+      } catch (err) {
+        console.error('Failed to stop recording:', err);
+        this.isRecording = false;
+      }
+    }
+  }
+
+  // 3. 上传并发送 m.audio 类型的 Matrix 消息
+  async uploadAndSendAudio(audioBuffer: ArrayBuffer, fileName: string, fileSize: number) {
+    try {
+      // 复用你的 uploadImage 接口（只要是二进制文件，底层都能传）
+      const uploadResult = (await this.mediaManager.uploadImage(audioBuffer, fileName)) as Object;
+
+      let mxcUrl: string = '';
+      if (typeof uploadResult === 'string') {
+        mxcUrl = uploadResult as string;
+      } else {
+        mxcUrl = (uploadResult as Record<string, string>)['content_uri'];
+      }
+
+      if (mxcUrl) {
+        // 构建音频专属的 info
+        const audioInfo: Record<string, Object> = {
+          'size': fileSize as Object,
+          'mimetype': 'audio/mp4' as Object
+        };
+
+        // msgtype 必须是 m.audio 才能在 Matrix 中被识别为语音消息
+        const audioMessageContent: Record<string, string | object> = {
+          'msgtype': 'm.audio',
+          'body': '语音消息.m4a',
+          'url': mxcUrl,
+          'info': audioInfo as object
+        };
+
+        await this.messageManager.sendMessage(this.roomId, 'm.room.message', audioMessageContent);
+        // this.loadMessages(); // 可选：刷新列表
+      }
+    } catch (error) {
+      console.error('Failed to send audio:', (error as Error).message);
+      promptAction.showToast({ message: '语音发送失败' });
     }
   }
 
@@ -844,8 +952,15 @@ struct RoomDetailPage {
     MessageInputBar({
       inputText: this.inputText,
       editingMessage: this.editingMessage,
-      onVoiceClick: () => {
-        this.startVoiceCall();
+      onVoiceClick: (event: TouchEvent) => {
+        // 1. 手指按下，开始录音
+        if (event.type === TouchType.Down) {
+          this.startRecording();
+        }
+        // 2. 手指抬起，停止录制并发送
+        else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+          this.stopAndSendRecording();
+        }
       },
       onInputChange: (text: string) => {
         this.onInputChange(text);

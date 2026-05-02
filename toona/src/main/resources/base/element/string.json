@@ -2,7 +2,7 @@
   "string": [
     {
       "name": "module_desc",
-      "value": "Matrix Client For HarmonyOS Native"
+      "value": "module description"
     },
     {
       "name": "ToonaAbility_desc",
@@ -10,7 +10,11 @@
     },
     {
       "name": "ToonaAbility_label",
-      "value": "Toona"
+      "value": "label"
+    },
+    {
+      "name": "microphone_reason",
+      "value": "Toona 需要使用麦克风，以便您能在聊天中录制和发送语音消息。"
     }
   ]
 }

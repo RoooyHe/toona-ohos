@@ -14,15 +14,12 @@ interface InputBarThemeColors {
 export struct MessageInputBar {
   @Prop inputText: string = '';
   @Prop editingMessage: Message | null = null;
-  onVoiceClick: () => void = () => {
-  };
-  onInputChange: (text: string) => void = () => {
-  };
-  onSendMessage: () => void = () => {
-  };
-  onPickImage: () => void = () => {
-  };
 
+  // 顺手补全默认空函数的参数，防止严格模式下再次报类型警告
+  onVoiceClick: (event: TouchEvent) => void = (event: TouchEvent) => {};
+  onInputChange: (text: string) => void = (text: string) => {};
+  onSendMessage: () => void = () => {};
+  onPickImage: () => void = () => {};
 
   getThemeColors(): InputBarThemeColors {
     const base = getThemeColors();
@@ -42,8 +39,9 @@ export struct MessageInputBar {
         .height(24)
         .objectFit(ImageFit.Contain)
         .fillColor(getThemeColors().textSecondary)
-        .onClick(() => {
-          this.onVoiceClick();
+        // ✅ 修复：接收系统传来的 event 参数，并转交给 onVoiceClick
+        .onTouch((event: TouchEvent) => {
+          this.onVoiceClick(event);
         });
 
       if (!this.editingMessage) {
