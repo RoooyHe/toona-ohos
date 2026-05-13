@@ -1,10 +1,24 @@
 {
   "app": {
-    "signingConfigs": [],
+    "signingConfigs": [
+      {
+        "name": "release",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "C:/Users/Roy/DevEcoStudioProjects/toona_ohos/.ohosBuildKey/toonav1.cer",
+          "keyAlias": "toona",
+          "keyPassword": "00000032EB3DDF348EA707A070E449D933CAA7324C3C68209141A557127825543EFA8FF4B525831EADC46509ADFC3AE5BB1C7B8B83102A788A0D06D16BC288C670B9",
+          "profile": "C:/Users/Roy/DevEcoStudioProjects/toona_ohos/.ohosBuildKey/toonav1Release.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "C:/Users/Roy/DevEcoStudioProjects/toona_ohos/.ohosBuildKey/toona.p12",
+          "storePassword": "00000032C73684F94C70E73EAABF2218D78E2D55414480AA23F0A8ACCD478201833969F1DC63DE37B241AECB5E3F6F9850D6BAB4C2A120ACBB6778BE6E405BC2B6A0"
+        }
+      }
+    ],
     "products": [
       {
         "name": "default",
-        "signingConfig": "default",
+        "signingConfig": "release",
         "targetSdkVersion": "6.0.2(22)",
         "compatibleSdkVersion": "6.0.2(22)",
         "runtimeOS": "HarmonyOS",

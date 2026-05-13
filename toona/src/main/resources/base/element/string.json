@@ -1,6 +1,10 @@
 {
   "string": [
     {
+      "name": "app_name",
+      "value": "Toona"
+    },
+    {
       "name": "module_desc",
       "value": "module description"
     },
@@ -10,7 +14,7 @@
     },
     {
       "name": "ToonaAbility_label",
-      "value": "label"
+      "value": "Toona"
     },
     {
       "name": "microphone_reason",

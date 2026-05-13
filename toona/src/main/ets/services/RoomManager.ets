@@ -165,7 +165,7 @@ export class RoomManager {
       const response = await this.httpClient.get<JoinedMembersResponse>(
         `/rooms/${encodedRoomId}/joined_members`
       );
-      return response.joined_members.map(m => m.user_id);
+      return Object.keys(response.joined);
     } catch (error) {
       console.error('Failed to get room members:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);

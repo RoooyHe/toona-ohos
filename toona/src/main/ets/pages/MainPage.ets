@@ -46,19 +46,22 @@ struct MainPage {
   private isNavigating: boolean = false;
 
   aboutToAppear() {
-    this.syncStatus = 'syncing';
+      this.syncStatus = 'syncing';
 
-    this.syncManager.setSyncSuccessCallback(() => {
-      this.syncStatus = 'synced';
-      this.loadUnreadCounts();
-    });
+      this.syncManager.setSyncSuccessCallback(() => {
+            console.info('MainPage: Sync success callback triggered, status:', this.syncStatus);
+            this.syncStatus = 'synced';
+            console.info('MainPage: syncStatus updated to synced');
+            this.loadUnreadCounts();
+          });
 
-    this.syncManager.setSyncErrorCallback(() => {
-      this.syncStatus = 'error';
-    });
+      this.syncManager.setSyncErrorCallback(() => {
+        console.info('Sync error callback triggered');
+        this.syncStatus = 'error';
+      });
 
-    this.tryInitSync();
-  }
+      this.tryInitSync();
+    }
 
   async tryInitSync() {
     try {

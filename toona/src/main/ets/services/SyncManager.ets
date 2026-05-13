@@ -54,44 +54,56 @@ export class SyncManager {
   }
 
   setSyncSuccessCallback(callback: () => void): void {
-    this.syncSuccessCallback = callback;
+    if (!this.syncSuccessCallbacks.includes(callback)) {
+      this.syncSuccessCallbacks.push(callback);
+    }
   }
 
   setSyncErrorCallback(callback: (error: Error) => void): void {
-    this.syncErrorCallback = callback;
+    if (!this.syncErrorCallbacks.includes(callback)) {
+      this.syncErrorCallbacks.push(callback);
+    }
   }
 
   setRoomUpdatedCallback(callback: (room: Room) => void): void {
-    this.roomUpdatedCallback = callback;
+    if (!this.roomUpdatedCallbacks.includes(callback)) {
+      this.roomUpdatedCallbacks.push(callback);
+    }
   }
 
   setRoomInvitedCallback(callback: (room: Room) => void): void {
-    this.roomInvitedCallback = callback;
+    if (!this.roomInvitedCallbacks.includes(callback)) {
+      this.roomInvitedCallbacks.push(callback);
+    }
   }
 
   setRoomLeftCallback(callback: (roomId: string) => void): void {
-    this.roomLeftCallback = callback;
+    if (!this.roomLeftCallbacks.includes(callback)) {
+      this.roomLeftCallbacks.push(callback);
+    }
   }
 
   setNewMessagesCallback(callback: (roomId: string, messages: Message[]) => void): void {
-    this.newMessagesCallback = callback;
+    if (!this.newMessagesCallbacks.includes(callback)) {
+      this.newMessagesCallbacks.push(callback);
+    }
   }
 
   clearAllCallbacks(): void {
-    this.syncSuccessCallback = undefined;
-    this.syncErrorCallback = undefined;
-    this.roomUpdatedCallback = undefined;
-    this.roomInvitedCallback = undefined;
-    this.roomLeftCallback = undefined;
-    this.newMessagesCallback = undefined;
+    this.syncSuccessCallbacks = [];
+    this.syncErrorCallbacks = [];
+    this.roomUpdatedCallbacks = [];
+    this.roomInvitedCallbacks = [];
+    this.roomLeftCallbacks = [];
+    this.newMessagesCallbacks = [];
   }
 
-  private syncSuccessCallback?: () => void;
-  private syncErrorCallback?: (error: Error) => void;
-  private roomUpdatedCallback?: (room: Room) => void;
-  private roomInvitedCallback?: (room: Room) => void;
-  private roomLeftCallback?: (roomId: string) => void;
-  private newMessagesCallback?: (roomId: string, messages: Message[]) => void;
+  private syncSuccessCallbacks: Array<() => void> = [];
+  private syncErrorCallbacks: Array<(error: Error) => void> = [];
+  private roomUpdatedCallbacks: Array<(room: Room) => void> = [];
+  private roomInvitedCallbacks: Array<(room: Room) => void> = [];
+  private roomLeftCallbacks: Array<(roomId: string) => void> = [];
+  private newMessagesCallbacks: Array<(roomId: string, messages: Message[]) => void> = [];
 
   async start(): Promise<void> {
     if (this.isRunning) {
@@ -368,9 +380,12 @@ export class SyncManager {
   }
 
   private notifySyncSuccess(): void {
-    if (this.syncSuccessCallback) {
+    console.info('SyncManager: notifySyncSuccess called, callbacks count:', this.syncSuccessCallbacks.length);
+    for (const callback of this.syncSuccessCallbacks) {
       try {
-        this.syncSuccessCallback();
+        console.info('SyncManager: calling syncSuccessCallback');
+        callback();
+        console.info('SyncManager: syncSuccessCallback completed');
       } catch (error) {
         console.error('Sync callback error:', error);
       }
@@ -385,9 +400,10 @@ export class SyncManager {
   }
 
   private notifySyncError(error: Error): void {
-    if (this.syncErrorCallback) {
+    console.info('SyncManager: notifySyncError called, callbacks count:', this.syncErrorCallbacks.length);
+    for (const callback of this.syncErrorCallbacks) {
       try {
-        this.syncErrorCallback(error);
+        callback(error);
       } catch (err) {
         console.error('Sync callback error:', err);
       }
@@ -402,9 +418,9 @@ export class SyncManager {
   }
 
   private notifyRoomUpdated(room: Room): void {
-    if (this.roomUpdatedCallback) {
+    for (const callback of this.roomUpdatedCallbacks) {
       try {
-        this.roomUpdatedCallback(room);
+        callback(room);
       } catch (error) {
         console.error('Sync callback error:', error);
       }
@@ -419,9 +435,9 @@ export class SyncManager {
   }
 
   private notifyRoomInvited(room: Room): void {
-    if (this.roomInvitedCallback) {
+    for (const callback of this.roomInvitedCallbacks) {
       try {
-        this.roomInvitedCallback(room);
+        callback(room);
       } catch (error) {
         console.error('Sync callback error:', error);
       }
@@ -436,9 +452,9 @@ export class SyncManager {
   }
 
   private notifyRoomLeft(roomId: string): void {
-    if (this.roomLeftCallback) {
+    for (const callback of this.roomLeftCallbacks) {
       try {
-        this.roomLeftCallback(roomId);
+        callback(roomId);
       } catch (error) {
         console.error('Sync callback error:', error);
       }
@@ -453,9 +469,9 @@ export class SyncManager {
   }
 
   private notifyNewMessages(roomId: string, messages: Message[]): void {
-    if (this.newMessagesCallback) {
+    for (const callback of this.newMessagesCallbacks) {
       try {
-        this.newMessagesCallback(roomId, messages);
+        callback(roomId, messages);
       } catch (error) {
         console.error('Sync callback error:', error);
       }

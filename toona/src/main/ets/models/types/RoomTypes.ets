@@ -93,8 +93,13 @@ export interface RoomMemberInfo {
   avatar_url?: string;
 }
 
+interface GeneratedTypeLiteralInterface_1 {
+  display_name?: string;
+  avatar_url?: string;
+}
+
 export interface JoinedMembersResponse {
-  joined_members: RoomMemberInfo[];
+  joined: Record<string, GeneratedTypeLiteralInterface_1>;
 }
 
 export interface RoomCreateResponse {
