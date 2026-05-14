@@ -2,6 +2,7 @@ import relationalStore from '@ohos.data.relationalStore';
 import { Message, Room, User, MessageStatus, TagInfo } from '../models/DataModels';
 import { Context } from '@kit.AbilityKit';
 import { ParsedRoomState } from '../models/MatrixTypes';
+import { AppLogger } from '../utils/AppLogger';
 
 const DATABASE_NAME = 'toona_matrix.db';
 const DATABASE_VERSION = 3;
@@ -35,6 +36,8 @@ export class LocalDatabase {
     return LocalDatabase.instance;
   }
 
+  private static logger = AppLogger.getLogger(LocalDatabase);
+
   async init(context: Context): Promise<void> {
     if (this.isInitialized) {
       return;
@@ -51,7 +54,7 @@ export class LocalDatabase {
       await this.runMigrations();
       this.isInitialized = true;
     } catch (error) {
-      console.error('Failed to initialize LocalDatabase:', error);
+      LocalDatabase.logger.error('Failed to initialize LocalDatabase:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to initialize LocalDatabase: ${errMsg}`);
     }
@@ -74,7 +77,7 @@ export class LocalDatabase {
         await this.migrateDatabase(currentVersion, DATABASE_VERSION);
       }
     } catch (error) {
-      console.info('No schema_version table found, will create tables');
+      LocalDatabase.logger.info('No schema_version table found, will create tables');
     }
   }
 
@@ -126,7 +129,7 @@ export class LocalDatabase {
       return;
     }
 
-    console.info(`Migrating database from version ${fromVersion} to ${toVersion}`);
+    LocalDatabase.logger.info(`Migrating database from version ${fromVersion} to ${toVersion}`);
 
     if (fromVersion < 2 && toVersion >= 2) {
       const migrations = [
@@ -141,9 +144,9 @@ export class LocalDatabase {
       for (const migration of migrations) {
         try {
           await this.store.executeSql(migration);
-          console.info(`Migration succeeded: ${migration}`);
+          LocalDatabase.logger.info(`Migration succeeded: ${migration}`);
         } catch (error) {
-          console.error(`Migration failed: ${migration}`, error);
+          LocalDatabase.logger.error(`Migration failed: ${migration}`, error);
         }
       }
     }
@@ -156,9 +159,9 @@ export class LocalDatabase {
       for (const migration of migrations) {
         try {
           await this.store.executeSql(migration);
-          console.info(`Migration succeeded: ${migration}`);
+          LocalDatabase.logger.info(`Migration succeeded: ${migration}`);
         } catch (error) {
-          console.error(`Migration failed: ${migration}`, error);
+          LocalDatabase.logger.error(`Migration failed: ${migration}`, error);
         }
       }
     }
@@ -169,9 +172,9 @@ export class LocalDatabase {
       );
       await this.store.executeSql('DELETE FROM schema_version');
       await this.store.executeSql(`INSERT INTO schema_version (version) VALUES (${toVersion})`);
-      console.info(`Database migration to version ${toVersion} completed`);
+      LocalDatabase.logger.info(`Database migration to version ${toVersion} completed`);
     } catch (error) {
-      console.error('Failed to update schema_version:', error);
+      LocalDatabase.logger.error('Failed to update schema_version:', error);
     }
   }
 
@@ -262,7 +265,7 @@ export class LocalDatabase {
         }
       }
     } catch (error) {
-      console.error('Failed to create tables:', error);
+      LocalDatabase.logger.error('Failed to create tables:', error);
     }
   }
 
@@ -287,7 +290,7 @@ export class LocalDatabase {
     try {
       await this.store.insert(TABLES.MESSAGES, valueBucket);
     } catch (error) {
-      console.error('Failed to save message:', error);
+      LocalDatabase.logger.error('Failed to save message:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to save message: ${errMsg}`);
     }
@@ -329,7 +332,7 @@ export class LocalDatabase {
       resultSet.close();
       return messages;
     } catch (error) {
-      console.error('Failed to get messages:', error);
+      LocalDatabase.logger.error('Failed to get messages:', error);
       return [];
     }
   }
@@ -366,7 +369,7 @@ export class LocalDatabase {
       try {
         tagsJson = JSON.stringify(room.tags);
       } catch (error) {
-        console.error('Failed to stringify tags:', error);
+        LocalDatabase.logger.error('Failed to stringify tags:', error);
       }
     }
 
@@ -403,7 +406,7 @@ export class LocalDatabase {
       }
       existing.close();
     } catch (error) {
-      console.error('Failed to save room:', error);
+      LocalDatabase.logger.error('Failed to save room:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to save room: ${errMsg}`);
     }
@@ -439,7 +442,7 @@ export class LocalDatabase {
       resultSet.close();
       return rooms;
     } catch (error) {
-      console.error('Failed to get rooms:', error);
+      LocalDatabase.logger.error('Failed to get rooms:', error);
       return [];
     }
   }
@@ -462,7 +465,7 @@ export class LocalDatabase {
       resultSet.close();
       return null;
     } catch (error) {
-      console.error('Failed to get room:', error);
+      LocalDatabase.logger.error('Failed to get room:', error);
       return null;
     }
   }
@@ -490,7 +493,7 @@ export class LocalDatabase {
       predicates.equalTo('room_id', roomId);
       await this.store.update(valueBucket, predicates);
     } catch (error) {
-      console.error('Failed to update room state:', error);
+      LocalDatabase.logger.error('Failed to update room state:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to update room state: ${errMsg}`);
     }
@@ -525,7 +528,7 @@ export class LocalDatabase {
       resultSet.close();
       return null;
     } catch (error) {
-      console.error('Failed to get room state:', error);
+      LocalDatabase.logger.error('Failed to get room state:', error);
       return null;
     }
   }
@@ -563,7 +566,7 @@ export class LocalDatabase {
         try {
           room.tags = JSON.parse(tagsStr) as Record<string, TagInfo>;
         } catch (error) {
-          console.error('Failed to parse tags:', error);
+          LocalDatabase.logger.error('Failed to parse tags:', error);
         }
       }
     }
@@ -589,7 +592,7 @@ export class LocalDatabase {
     try {
       await this.store.insert(TABLES.USERS, valueBucket);
     } catch (error) {
-      console.error('Failed to save user:', error);
+      LocalDatabase.logger.error('Failed to save user:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to save user: ${errMsg}`);
     }
@@ -613,7 +616,7 @@ export class LocalDatabase {
       resultSet.close();
       return null;
     } catch (error) {
-      console.error('Failed to get user:', error);
+      LocalDatabase.logger.error('Failed to get user:', error);
       return null;
     }
   }
@@ -648,7 +651,7 @@ export class LocalDatabase {
     try {
       await this.store.update(valueBucket, predicates);
     } catch (error) {
-      console.error('Failed to update room unread count:', error);
+      LocalDatabase.logger.error('Failed to update room unread count:', error);
     }
   }
 
@@ -663,7 +666,7 @@ export class LocalDatabase {
     try {
       await this.store.delete(predicates);
     } catch (error) {
-      console.error('Failed to clear room messages:', error);
+      LocalDatabase.logger.error('Failed to clear room messages:', error);
     }
   }
 
@@ -683,7 +686,7 @@ export class LocalDatabase {
       predicates.equalTo('room_id', roomId);
       await this.store.delete(predicates);
     } catch (error) {
-      console.error('Failed to delete room:', error);
+      LocalDatabase.logger.error('Failed to delete room:', error);
     }
   }
 
@@ -698,7 +701,7 @@ export class LocalDatabase {
       await this.store.executeSql(`DELETE FROM ${TABLES.USERS}`);
       await this.store.executeSql(`DELETE FROM ${TABLES.ROOM_MEMBERS}`);
     } catch (error) {
-      console.error('Failed to clear all data:', error);
+      LocalDatabase.logger.error('Failed to clear all data:', error);
     }
   }
 

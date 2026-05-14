@@ -1,4 +1,4 @@
-import promptAction from '@ohos.promptAction';
+import { ToastUtils } from '../utils/ToastUtils';
 import { AuthManager } from '../services/AuthManager';
 import { UserManager } from '../services/UserManager';
 import { SyncManager } from '../services/SyncManager';
@@ -7,6 +7,9 @@ import { Room, Message } from '../models/DataModels';
 import { RoomListPage } from './RoomListPage';
 import { getThemeColors } from '../utils/ThemeManager';
 import { SpacePage } from './SpacePage';
+import { AppLogger } from '../utils/AppLogger';
+
+const logger = AppLogger.getLogger('MainPage');
 
 enum FilterType {
   ALL = 'all',
@@ -47,17 +50,18 @@ struct MainPage {
 
   aboutToAppear() {
       this.syncStatus = 'syncing';
+      const self = this;
 
       this.syncManager.setSyncSuccessCallback(() => {
-            console.info('MainPage: Sync success callback triggered, status:', this.syncStatus);
-            this.syncStatus = 'synced';
-            console.info('MainPage: syncStatus updated to synced');
-            this.loadUnreadCounts();
+            logger.info('Sync success callback triggered, status: ' + self.syncStatus);
+            self.syncStatus = 'synced';
+            logger.info('syncStatus updated to synced');
+            self.loadUnreadCounts();
           });
 
       this.syncManager.setSyncErrorCallback(() => {
-        console.info('Sync error callback triggered');
-        this.syncStatus = 'error';
+        logger.info('Sync error callback triggered');
+        self.syncStatus = 'error';
       });
 
       this.tryInitSync();
@@ -75,12 +79,9 @@ struct MainPage {
       }
       await this.loadUserProfile();
     } catch (error) {
-      console.error('Failed to init sync:', error);
+      logger.error('Failed to init sync: ' + error);
       this.syncStatus = 'error';
-      promptAction.showToast({
-        message: '同步初始化失败',
-        duration: 3000
-      });
+ToastUtils.show('同步初始化失败', 3000);
     }
   }
 
@@ -114,7 +115,7 @@ struct MainPage {
       this.unreadCountRoom = totalRoom;
       this.unreadCountInvite = totalInvite;
     } catch (error) {
-      console.error('Failed to load unread counts:', error);
+      logger.error('Failed to load unread counts:', error);
     }
   }
 
@@ -128,17 +129,14 @@ struct MainPage {
         this.userInitial = this.userDisplayName.charAt(0).toUpperCase();
       }
     } catch (error) {
-      console.error('Failed to load user profile:', error);
-      promptAction.showToast({
-        message: '用户信息加载失败',
-        duration: 2000
-      });
+      logger.error('Failed to load user profile:', error);
+ToastUtils.show('用户信息加载失败', 2000);
     }
   }
 
   aboutToDisappear() {
     this.syncManager.stop().catch((error: Error) => {
-      console.error('Failed to stop sync:', error);
+      logger.error('Failed to stop sync:', error);
     });
   }
 
@@ -147,11 +145,8 @@ struct MainPage {
       await this.authManager.logout();
       this.pathStack?.clear();
     } catch (error) {
-      console.error('Logout failed:', error);
-      promptAction.showToast({
-        message: '退出登录失败',
-        duration: 3000
-      });
+      logger.error('Logout failed:', error);
+ToastUtils.show('退出登录失败', 3000);
     }
   }
 
@@ -164,7 +159,8 @@ struct MainPage {
       "pathStack": this.pathStack
     };
     this.pathStack.pushPathByName('SearchPage', param);
-    setTimeout(() => { this.isNavigating = false; }, 500);
+    const self = this;
+    setTimeout(() => { self.isNavigating = false; }, 500);
   }
 
   navigateToJoinRoom() {
@@ -176,7 +172,8 @@ struct MainPage {
       "pathStack": this.pathStack
     };
     this.pathStack.pushPathByName('JoinRoomPage', param);
-    setTimeout(() => { this.isNavigating = false; }, 500);
+    const self = this;
+    setTimeout(() => { self.isNavigating = false; }, 500);
   }
 
   // ✅ 新增：动态跳转到加入/创建空间页
@@ -189,7 +186,8 @@ struct MainPage {
       "pathStack": this.pathStack
     };
     this.pathStack.pushPathByName('JoinSpacePage', param);
-    setTimeout(() => { this.isNavigating = false; }, 500);
+    const self = this;
+    setTimeout(() => { self.isNavigating = false; }, 500);
   }
 
   navigateToSetting() {
@@ -203,7 +201,8 @@ struct MainPage {
       };
       this.pathStack.pushPathByName('SettingsPage', param);
     }
-    setTimeout(() => { this.isNavigating = false; }, 500);
+    const self = this;
+    setTimeout(() => { self.isNavigating = false; }, 500);
   }
 
   setFilter(filter: FilterType) {

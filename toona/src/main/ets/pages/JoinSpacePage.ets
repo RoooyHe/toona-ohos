@@ -1,9 +1,104 @@
-import promptAction from '@ohos.promptAction';
+import { ToastUtils } from '../utils/ToastUtils';
+import { QuickDialogManager, QuickDialogParams, QuickDialogController, QuickDialogDecoratorParams } from 'quickdialog';
 import { RoomManager } from '../services/RoomManager';
 import { AuthManager } from '../services/AuthManager';
 import { MatrixHttpClient } from '../network/MatrixHttpClient';
 import { getThemeColors } from '../utils/ThemeManager';
 import { common } from '@kit.AbilityKit';
+import { AppLogger } from '../utils/AppLogger';
+
+interface CreateSpaceDialogData {
+  spaceName: string;
+}
+
+const logger = AppLogger.getLogger('JoinSpacePage');
+
+// 创建空间弹窗 - 内容组件
+@Component
+struct CreateSpaceDialogContent {
+  private dialogParams: QuickDialogParams | undefined = undefined
+  private dialogController: QuickDialogController | undefined = undefined
+  @State spaceName: string = ''
+
+  aboutToAppear() {
+    if (this.dialogParams) {
+      this.dialogController = this.dialogParams.controller
+    }
+  }
+
+  build() {
+    Column() {
+      Text('创建空间')
+        .fontSize(18)
+        .fontWeight(FontWeight.Bold)
+        .fontColor('#ff333333')
+        .margin({ bottom: 20 })
+
+      TextInput({ placeholder: '空间名称' })
+        .width('100%')
+        .height(44)
+        .fontSize(16)
+        .backgroundColor('#fff5f5f5')
+        .borderRadius(8)
+        .onChange((value: string) => {
+          this.spaceName = value;
+        })
+
+      Row() {
+        Button('取消')
+          .fontSize(16)
+          .backgroundColor('#fff5f5f5')
+          .fontColor('#ff333333')
+          .width('45%')
+          .height(44)
+          .borderRadius(8)
+          .onClick(() => {
+            this.dialogController?.dismiss()
+          })
+
+        Button('创建')
+          .fontSize(16)
+          .backgroundColor(getThemeColors().primary)
+          .fontColor('#ffffff')
+          .width('45%')
+          .height(44)
+          .borderRadius(8)
+      .onClick(() => {
+            this.dialogController?.callEventFromDialog('confirm', {
+              spaceName: this.spaceName
+            } as CreateSpaceDialogData)
+          })
+      }
+      .width('100%')
+      .margin({ top: 20 })
+    }
+    .width('85%')
+    .padding(20)
+    .backgroundColor(Color.White)
+    .borderRadius(16)
+  }
+}
+
+// 创建空间弹窗 - Builder
+@Builder
+function CreateSpaceDialogBuilder(dialogParams: QuickDialogParams) {
+  CreateSpaceDialogContent({ dialogParams: dialogParams })
+}
+
+// 创建空间弹窗 - 装饰器（半透明背景）
+@Builder
+function CreateSpaceDialogDecorator(decoratorParams: QuickDialogDecoratorParams) {
+  Stack() {
+    Column()
+      .width('100%')
+      .height('100%')
+      .backgroundColor('rgba(0, 0, 0, 0.5)')
+
+    NodeContainer(
+      QuickDialogManager.decoratorCreateContentNodeController(decoratorParams)
+    )
+  }
+}
 
 interface PublicSpace {
   room_id: string;
@@ -34,8 +129,7 @@ struct JoinSpacePage {
   @State isSearching: boolean = false;
   @State spaceAddress: string = '';
   @State isJoining: boolean = false;
-  @State showCreateDialog: boolean = false;
-  @State newSpaceName: string = '';
+  private createSpaceDialogController: QuickDialogController | undefined = undefined;
   private roomManager: RoomManager = RoomManager.getInstance();
   private authManager: AuthManager = AuthManager.getInstance();
   private httpClient: MatrixHttpClient | null = null;
@@ -66,7 +160,7 @@ struct JoinSpacePage {
         });
       }
     } catch (error) {
-      console.error('Search spaces failed:', error);
+      logger.error('Search spaces failed:', error);
       this.searchResults = [];
     } finally {
       this.isSearching = false;
@@ -75,8 +169,8 @@ struct JoinSpacePage {
 
   joinSpace(spaceIdOrAlias: string) {
     this.doJoinSpace(spaceIdOrAlias).catch((error: Error) => {
-      console.error('Failed to join space:', error);
-      promptAction.showToast({ message: '加入失败' });
+      logger.error('Failed to join space:', error);
+      ToastUtils.show('加入失败');
     });
   }
 
@@ -88,31 +182,38 @@ struct JoinSpacePage {
         spaceId = `#${spaceId}:${this.authManager.getHomeserver()}`;
       }
       await this.roomManager.joinRoom(spaceId);
-      promptAction.showToast({ message: '加入成功' });
+      ToastUtils.show('加入成功');
 this.pathStack.pop();
     } catch (error) {
-      console.error('Failed to join space:', error);
+      logger.error('Failed to join space:', error);
     } finally {
       this.isJoining = false;
     }
   }
 
   createSpace() {
-    if (!this.newSpaceName.trim()) {
-      return;
-    }
-
-    this.doCreateSpace().catch((error: Error) => {
-      console.error('Failed to create space:', error);
-      promptAction.showToast({ message: '创建失败' });
-    });
+    const self = this;
+    // 通过 QuickDialog 展示创建空间弹窗
+    this.createSpaceDialogController = QuickDialogManager.newBuilder(
+      this.getUIContext(),
+      wrapBuilder(CreateSpaceDialogBuilder),
+      wrapBuilder(CreateSpaceDialogDecorator)
+    )
+      .onEvent<Record<string, Object>>('confirm', (controller, param) => {
+        const spaceName = param?.['spaceName'] as string || '';
+        controller.dismiss();
+        self.doCreateSpace(spaceName).catch((error: Error) => {
+          logger.error('Failed to create space:', error);
+          ToastUtils.show('创建失败');
+        });
+      })
+      .build();
+    this.createSpaceDialogController.show();
   }
 
-  async doCreateSpace(): Promise<void> {
-    await this.roomManager.createSpace(this.newSpaceName.trim());
-    this.showCreateDialog = false;
-    this.newSpaceName = '';
-    promptAction.showToast({ message: '创建成功' });
+  async doCreateSpace(spaceName: string): Promise<void> {
+    await this.roomManager.createSpace(spaceName.trim());
+    ToastUtils.show('创建成功');
     this.pathStack?.pop();
   }
 
@@ -233,7 +334,7 @@ this.pathStack.pop();
               .height(36)
               .borderRadius(18)
               .onClick(() => {
-                this.showCreateDialog = true;
+                this.createSpace();
               });
           }
           .width('100%')
@@ -280,62 +381,7 @@ this.pathStack.pop();
       .height('100%')
       .backgroundColor(getThemeColors().bg);
 
-      if (this.showCreateDialog) {
-        Column() {
-          Column() {
-            Text('创建空间')
-              .fontSize(18)
-              .fontWeight(FontWeight.Bold)
-              .fontColor(getThemeColors().text)
-              .margin({ bottom: 20 });
-
-            TextInput({ placeholder: '空间名称' })
-              .width('100%')
-              .height(44)
-              .fontSize(16)
-              .backgroundColor(getThemeColors().inputBg)
-              .borderRadius(8)
-              .onChange((value: string) => {
-                this.newSpaceName = value;
-              });
-
-            Row() {
-              Button('取消')
-                .fontSize(16)
-                .backgroundColor(getThemeColors().inputBg)
-                .fontColor(getThemeColors().text)
-                .width('45%')
-                .height(44)
-                .borderRadius(8)
-                .onClick(() => {
-                  this.showCreateDialog = false;
-                  this.newSpaceName = '';
-                });
-
-              Button('创建')
-                .fontSize(16)
-                .backgroundColor(getThemeColors().primary)
-                .fontColor('#ffffff')
-                .width('45%')
-                .height(44)
-                .borderRadius(8)
-                .onClick(() => {
-                  this.createSpace();
-                });
-            }
-            .width('100%')
-            .margin({ top: 20 });
-          }
-          .width('85%')
-          .padding(20)
-          .backgroundColor(getThemeColors().surface)
-          .borderRadius(16);
-        }
-        .width('100%')
-        .height('100%')
-        .backgroundColor('rgba(0, 0, 0, 0.5)')
-        .justifyContent(FlexAlign.Center);
-      }
+      // 创建空间弹窗由 QuickDialogManager 管理
     }
     .width('100%')
     .height('100%');

@@ -1,4 +1,4 @@
-import promptAction from '@ohos.promptAction';
+import { ToastUtils } from '../utils/ToastUtils';
 
 interface BiometricSupportResult {
   isSupported: boolean;
@@ -30,19 +30,19 @@ export class UserAuthManager {
 
   async authenticate(reason: string): Promise<boolean> {
     // Stub - biometric auth not available
-    promptAction.showToast({ message: '生物识别功能暂不可用' });
+ToastUtils.show('生物识别功能暂不可用');
     return false;
   }
 
   async authenticateWithFace(): Promise<boolean> {
     // Stub - biometric auth not available
-    promptAction.showToast({ message: '面部识别功能暂不可用' });
+ToastUtils.show('面部识别功能暂不可用');
     return false;
   }
 
   async authenticateWithFingerprint(): Promise<boolean> {
     // Stub - biometric auth not available
-    promptAction.showToast({ message: '指纹识别功能暂不可用' });
+ToastUtils.show('指纹识别功能暂不可用');
     return false;
   }
 

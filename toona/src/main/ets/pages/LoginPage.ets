@@ -1,10 +1,11 @@
-import promptAction from '@ohos.promptAction';
+import { ToastUtils } from '../utils/ToastUtils';
 import { AuthManager } from '../services/AuthManager';
-import { SecureStorage } from '../storage/SecureStorage';
+import { SPHelper } from '@wondertek/wdkitlib';
 import { UserAuthManager } from '../services/UserAuthManager';
 import { getThemeColors } from '../utils/ThemeManager';
-import { Context, ConfigurationConstant } from '@kit.AbilityKit';
+import { ConfigurationConstant } from '@kit.AbilityKit';
 import http from '@ohos.net.http';
+import { AppLogger } from '../utils/AppLogger';
 
 function extractHomeServerUrl(jsonString: string): string | null {
   const regex = /"m\.homeserver"\s*:\s*\{\s*"base_url"\s*:\s*"([^"]+)"/;
@@ -14,8 +15,6 @@ function extractHomeServerUrl(jsonString: string): string | null {
   }
   return null;
 }
-
-// 🎯 已删除这里的 @Builder export function LoginPageBuilder... 避免与 @Entry 冲突
 
 @Entry
 @Component
@@ -29,9 +28,8 @@ struct LoginPage {
   @State rememberMe: boolean = true;
   @State isDiscovering: boolean = false;
   private authManager: AuthManager = AuthManager.getInstance();
-  private secureStorage: SecureStorage = SecureStorage.getInstance();
   private userAuthManager: UserAuthManager = UserAuthManager.getInstance();
-
+  private logger = AppLogger.getLogger(LoginPage);
   pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
@@ -42,33 +40,32 @@ struct LoginPage {
 
   async loadSavedCredentials() {
     try {
-      await this.secureStorage.init(getContext(this) as Context);
-      const savedHomeserver = await this.secureStorage.loadString('saved_homeserver');
-      const savedUserId = await this.secureStorage.loadString('saved_user_id');
-      const savedRemember = await this.secureStorage.loadBoolean('remember_me');
+      const savedHomeserver = await SPHelper.default.get('saved_homeserver', '') as string;
+      const savedUserId = await SPHelper.default.get('saved_user_id', '') as string;
+      const savedRemember = await SPHelper.default.get('remember_me', 'false') as string;
 
-      if (savedRemember && savedHomeserver) {
+      if (savedRemember === 'true' && savedHomeserver) {
         this.homeserver = savedHomeserver;
         this.rememberMe = true;
       }
-      if (savedRemember && savedUserId) {
+      if (savedRemember === 'true' && savedUserId) {
         this.userId = savedUserId;
         this.rememberMe = true;
       }
     } catch (error) {
-      console.error('Failed to load saved credentials:', error);
+      this.logger.error('Failed to load saved credentials:', error);
     }
   }
 
   async saveCredentials() {
     if (this.rememberMe) {
-      await this.secureStorage.saveString('saved_homeserver', this.homeserver);
-      await this.secureStorage.saveString('saved_user_id', this.userId);
-      await this.secureStorage.saveBoolean('remember_me', true);
+      await SPHelper.default.saveAndFlush('saved_homeserver', this.homeserver);
+      await SPHelper.default.saveAndFlush('saved_user_id', this.userId);
+      await SPHelper.default.saveAndFlush('remember_me', 'true');
     } else {
-      await this.secureStorage.remove('saved_homeserver');
-      await this.secureStorage.remove('saved_user_id');
-      await this.secureStorage.saveBoolean('remember_me', false);
+      await SPHelper.default.delete('saved_homeserver');
+      await SPHelper.default.delete('saved_user_id');
+      await SPHelper.default.saveAndFlush('remember_me', 'false');
     }
   }
 
@@ -100,7 +97,7 @@ struct LoginPage {
       }
       httpClient.destroy();
     } catch (error) {
-      console.warn('Well-known discovery failed, using direct connection:', error);
+      this.logger.warn('Well-known discovery failed, using direct connection:', error);
     }
     return serverUrl;
   }
@@ -141,10 +138,7 @@ struct LoginPage {
 
       await this.saveCredentials();
 
-      promptAction.showToast({
-        message: '登录成功',
-        duration: 2000
-      });
+      ToastUtils.show('登录成功', 2000);
 
       try {
         if (this.pathStack) {
@@ -153,10 +147,10 @@ struct LoginPage {
           this.pathStack.pushPathByName('MainPage', param);
         }
       } catch (e) {
-        console.error('Navigation failed:', e);
+        this.logger.error('Navigation failed:', e);
       }
     } catch (error) {
-      console.error('Login failed:', error);
+      this.logger.error('Login failed:', error);
       const errorMsg: string = error instanceof Error ? error.message : String(error);
       if (errorMsg.includes('M_FORBIDDEN')) {
         this.errorMessage = '用户名或密码错误';
@@ -182,10 +176,7 @@ struct LoginPage {
   }
 
   handleSSOLogin() {
-    promptAction.showToast({
-      message: 'SSO登录需要配置身份提供商',
-      duration: 2000
-    });
+    ToastUtils.show('SSO登录需要配置身份提供商', 2000);
   }
 
   async handleBiometricLogin() {
@@ -195,16 +186,16 @@ struct LoginPage {
         await this.tryAutoLogin();
       }
     } catch (error) {
-      console.error('Biometric login failed: %{public}s', JSON.stringify(error));
-      promptAction.showToast({ message: '生物识别登录失败' });
+      this.logger.error('Biometric login failed: %{public}s', error.message);
+      ToastUtils.show('生物识别登录失败');
     }
   }
 
   async tryAutoLogin() {
     try {
-      const savedToken = await this.secureStorage.loadString('saved_access_token');
+      const savedToken = await SPHelper.default.get('saved_access_token', '') as string;
       if (savedToken) {
-        promptAction.showToast({ message: '验证成功，正在登录...' });
+        ToastUtils.show('验证成功，正在登录...');
         try {
           if (this.pathStack) {
             this.pathStack.clear();
@@ -212,14 +203,14 @@ struct LoginPage {
             this.pathStack.pushPathByName('MainPage', param);
           }
         } catch (e) {
-          console.error('Navigation failed:', e);
+          this.logger.error('Navigation failed:', e);
         }
       } else {
-        promptAction.showToast({ message: '请先使用密码登录以启用生物识别' });
+        ToastUtils.show('请先使用密码登录以启用生物识别');
       }
     } catch (error) {
-      console.error('Auto login failed: %{public}s', JSON.stringify(error));
-      promptAction.showToast({ message: '自动登录失败' });
+      this.logger.error('Auto login failed: %{public}s', error.message);
+      ToastUtils.show('自动登录失败');
     }
   }
 

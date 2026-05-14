@@ -1,9 +1,121 @@
-import promptAction from '@ohos.promptAction';
+import { ToastUtils } from '../utils/ToastUtils';
+import { QuickDialogManager, QuickDialogParams, QuickDialogController, QuickDialogDecoratorParams } from 'quickdialog';
 import { RoomManager, CreateRoomOptions } from '../services/RoomManager';
 import { AuthManager } from '../services/AuthManager';
 import { MatrixHttpClient } from '../network/MatrixHttpClient';
 import { ScanManager } from '../services/ScanManager';
 import { getThemeColors } from '../utils/ThemeManager';
+import { AppLogger } from '../utils/AppLogger';
+
+interface CreateRoomDialogData {
+  roomName: string;
+  isPublic: boolean;
+}
+
+const logger = AppLogger.getLogger('JoinRoomPage');
+
+// 创建聊天室弹窗 - 内容组件
+@Component
+struct CreateRoomDialogContent {
+  private dialogParams: QuickDialogParams | undefined = undefined
+  private dialogController: QuickDialogController | undefined = undefined
+  @State roomName: string = ''
+  @State isPublic: boolean = false
+
+  aboutToAppear() {
+    if (this.dialogParams) {
+      this.dialogController = this.dialogParams.controller
+    }
+  }
+
+  build() {
+    Column() {
+      Text('创建聊天室')
+        .fontSize(18)
+        .fontWeight(FontWeight.Bold)
+        .fontColor('#ff333333')
+        .margin({ bottom: 20 })
+
+      TextInput({ placeholder: '房间名称' })
+        .width('100%')
+        .height(44)
+        .fontSize(16)
+        .backgroundColor('#fff5f5f5')
+        .borderRadius(8)
+        .onChange((value: string) => {
+          this.roomName = value;
+        })
+
+      Row() {
+        Text('设为公开房间')
+          .fontSize(14)
+          .fontColor('#ff333333')
+        Blank()
+        Toggle({ type: ToggleType.Switch, isOn: this.isPublic })
+          .selectedColor(getThemeColors().primary)
+          .onChange((isOn: boolean) => {
+            this.isPublic = isOn
+          })
+      }
+      .width('100%')
+      .margin({ top: 12 })
+
+      Row() {
+        Button('取消')
+          .fontSize(16)
+          .backgroundColor('#fff5f5f5')
+          .fontColor('#ff333333')
+          .width('45%')
+          .height(44)
+          .borderRadius(8)
+          .onClick(() => {
+            this.dialogController?.dismiss()
+          })
+
+        Button('创建')
+          .fontSize(16)
+          .backgroundColor(getThemeColors().primary)
+          .fontColor('#ffffff')
+          .width('45%')
+          .height(44)
+          .borderRadius(8)
+          .onClick(() => {
+            this.dialogController?.callEventFromDialog('confirm', {
+              roomName: this.roomName,
+              isPublic: this.isPublic
+            } as CreateRoomDialogData)
+          })
+      }
+      .width('100%')
+      .margin({ top: 20 })
+    }
+    .width('85%')
+    .padding(20)
+    .backgroundColor(Color.White)
+    .borderRadius(16)
+  }
+}
+
+// 创建聊天室弹窗 - Builder
+@Builder
+function CreateRoomDialogBuilder(dialogParams: QuickDialogParams) {
+  CreateRoomDialogContent({ dialogParams: dialogParams })
+}
+
+// 创建聊天室弹窗 - 装饰器（半透明背景）
+@Builder
+function CreateRoomDialogDecorator(decoratorParams: QuickDialogDecoratorParams) {
+  Stack() {
+    Column()
+      .width('100%')
+      .height('100%')
+      .backgroundColor('rgba(0, 0, 0, 0.5)')
+
+    NodeContainer(
+      QuickDialogManager.decoratorCreateContentNodeController(decoratorParams)
+    )
+  }
+}
 
 interface DirectoryUser {
   user_id: string;
@@ -29,9 +141,7 @@ struct JoinRoomPage {
   @State isSearching: boolean = false;
   @State roomAddress: string = '';
   @State isJoining: boolean = false;
-  @State showCreateDialog: boolean = false;
-  @State newRoomName: string = '';
-  @State isPublicRoom: boolean = false;
+  private createRoomDialogController: QuickDialogController | undefined = undefined;
   private roomManager: RoomManager = RoomManager.getInstance();
   private authManager: AuthManager = AuthManager.getInstance();
   private httpClient: MatrixHttpClient | null = null;
@@ -56,7 +166,7 @@ struct JoinRoomPage {
         this.searchResults = response.results;
       }
     } catch (error) {
-      console.error('Search users failed:', error);
+      logger.error('Search users failed:', error);
       this.searchResults = [];
     } finally {
       this.isSearching = false;
@@ -65,8 +175,8 @@ struct JoinRoomPage {
 
   startDirectChat(userId: string) {
     this.doStartDirectChat(userId).catch((error: Error) => {
-      console.error('Failed to start direct chat:', error);
-      promptAction.showToast({ message: '创建私聊失败' });
+      logger.error('Failed to start direct chat:', error);
+      ToastUtils.show('创建私聊失败');
     });
   }
 
@@ -91,30 +201,31 @@ struct JoinRoomPage {
         const parsed = this.scanManager.parseMatrixToLink(result);
         if (parsed && parsed.roomId) {
           this.roomAddress = parsed.roomId;
-          promptAction.showToast({ message: '已识别房间，可点击加入' });
+          ToastUtils.show('已识别房间，可点击加入');
         } else {
           this.roomAddress = result;
-          promptAction.showToast({ message: '已扫描内容' });
+          ToastUtils.show('已扫描内容');
         }
       }
     } catch (error) {
-      console.error('Scan error: %{public}s', JSON.stringify(error));
-      promptAction.showToast({ message: '扫码失败' });
+      logger.error('Scan error: %{public}s', error.message);
+      ToastUtils.show('扫码失败');
     }
   }
 
   joinRoom() {
     if (!this.roomAddress.trim()) {
-      promptAction.showToast({ message: '请输入房间地址' });
+      ToastUtils.show('请输入房间地址');
       return;
     }
 
     this.isJoining = true;
+    const self = this;
     this.doJoinRoom().catch((error: Error) => {
-      console.error('Failed to join room:', error);
-      promptAction.showToast({ message: '加入失败' });
+      logger.error('Failed to join room:', error);
+      ToastUtils.show('加入失败');
     }).finally(() => {
-      this.isJoining = false;
+      self.isJoining = false;
     });
   }
 
@@ -124,31 +235,38 @@ struct JoinRoomPage {
       roomId = `#${roomId}:${this.authManager.getHomeserver()}`;
     }
     await this.roomManager.joinRoom(roomId);
-    promptAction.showToast({ message: '加入成功' });
+    ToastUtils.show('加入成功');
     this.pathStack?.pop();
   }
 
   createRoom() {
-    if (!this.newRoomName.trim()) {
-      return;
-    }
-
-    this.doCreateRoom().catch((error: Error) => {
-      console.error('Failed to create room:', error);
-      promptAction.showToast({ message: '创建失败' });
-    });
+    const self = this;
+    // 通过 QuickDialog 展示创建聊天室弹窗
+    this.createRoomDialogController = QuickDialogManager.newBuilder(
+      this.getUIContext(),
+      wrapBuilder(CreateRoomDialogBuilder),
+      wrapBuilder(CreateRoomDialogDecorator)
+    )
+      .onEvent<Record<string, Object>>('confirm', (controller, param) => {
+        const roomName = param?.['roomName'] as string || '';
+        const isPublic = param?.['isPublic'] as boolean || false;
+        controller.dismiss();
+        self.doCreateRoom(roomName, isPublic).catch((error: Error) => {
+          logger.error('Failed to create room:', error);
+          ToastUtils.show('创建失败');
+        });
+      })
+      .build();
+    this.createRoomDialogController.show();
   }
 
-  async doCreateRoom(): Promise<void> {
+  async doCreateRoom(roomName: string, isPublic: boolean): Promise<void> {
     const options: CreateRoomOptions = {
-      name: this.newRoomName.trim(),
-      visibility: this.isPublicRoom ? 'public' : 'private'
+      name: roomName.trim(),
+      visibility: isPublic ? 'public' : 'private'
     };
     await this.roomManager.createRoom(options);
-    this.showCreateDialog = false;
-    this.newRoomName = '';
-    this.isPublicRoom = false;
-    promptAction.showToast({ message: '创建成功' });
+    ToastUtils.show('创建成功');
     this.pathStack?.pop();
   }
 
@@ -255,7 +373,7 @@ struct JoinRoomPage {
                 .height(36)
                 .borderRadius(18)
                 .onClick(() => {
-                  this.showCreateDialog = true;
+                  this.createRoom();
                 });
             }
             .width('100%')
@@ -314,76 +432,7 @@ struct JoinRoomPage {
         .height('100%')
         .backgroundColor(getThemeColors().bg);
 
-        if (this.showCreateDialog) {
-          Column() {
-            Column() {
-              Text('创建聊天室')
-                .fontSize(18)
-                .fontWeight(FontWeight.Bold)
-                .fontColor(getThemeColors().text)
-                .margin({ bottom: 20 });
-
-              TextInput({ placeholder: '房间名称' })
-                .width('100%')
-                .height(44)
-                .fontSize(16)
-                .backgroundColor(getThemeColors().inputBg)
-                .borderRadius(8)
-                .onChange((value: string) => {
-                  this.newRoomName = value;
-                });
-
-              Row() {
-                Text('设为公开房间')
-                  .fontSize(14)
-                  .fontColor(getThemeColors().text);
-                Blank();
-                Toggle({ type: ToggleType.Switch, isOn: this.isPublicRoom })
-                  .selectedColor(getThemeColors().primary)
-                  .onChange((isOn: boolean) => {
-                    this.isPublicRoom = isOn;
-                  });
-              }
-              .width('100%')
-              .margin({ top: 12 });
-
-              Row() {
-                Button('取消')
-                  .fontSize(16)
-                  .backgroundColor(getThemeColors().inputBg)
-                  .fontColor(getThemeColors().text)
-                  .width('45%')
-                  .height(44)
-                  .borderRadius(8)
-                  .onClick(() => {
-                    this.showCreateDialog = false;
-                    this.newRoomName = '';
-                  });
-
-                Button('创建')
-                  .fontSize(16)
-                  .backgroundColor(getThemeColors().primary)
-                  .fontColor('#ffffff')
-                  .width('45%')
-                  .height(44)
-                  .borderRadius(8)
-                  .onClick(() => {
-                    this.createRoom();
-                  });
-              }
-              .width('100%')
-              .margin({ top: 20 });
-            }
-            .width('85%')
-            .padding(20)
-            .backgroundColor(getThemeColors().surface)
-            .borderRadius(16);
-          }
-          .width('100%')
-          .height('100%')
-          .backgroundColor('rgba(0, 0, 0, 0.5)')
-          .justifyContent(FlexAlign.Center);
-        }
+        // 创建聊天室弹窗由 QuickDialogManager 管理
       }
       .width('100%')
       .height('100%');

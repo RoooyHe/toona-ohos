@@ -1,13 +1,15 @@
-import { MatrixHttpClient, MatrixConfig } from '../network/MatrixHttpClient';
+import { AppLogger } from '../utils/AppLogger';
 import { RoomTags } from '../models/MatrixTypes';
 import { AuthManager } from './AuthManager';
 import { LocalDatabase } from '../database/LocalDatabase';
+import { MatrixConfig, MatrixHttpClient } from '../network/MatrixHttpClient';
 
 interface GeneratedTypeLiteralInterface_1 {
   order?: number;
 }
 
 export class RoomTagManager {
+  private logger = AppLogger.getLogger(RoomTagManager);
   private static instance: RoomTagManager;
   private httpClient: MatrixHttpClient | null = null;
   private localDatabase: LocalDatabase;
@@ -43,7 +45,7 @@ export class RoomTagManager {
       }
       return { tags: {} };
     } catch (error) {
-      console.error('Failed to get room tags from local database:', error);
+      this.logger.error('Failed to get room tags from local database:', error);
       return { tags: {} };
     }
   }
@@ -56,7 +58,7 @@ export class RoomTagManager {
     try {
       await this.ensureHttpClient().addRoomTag(userId, roomId, tag, order);
     } catch (error) {
-      console.error('Failed to add room tag:', error);
+      this.logger.error('Failed to add room tag:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to add room tag: ${errMsg}`);
     }
@@ -70,7 +72,7 @@ export class RoomTagManager {
     try {
       await this.ensureHttpClient().removeRoomTag(userId, roomId, tag);
     } catch (error) {
-      console.error('Failed to remove room tag:', error);
+      this.logger.error('Failed to remove room tag:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to remove room tag: ${errMsg}`);
     }

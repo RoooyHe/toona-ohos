@@ -5,12 +5,14 @@ import { LocalDatabase } from '../database/LocalDatabase';
 import { Room, Message, TagInfo } from '../models/DataModels';
 import { EventProcessor, SyncListener } from './EventProcessor';
 import { Context } from '@kit.AbilityKit';
+import { AppLogger } from '../utils/AppLogger';
 
 const DEFAULT_TIMEOUT = 30000;
 const INITIAL_SYNC_TIMEOUT = 10000;
 
 export class SyncManager {
   private static instance: SyncManager;
+  private logger = AppLogger.getLogger(SyncManager);
   private httpClient: MatrixHttpClient;
   private authManager: AuthManager;
   private localDatabase: LocalDatabase;
@@ -21,6 +23,12 @@ export class SyncManager {
   private nextBatch: string = '';
   private listeners: SyncListener[] = [];
   private syncTask: Promise<void> | null = null;
+  private syncSuccessCallbacks: Array<() => void> = [];
+  private syncErrorCallbacks: Array<(error: Error) => void> = [];
+  private roomUpdatedCallbacks: Array<(room: Room) => void> = [];
+  private roomInvitedCallbacks: Array<(room: Room) => void> = [];
+  private roomLeftCallbacks: Array<(roomId: string) => void> = [];
+  private newMessagesCallbacks: Array<(roomId: string, messages: Message[]) => void> = [];
 
   private constructor() {
     this.authManager = AuthManager.getInstance();
@@ -98,13 +106,6 @@ export class SyncManager {
     this.newMessagesCallbacks = [];
   }
 
-  private syncSuccessCallbacks: Array<() => void> = [];
-  private syncErrorCallbacks: Array<(error: Error) => void> = [];
-  private roomUpdatedCallbacks: Array<(room: Room) => void> = [];
-  private roomInvitedCallbacks: Array<(room: Room) => void> = [];
-  private roomLeftCallbacks: Array<(roomId: string) => void> = [];
-  private newMessagesCallbacks: Array<(roomId: string, messages: Message[]) => void> = [];
-
   async start(): Promise<void> {
     if (this.isRunning) {
       return;
@@ -127,7 +128,7 @@ export class SyncManager {
       try {
         await this.performSync();
       } catch (error) {
-        console.error('Sync error:', error);
+        this.logger.error('Sync error:', error);
         this.notifySyncError(error);
         await this.delay(5000);
       }
@@ -343,7 +344,7 @@ export class SyncManager {
               }
             }
             room.tags = tags;
-            console.info('SyncManager: Room ' + roomId + ' has tags:', Object.keys(tags).join(', '));
+            this.logger.info(`SyncManager: Room ${roomId} has tags: ${Object.keys(tags).join(', ')}`);
           }
         }
       }
@@ -380,39 +381,39 @@ export class SyncManager {
   }
 
   private notifySyncSuccess(): void {
-    console.info('SyncManager: notifySyncSuccess called, callbacks count:', this.syncSuccessCallbacks.length);
+    this.logger.info(`SyncManager: notifySyncSuccess called, callbacks count:', ${this.syncSuccessCallbacks.length}`);
     for (const callback of this.syncSuccessCallbacks) {
       try {
-        console.info('SyncManager: calling syncSuccessCallback');
+        this.logger.info('SyncManager: calling syncSuccessCallback');
         callback();
-        console.info('SyncManager: syncSuccessCallback completed');
+        this.logger.info('SyncManager: syncSuccessCallback completed');
       } catch (error) {
-        console.error('Sync callback error:', error);
+        this.logger.error('Sync callback error:', error);
       }
     }
     for (const listener of this.listeners) {
       try {
         listener.onSyncSuccess();
       } catch (error) {
-        console.error('Sync listener error:', error);
+        this.logger.error('Sync listener error:', error);
       }
     }
   }
 
   private notifySyncError(error: Error): void {
-    console.info('SyncManager: notifySyncError called, callbacks count:', this.syncErrorCallbacks.length);
+    this.logger.info(`SyncManager: notifySyncError called, callbacks count: ${this.syncErrorCallbacks.length} `);
     for (const callback of this.syncErrorCallbacks) {
       try {
         callback(error);
       } catch (err) {
-        console.error('Sync callback error:', err);
+        this.logger.error('Sync callback error:', err);
       }
     }
     for (const listener of this.listeners) {
       try {
         listener.onSyncError(error);
       } catch (err) {
-        console.error('Sync listener error:', err);
+        this.logger.error('Sync listener error:', err);
       }
     }
   }
@@ -422,14 +423,14 @@ export class SyncManager {
       try {
         callback(room);
       } catch (error) {
-        console.error('Sync callback error:', error);
+        this.logger.error('Sync callback error:', error);
       }
     }
     for (const listener of this.listeners) {
       try {
         listener.onRoomUpdated(room);
       } catch (error) {
-        console.error('Sync listener error:', error);
+        this.logger.error('Sync listener error:', error);
       }
     }
   }
@@ -439,14 +440,14 @@ export class SyncManager {
       try {
         callback(room);
       } catch (error) {
-        console.error('Sync callback error:', error);
+        this.logger.error('Sync callback error:', error);
       }
     }
     for (const listener of this.listeners) {
       try {
         listener.onRoomInvited(room);
       } catch (error) {
-        console.error('Sync listener error:', error);
+        this.logger.error('Sync listener error:', error);
       }
     }
   }
@@ -456,14 +457,14 @@ export class SyncManager {
       try {
         callback(roomId);
       } catch (error) {
-        console.error('Sync callback error:', error);
+        this.logger.error('Sync callback error:', error);
       }
     }
     for (const listener of this.listeners) {
       try {
         listener.onRoomLeft(roomId);
       } catch (error) {
-        console.error('Sync listener error:', error);
+        this.logger.error('Sync listener error:', error);
       }
     }
   }
@@ -473,14 +474,14 @@ export class SyncManager {
       try {
         callback(roomId, messages);
       } catch (error) {
-        console.error('Sync callback error:', error);
+        this.logger.error('Sync callback error:', error);
       }
     }
     for (const listener of this.listeners) {
       try {
         listener.onNewMessages(roomId, messages);
       } catch (error) {
-        console.error('Sync listener error:', error);
+        this.logger.error('Sync listener error:', error);
       }
     }
   }

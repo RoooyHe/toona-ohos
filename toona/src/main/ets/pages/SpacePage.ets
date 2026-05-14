@@ -1,6 +1,9 @@
 import { RoomManager } from '../services/RoomManager';
 import { Room } from '../models/DataModels';
 import { getThemeColors } from '../utils/ThemeManager';
+import { AppLogger } from '../utils/AppLogger';
+
+const logger = AppLogger.getLogger('SpacePage');
 
 // 空间项数据结构
 interface SpaceItem {
@@ -133,7 +136,7 @@ export struct SpacePage {
       const rooms = await this.roomManager.getRooms();
       this.spaceItems = this.buildSpaceTree(rooms);
     } catch (error) {
-      console.error('Failed to load spaces:', error);
+logger.error('Failed to load spaces:', error);
     } finally {
       this.isLoading = false;
     }

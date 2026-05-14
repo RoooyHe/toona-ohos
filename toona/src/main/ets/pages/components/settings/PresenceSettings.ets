@@ -1,4 +1,3 @@
-import promptAction from '@ohos.promptAction';
 import { PresenceState } from '../../../models/MatrixTypes';
 import { getThemeColors } from '../../../utils/ThemeManager';
 

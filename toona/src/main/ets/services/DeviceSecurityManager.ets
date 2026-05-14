@@ -1,4 +1,5 @@
-import promptAction from '@ohos.promptAction';
+import { ToastUtils } from '../utils/ToastUtils';
+import { AppLogger } from '../utils/AppLogger';
 
 interface MessageSecurityResult {
   isSuspicious: boolean;
@@ -27,6 +28,7 @@ interface GeneratedTypeLiteralInterface_1 {
 }
 
 export class DeviceSecurityManager {
+  private logger = AppLogger.getLogger(DeviceSecurityManager);
   private static instance: DeviceSecurityManager;
 
   static getInstance(): DeviceSecurityManager {
@@ -64,7 +66,7 @@ export class DeviceSecurityManager {
       status.isSecure = false;
       status.isTrusted = status.hasSecurityChip && status.isSecure;
     } catch (error) {
-      console.error('Failed to check device security status: %{public}s', JSON.stringify(error));
+      this.logger.error('Failed to check device security status: %{public}s', error.message);
     }
 
     return status;
@@ -130,9 +132,6 @@ export class DeviceSecurityManager {
       ? `${message}\n\n风险提示:\n${details.map((d: string): string => '• ' + d).join('\n')}`
       : message;
     
-    promptAction.showToast({
-      message: `${title}: ${fullMessage.substring(0, 100)}...`,
-      duration: 5000
-    });
+    ToastUtils.show(`${title}: ${fullMessage.substring(0, 100)}...`, 5000);
   }
 }

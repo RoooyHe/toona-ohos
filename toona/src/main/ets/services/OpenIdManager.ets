@@ -1,9 +1,11 @@
-import { MatrixHttpClient, MatrixConfig } from '../network/MatrixHttpClient';
+import { AppLogger } from '../utils/AppLogger';
 import { OpenIdRequest, OpenIdResponse } from '../models/MatrixTypes';
+import { AppLogger } from '../utils/AppLogger';
 
 export class OpenIdManager {
   private static instance: OpenIdManager;
   private httpClient: MatrixHttpClient | null = null;
+  private logger = AppLogger.getLogger(OpenIdManager);
 
   private constructor() {
   }
@@ -31,7 +33,7 @@ export class OpenIdManager {
     try {
       return await this.ensureHttpClient().requestOpenIdToken(userId, request);
     } catch (error) {
-      console.error('Failed to request OpenID token:', error);
+this.logger.error('Failed to request OpenID token:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to request OpenID token: ${errMsg}`);
     }

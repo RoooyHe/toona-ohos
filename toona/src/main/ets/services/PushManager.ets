@@ -1,4 +1,4 @@
-import { MatrixHttpClient, MatrixConfig } from '../network/MatrixHttpClient';
+import { AppLogger } from '../utils/AppLogger';
 import {
   PushRules,
   PushRule,
@@ -8,10 +8,12 @@ import {
   NotificationsResponse,
   SetNotificationMarkerRequest
 } from '../models/MatrixTypes';
+import { AppLogger } from '../utils/AppLogger';
 
 export class PushManager {
   private static instance: PushManager;
   private httpClient: MatrixHttpClient | null = null;
+  private logger = AppLogger.getLogger(PushManager);
 
   private constructor() {
   }
@@ -39,7 +41,7 @@ export class PushManager {
     try {
       return await this.ensureHttpClient().getPushRules();
     } catch (error) {
-      console.error('Failed to get push rules:', error);
+      this.logger.error('Failed to get push rules:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get push rules: ${errMsg}`);
     }
@@ -49,7 +51,7 @@ export class PushManager {
     try {
       return await this.ensureHttpClient().getPushRule(scope, kind, ruleId);
     } catch (error) {
-      console.error('Failed to get push rule:', error);
+      this.logger.error('Failed to get push rule:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get push rule: ${errMsg}`);
     }
@@ -64,7 +66,7 @@ export class PushManager {
     try {
       await this.ensureHttpClient().setPushRule(scope, kind, ruleId, rule);
     } catch (error) {
-      console.error('Failed to add push rule:', error);
+      this.logger.error('Failed to add push rule:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to add push rule: ${errMsg}`);
     }
@@ -79,7 +81,7 @@ export class PushManager {
     try {
       await this.ensureHttpClient().setPushRule(scope, kind, ruleId, rule);
     } catch (error) {
-      console.error('Failed to update push rule:', error);
+		this.logger.error('Failed to update push rule:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to update push rule: ${errMsg}`);
     }
@@ -89,7 +91,7 @@ export class PushManager {
     try {
       await this.ensureHttpClient().deletePushRule(scope, kind, ruleId);
     } catch (error) {
-      console.error('Failed to delete push rule:', error);
+		this.logger.error('Failed to delete push rule:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to delete push rule: ${errMsg}`);
     }
@@ -104,7 +106,7 @@ export class PushManager {
     try {
       await this.ensureHttpClient().setPushRuleActions(scope, kind, ruleId, actions);
     } catch (error) {
-      console.error('Failed to set push rule actions:', error);
+		this.logger.error('Failed to set push rule actions:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to set push rule actions: ${errMsg}`);
     }
@@ -114,7 +116,7 @@ export class PushManager {
     try {
       return await this.ensureHttpClient().getNotifications(limit, since);
     } catch (error) {
-      console.error('Failed to get notifications:', error);
+		this.logger.error('Failed to get notifications:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get notifications: ${errMsg}`);
     }
@@ -125,7 +127,7 @@ export class PushManager {
       const request: SetNotificationMarkerRequest = { notification_key: notificationKey };
       await this.ensureHttpClient().setNotificationMarker(request);
     } catch (error) {
-      console.error('Failed to set notification marker:', error);
+		this.logger.error('Failed to set notification marker:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to set notification marker: ${errMsg}`);
     }

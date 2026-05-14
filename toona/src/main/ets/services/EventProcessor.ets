@@ -1,6 +1,7 @@
 import { Event, PresEvent } from '../models/MatrixTypes';
 import { User, Room, Message } from '../models/DataModels';
 import { LocalDatabase } from '../database/LocalDatabase';
+import { AppLogger } from '../utils/AppLogger';
 
 export interface SyncListener {
   onSyncSuccess(): void;
@@ -154,6 +155,7 @@ export class SimpleSyncListener implements SyncListener {
 export class EventProcessor {
   private static instance: EventProcessor;
   private localDatabase: LocalDatabase;
+  private logger = AppLogger.getLogger(EventProcessor);
 
   private constructor() {
     this.localDatabase = LocalDatabase.getInstance();
@@ -194,13 +196,13 @@ export class EventProcessor {
 
   async processAccountDataEvents(events: Event[]): Promise<void> {
     for (const event of events) {
-      console.info('Account data event:', event.type, event.room_id);
+      this.logger.info(`Account data event: ${event.type} ${event.room_id}`);
     }
   }
 
   async processToDeviceEvents(events: Event[]): Promise<void> {
     for (const event of events) {
-      console.info('To-device event:', event.type);
+      this.logger.info(`To-device event: ${event.type}`);
     }
   }
 

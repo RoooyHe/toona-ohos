@@ -1,4 +1,4 @@
-import { MatrixHttpClient, MatrixConfig } from '../network/MatrixHttpClient';
+import { AppLogger } from '../utils/AppLogger';
 import { VoipTurnServerResponse } from '../models/MatrixTypes';
 
 interface GeneratedTypeLiteralInterface_1 {
@@ -9,6 +9,7 @@ interface GeneratedTypeLiteralInterface_1 {
 
 export class VoIPManager {
   private static instance: VoIPManager;
+  private logger = AppLogger.getLogger(VoIPManager);
   private httpClient: MatrixHttpClient | null = null;
 
   private constructor() {
@@ -36,8 +37,8 @@ export class VoIPManager {
   async getTurnServer(): Promise<VoipTurnServerResponse> {
     try {
       return await this.ensureHttpClient().getVoipTurnServer();
-    } catch (error) {
-      console.error('Failed to get TURN server:', error);
+} catch (error) {
+      logger.error('Failed to get TURN server:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get TURN server: ${errMsg}`);
     }

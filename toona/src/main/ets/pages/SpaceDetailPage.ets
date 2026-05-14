@@ -2,6 +2,9 @@ import { RoomManager } from '../services/RoomManager';
 import { Room } from '../models/DataModels';
 import { SpaceChild } from '../services/RoomManager';
 import { getThemeColors } from '../utils/ThemeManager';
+import { AppLogger } from '../utils/AppLogger';
+
+const logger = AppLogger.getLogger('SpaceDetailPage');
 
 @Builder
 export function SpaceDetailPageBuilder(name: string, param: Object) {
@@ -63,7 +66,7 @@ struct SpaceRoomItem {
     .onClick(() => {
       const stack = this.pathStack;
       if (!stack) {
-        console.error('SpaceRoomItem navigateToRoom: pathStack is null');
+        logger.error('SpaceRoomItem navigateToRoom: pathStack is null');
         return;
       }
       const param: Record<string, Object> = {
@@ -109,7 +112,7 @@ struct SpaceDetailPage {
       }
       this.childRooms = rooms;
     } catch (error) {
-      console.error('Failed to load space details:', error);
+logger.error('Failed to load space details:', error);
     } finally {
       this.isLoading = false;
     }

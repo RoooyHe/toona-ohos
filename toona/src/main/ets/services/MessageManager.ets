@@ -3,6 +3,8 @@ import { SendMessageResult } from '../models/MatrixTypes';
 import { AuthManager } from './AuthManager';
 import { LocalDatabase } from '../database/LocalDatabase';
 import { Message } from '../models/DataModels';
+import { RandomUtil } from '@wondertek/wdkitlib';
+import { AppLogger } from '../utils/AppLogger';
 
 interface PendingMessage {
   roomId: string;
@@ -13,6 +15,7 @@ interface PendingMessage {
 }
 
 export class MessageManager {
+  private logger = AppLogger.getLogger(MessageManager);
   private static instance: MessageManager;
   private httpClient: MatrixHttpClient;
   private authManager: AuthManager;
@@ -71,7 +74,7 @@ export class MessageManager {
 
       return response.event_id;
     } catch (error) {
-      console.error('Failed to send message:', error);
+this.logger.error('Failed to send message:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to send message: ${errMsg}`);
     }
@@ -120,7 +123,7 @@ export class MessageManager {
 
       return response.event_id;
     } catch (error) {
-      console.error('Failed to edit message:', error);
+this.logger.error('Failed to edit message:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to edit message: ${errMsg}`);
     }
@@ -136,7 +139,7 @@ export class MessageManager {
       };
       await this.httpClient.put<object>(`/rooms/${encodedRoomId}/redact/${encodedEventId}`, redactContent);
     } catch (error) {
-      console.error('Failed to delete message:', error);
+this.logger.error('Failed to delete message:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to delete message: ${errMsg}`);
     }
@@ -148,7 +151,7 @@ export class MessageManager {
   }
 
   private generateTransactionId(): string {
-    return `m${Date.now()}${Math.random().toString(36).substring(2, 9)}`;
+    return `m${Date.now()}${RandomUtil.generateUUIDRandom().replace(/-/g, '').substring(0, 7)}`;
   }
 
   queueOfflineMessage(roomId: string, content: Record<string, string | object>, resolve: (eventId: string) => void,
@@ -169,7 +172,7 @@ export class MessageManager {
       return;
     }
 
-    console.info(`Processing ${this.offlineQueue.length} offline messages`);
+this.logger.info(`Processing ${this.offlineQueue.length} offline messages`);
 
     const queue = [...this.offlineQueue];
     this.offlineQueue = [];

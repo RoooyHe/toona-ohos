@@ -3,6 +3,7 @@ import { RoomTagManager } from '../services/RoomTagManager';
 import { Room, Message } from '../models/DataModels';
 import { SyncManager } from '../services/SyncManager';
 import { getThemeColors } from '../utils/ThemeManager';
+import { AppLogger } from '../utils/AppLogger';
 
 enum FilterType {
   ALL = 'all',
@@ -30,35 +31,37 @@ struct RoomListPage {
   private roomManager: RoomManager = RoomManager.getInstance();
   private roomTagManager: RoomTagManager = RoomTagManager.getInstance();
   private syncManager: SyncManager = SyncManager.getInstance();
+  private logger = AppLogger.getLogger(RoomListPage);
   onNavigateToRoom: (room: Room) => void = () => {};
 
   aboutToAppear() {
     this.loadRooms();
     this.loadFavoriteRooms();
+    const self = this;
 
     this.syncManager.setSyncSuccessCallback(() => {
-      this.loadRooms();
-      this.loadFavoriteRooms();
+      self.loadRooms();
+      self.loadFavoriteRooms();
     });
 
-    this.syncManager.setSyncErrorCallback((error: Error) => {
-      console.error('Sync error in room list:', error);
+      this.syncManager.setSyncErrorCallback((error: Error) => {
+      self.logger.error('Sync error in room list:', error);
     });
 
     this.syncManager.setRoomUpdatedCallback((room: Room) => {
-      this.updateRoomInList(room);
+      self.updateRoomInList(room);
     });
 
     this.syncManager.setRoomInvitedCallback(() => {
-      this.loadRooms();
+      self.loadRooms();
     });
 
     this.syncManager.setRoomLeftCallback((roomId: string) => {
-      this.removeRoomFromList(roomId);
+      self.removeRoomFromList(roomId);
     });
 
     this.syncManager.setNewMessagesCallback((roomId: string, messages: Message[]) => {
-      console.info('New messages in room:', roomId, messages.length);
+      self.logger.info(`New messages in room: ${roomId} ${messages.length}`);
     });
   }
 
@@ -81,7 +84,7 @@ struct RoomListPage {
         }
       }
     } catch (error) {
-      console.error('Failed to load favorite rooms:', error);
+      this.logger.error('Failed to load favorite rooms:', error);
     }
   }
 
@@ -94,7 +97,7 @@ struct RoomListPage {
         return timeB - timeA;
       });
     } catch (error) {
-      console.error('Failed to load rooms:', error);
+      this.logger.error('Failed to load rooms:', error);
     } finally {
       this.isLoading = false;
       this.isRefreshing = false;
@@ -241,6 +244,7 @@ struct RoomListPage {
 
   getFilteredRooms(): Room[] {
     let filtered = this.rooms;
+    const favoriteIds = this.favoriteRoomIds;
 
     if (this.filterType === FilterType.UNREAD) {
       filtered = filtered.filter(room => (room.unreadCount && room.unreadCount > 0) && room.isSpace !== true);
@@ -249,7 +253,7 @@ struct RoomListPage {
     } else if (this.filterType === FilterType.ROOM) {
       filtered = filtered.filter(room => room.isDirect !== true && room.isSpace !== true);
     } else if (this.filterType === FilterType.FAVORITE) {
-      filtered = filtered.filter(room => this.favoriteRoomIds.includes(room.id) && room.isSpace !== true);
+      filtered = filtered.filter(room => favoriteIds.includes(room.id) && room.isSpace !== true);
     } else if (this.filterType === FilterType.SPACE) {
       filtered = filtered.filter(room => room.isSpace === true);
     } else {

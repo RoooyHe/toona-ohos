@@ -12,6 +12,10 @@ import {
 import { AuthManager } from './AuthManager';
 import { LocalDatabase } from '../database/LocalDatabase';
 import { Room, Message } from '../models/DataModels';
+import { AppLogger } from '../utils/AppLogger';
+
+const logger = AppLogger.getLogger('RoomManager');
+
 
 export interface SpaceChild {
   room_id: string;
@@ -111,7 +115,7 @@ export class RoomManager {
       const response = await this.httpClient.post<RoomCreateResponse>('/createRoom', content);
       return response.room_id;
     } catch (error) {
-      console.error('Failed to create room:', error);
+      logger.error('Failed to create room:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed: ${errMsg}`);
     }
@@ -124,7 +128,7 @@ export class RoomManager {
     try {
       await this.httpClient.post<object>(`/rooms/${encodedRoomId}/join`, emptyContent);
     } catch (error) {
-      console.error('Failed to join room:', error);
+      logger.error('Failed to join room:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed: ${errMsg}`);
     }
@@ -137,7 +141,7 @@ export class RoomManager {
     try {
       await this.httpClient.post<object>(`/rooms/${encodedRoomId}/leave`, emptyContent);
     } catch (error) {
-      console.error('Failed to leave room:', error);
+      logger.error('Failed to leave room:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed: ${errMsg}`);
     }
@@ -152,7 +156,7 @@ export class RoomManager {
     try {
       await this.httpClient.post<object>(`/rooms/${encodedRoomId}/invite`, content);
     } catch (error) {
-      console.error('Failed to invite user:', error);
+      logger.error('Failed to invite user:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed: ${errMsg}`);
     }
@@ -167,7 +171,7 @@ export class RoomManager {
       );
       return Object.keys(response.joined);
     } catch (error) {
-      console.error('Failed to get room members:', error);
+      logger.error('Failed to get room members:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed: ${errMsg}`);
     }
@@ -205,7 +209,7 @@ export class RoomManager {
 
       return messages;
     } catch (error) {
-      console.error('Failed to get room messages:', error);
+      logger.error('Failed to get room messages:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed: ${errMsg}`);
     }
@@ -220,7 +224,7 @@ export class RoomManager {
       );
       return response.room_id;
     } catch (error) {
-      console.error('Failed to resolve room alias:', error);
+      logger.error('Failed to resolve room alias:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed: ${errMsg}`);
     }
@@ -235,7 +239,7 @@ export class RoomManager {
     try {
       await this.httpClient.put<object>(`/rooms/${encodedRoomId}/state/m.room.name`, content);
     } catch (error) {
-      console.error('Failed to set room name:', error);
+      logger.error('Failed to set room name:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed: ${errMsg}`);
     }
@@ -250,7 +254,7 @@ export class RoomManager {
     try {
       await this.httpClient.put<object>(`/rooms/${encodedRoomId}/state/m.room.topic`, content);
     } catch (error) {
-      console.error('Failed to set room topic:', error);
+      logger.error('Failed to set room topic:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed: ${errMsg}`);
     }
@@ -261,7 +265,7 @@ export class RoomManager {
       const response = await this.httpClient.get<JoinedRoomsResponse>('/joined_rooms');
       return response.joined_rooms;
     } catch (error) {
-      console.error('Failed to get joined rooms:', error);
+      logger.error('Failed to get joined rooms:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed: ${errMsg}`);
     }
@@ -278,7 +282,7 @@ export class RoomManager {
       await this.localDatabase.updateRoomState(roomId, state);
       return state;
     } catch (error) {
-      console.error('Failed to get room state:', error);
+      logger.error('Failed to get room state:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get room state: ${errMsg}`);
     }
@@ -294,7 +298,7 @@ export class RoomManager {
       const nameVal = response['name'];
       return nameVal !== undefined ? String(nameVal) : null;
     } catch (error) {
-      console.error('Failed to get room name:', error);
+      logger.error('Failed to get room name:', error);
       return null;
     }
   }
@@ -309,7 +313,7 @@ export class RoomManager {
       const topicVal = response['topic'];
       return topicVal !== undefined ? String(topicVal) : null;
     } catch (error) {
-      console.error('Failed to get room topic:', error);
+      logger.error('Failed to get room topic:', error);
       return null;
     }
   }
@@ -321,7 +325,7 @@ export class RoomManager {
     try {
       await this.httpClient.post<object>(`/rooms/${encodedRoomId}/forget`, emptyContent);
     } catch (error) {
-      console.error('Failed to forget room:', error);
+      logger.error('Failed to forget room:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed: ${errMsg}`);
     }
@@ -337,7 +341,7 @@ export class RoomManager {
     try {
       await this.httpClient.post<object>(`/rooms/${encodedRoomId}/kick`, content);
     } catch (error) {
-      console.error('Failed to kick user:', error);
+      logger.error('Failed to kick user:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed: ${errMsg}`);
     }
@@ -353,7 +357,7 @@ export class RoomManager {
     try {
       await this.httpClient.post<object>(`/rooms/${encodedRoomId}/ban`, content);
     } catch (error) {
-      console.error('Failed to ban user:', error);
+      logger.error('Failed to ban user:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed: ${errMsg}`);
     }
@@ -368,7 +372,7 @@ export class RoomManager {
     try {
       await this.httpClient.post<object>(`/rooms/${encodedRoomId}/unban`, content);
     } catch (error) {
-      console.error('Failed to unban user:', error);
+      logger.error('Failed to unban user:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed: ${errMsg}`);
     }
@@ -419,7 +423,7 @@ export class RoomManager {
       const response = await this.httpClient.post<RoomCreateResponse>('/createRoom', content);
       return response.room_id;
     } catch (error) {
-      console.error('Failed to create space:', error);
+      logger.error('Failed to create space:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed: ${errMsg}`);
     }
@@ -436,7 +440,7 @@ export class RoomManager {
       );
       return response.children || [];
     } catch (error) {
-      console.error('Failed to get space children:', error);
+      logger.error('Failed to get space children:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed: ${errMsg}`);
     }
@@ -456,7 +460,7 @@ export class RoomManager {
         content
       );
     } catch (error) {
-      console.error('Failed to add child to space:', error);
+      logger.error('Failed to add child to space:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed: ${errMsg}`);
     }
@@ -471,7 +475,7 @@ export class RoomManager {
         `/rooms/${encodedParentId}/state/m.space.child/${encodedChildId}`
       );
     } catch (error) {
-      console.error('Failed to remove child from space:', error);
+      logger.error('Failed to remove child from space:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed: ${errMsg}`);
     }
@@ -551,7 +555,7 @@ export class RoomManager {
     try {
       await this.httpClient.putTyping(roomId, userId, true, timeout);
     } catch (error) {
-      console.error('Failed to start typing:', error);
+      logger.error('Failed to start typing:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to start typing: ${errMsg}`);
     }
@@ -566,7 +570,7 @@ export class RoomManager {
     try {
       await this.httpClient.putTyping(roomId, userId, false);
     } catch (error) {
-      console.error('Failed to stop typing:', error);
+      logger.error('Failed to stop typing:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to stop typing: ${errMsg}`);
     }
@@ -581,7 +585,7 @@ export class RoomManager {
     try {
       return await this.httpClient.getTypingUsers(roomId, userId);
     } catch (error) {
-      console.error('Failed to get typing users:', error);
+      logger.error('Failed to get typing users:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get typing users: ${errMsg}`);
     }
@@ -591,7 +595,7 @@ export class RoomManager {
     try {
       await this.httpClient.postReceipt(roomId, 'm.read', eventId, threadId);
     } catch (error) {
-      console.error('Failed to send read receipt:', error);
+      logger.error('Failed to send read receipt:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to send read receipt: ${errMsg}`);
     }
@@ -601,7 +605,7 @@ export class RoomManager {
     try {
       await this.httpClient.postReceipt(roomId, 'm.read.private', eventId, threadId);
     } catch (error) {
-      console.error('Failed to send private read receipt:', error);
+      logger.error('Failed to send private read receipt:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to send private read receipt: ${errMsg}`);
     }

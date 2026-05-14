@@ -1,4 +1,4 @@
-import promptAction from '@ohos.promptAction';
+import { ToastUtils } from '../../../utils/ToastUtils';
 import { getThemeColors } from '../../../utils/ThemeManager';
 
 @Component
@@ -133,7 +133,7 @@ export struct AboutSection {
           bottom: 12
         })
         .onClick(() => {
-          promptAction.showToast({ message: '隐私政策页面开发中' });
+ToastUtils.show('隐私政策页面开发中');
         });
 
         Divider().color(getThemeColors().divider);
@@ -155,7 +155,7 @@ export struct AboutSection {
           bottom: 12
         })
         .onClick(() => {
-          promptAction.showToast({ message: '服务条款页面开发中' });
+ToastUtils.show('服务条款页面开发中');
         });
 
         Divider().color(getThemeColors().divider);
@@ -177,7 +177,7 @@ export struct AboutSection {
           bottom: 12
         })
         .onClick(() => {
-          promptAction.showToast({ message: '开源地址开发中' });
+ToastUtils.show('开源地址开发中');
         });
       }
       .width('100%')

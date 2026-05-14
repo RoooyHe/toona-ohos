@@ -1,4 +1,5 @@
-import { MatrixHttpClient, MatrixConfig } from '../network/MatrixHttpClient';
+import { MatrixConfig, MatrixHttpClient } from '../network/MatrixHttpClient';
+import { AppLogger } from '../utils/AppLogger';
 import { AuthManager } from './AuthManager';
 
 interface GeneratedTypeLiteralInterface_1 {
@@ -9,6 +10,7 @@ interface GeneratedTypeLiteralInterface_1 {
 export class UserManager {
   private static instance: UserManager;
   private httpClient: MatrixHttpClient | null = null;
+  private logger = AppLogger.getLogger(UserManager);
 
   private constructor() {
   }
@@ -40,7 +42,7 @@ export class UserManager {
     try {
       return await this.ensureHttpClient().getDisplayName(targetUserId);
     } catch (error) {
-      console.error('Failed to get display name:', error);
+      this.logger.error('Failed to get display name:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get display name: ${errMsg}`);
     }
@@ -54,7 +56,7 @@ export class UserManager {
     try {
       await this.ensureHttpClient().setDisplayName(userId, displayName);
     } catch (error) {
-      console.error('Failed to set display name:', error);
+      this.logger.error('Failed to set display name:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to set display name: ${errMsg}`);
     }
@@ -68,7 +70,7 @@ export class UserManager {
     try {
       return await this.ensureHttpClient().getAvatarUrl(targetUserId);
     } catch (error) {
-      console.error('Failed to get avatar URL:', error);
+      this.logger.error('Failed to get avatar URL:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get avatar URL: ${errMsg}`);
     }
@@ -82,7 +84,7 @@ export class UserManager {
     try {
       await this.ensureHttpClient().setAvatarUrl(userId, avatarUrl);
     } catch (error) {
-      console.error('Failed to set avatar URL:', error);
+      this.logger.error('Failed to set avatar URL:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to set avatar URL: ${errMsg}`);
     }

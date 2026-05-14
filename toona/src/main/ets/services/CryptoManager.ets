@@ -1,4 +1,5 @@
-import { MatrixHttpClient, MatrixConfig } from '../network/MatrixHttpClient';
+import { AppLogger } from '../utils/AppLogger';
+import { AppLogger } from '../utils/AppLogger';
 import {
   QueryKeysRequest,
   QueryKeysResponse,
@@ -20,6 +21,7 @@ import {
 export class CryptoManager {
   private static instance: CryptoManager;
   private httpClient: MatrixHttpClient | null = null;
+  private logger = AppLogger.getLogger(CryptoManager);
 
   private constructor() {
   }
@@ -54,7 +56,7 @@ export class CryptoManager {
     try {
       return await this.ensureHttpClient().queryKeys(request);
     } catch (error) {
-      console.error('Failed to query device keys:', error);
+      this.logger.error('Failed to query device keys:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to query device keys: ${errMsg}`);
     }
@@ -67,7 +69,7 @@ export class CryptoManager {
     try {
       return await this.ensureHttpClient().uploadKeys(request);
     } catch (error) {
-      console.error('Failed to upload device keys:', error);
+      this.logger.error('Failed to upload device keys:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to upload device keys: ${errMsg}`);
     }
@@ -80,7 +82,7 @@ export class CryptoManager {
     try {
       return await this.ensureHttpClient().uploadKeys(request);
     } catch (error) {
-      console.error('Failed to upload one-time keys:', error);
+      this.logger.error('Failed to upload one-time keys:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to upload one-time keys: ${errMsg}`);
     }
@@ -93,7 +95,7 @@ export class CryptoManager {
     try {
       return await this.ensureHttpClient().uploadKeys(request);
     } catch (error) {
-      console.error('Failed to upload fallback keys:', error);
+      this.logger.error('Failed to upload fallback keys:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to upload fallback keys: ${errMsg}`);
     }
@@ -107,7 +109,7 @@ export class CryptoManager {
     try {
       return await this.ensureHttpClient().claimKeys(request);
     } catch (error) {
-      console.error('Failed to claim keys:', error);
+      this.logger.error('Failed to claim keys:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to claim keys: ${errMsg}`);
     }
@@ -124,7 +126,7 @@ export class CryptoManager {
     try {
       return await this.ensureHttpClient().queryRoomKeys(request);
     } catch (error) {
-      console.error('Failed to query room keys:', error);
+      this.logger.error('Failed to query room keys:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to query room keys: ${errMsg}`);
     }
@@ -137,7 +139,7 @@ export class CryptoManager {
     try {
       return await this.ensureHttpClient().uploadRoomKeys(request);
     } catch (error) {
-      console.error('Failed to upload room keys:', error);
+      this.logger.error('Failed to upload room keys:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to upload room keys: ${errMsg}`);
     }
@@ -147,7 +149,7 @@ export class CryptoManager {
     try {
       return await this.ensureHttpClient().getRoomKeys(roomId, sessionId);
     } catch (error) {
-      console.error('Failed to get room key backup:', error);
+      this.logger.error('Failed to get room key backup:', error);
       return null;
     }
   }
@@ -156,7 +158,7 @@ export class CryptoManager {
     try {
       await this.ensureHttpClient().putRoomKeys(roomId, sessionId, data);
     } catch (error) {
-      console.error('Failed to put room key backup:', error);
+      this.logger.error('Failed to put room key backup:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to put room key backup: ${errMsg}`);
     }
@@ -166,7 +168,7 @@ export class CryptoManager {
     try {
       return await this.ensureHttpClient().getKeyBackupVersion();
     } catch (error) {
-      console.error('Failed to get key backup version:', error);
+      this.logger.error('Failed to get key backup version:', error);
       return null;
     }
   }
@@ -176,7 +178,7 @@ export class CryptoManager {
       const response = await this.ensureHttpClient().createKeyBackupVersion(authData);
       return response.version;
     } catch (error) {
-      console.error('Failed to create key backup version:', error);
+      this.logger.error('Failed to create key backup version:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to create key backup version: ${errMsg}`);
     }
@@ -186,7 +188,7 @@ export class CryptoManager {
     try {
       await this.ensureHttpClient().putKeyBackupVersion(version, authData);
     } catch (error) {
-      console.error('Failed to update key backup version:', error);
+      this.logger.error('Failed to update key backup version:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to update key backup version: ${errMsg}`);
     }
@@ -196,7 +198,7 @@ export class CryptoManager {
     try {
       await this.ensureHttpClient().deleteKeyBackupVersion(version);
     } catch (error) {
-      console.error('Failed to delete key backup version:', error);
+      this.logger.error('Failed to delete key backup version:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to delete key backup version: ${errMsg}`);
     }
@@ -206,7 +208,7 @@ export class CryptoManager {
     try {
       return await this.ensureHttpClient().uploadSignatures(request);
     } catch (error) {
-      console.error('Failed to upload signatures:', error);
+      this.logger.error('Failed to upload signatures:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to upload signatures: ${errMsg}`);
     }

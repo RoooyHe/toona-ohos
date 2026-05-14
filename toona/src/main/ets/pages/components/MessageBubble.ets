@@ -1,9 +1,10 @@
-import promptAction from '@ohos.promptAction';
+import { ToastUtils } from '../../utils/ToastUtils';
 import { Message, MessageStatus } from '../../models/DataModels';
 import { MediaManager } from '../../services/MediaManager';
 import { getThemeColors } from '../../utils/ThemeManager';
 import media from '@ohos.multimedia.media';
-import fileIo from '@ohos.file.fs';
+import { AppLogger } from '../../utils/AppLogger';
+
 
 interface BubbleThemeColors {
   bg: string;
@@ -18,6 +19,8 @@ interface BubbleThemeColors {
   outgoingBg: string;
 }
 
+const logger = AppLogger.getLogger('MessageBubble');
+
 @Component
 export struct MessageBubble {
   @ObjectLink message: Message;
@@ -26,7 +29,6 @@ export struct MessageBubble {
   @State playProgress: number = 0;
   private avPlayer: media.AVPlayer | null = null;
   private durationMs: number = 0;
-
   // 🌀 微信同款动画状态：当前点亮的声波格数 (1, 2, 3)
   @State waveIndex: number = 3; // 默认静止时显示满格(3)
   private animationInterval: number = -1; // 定时器 ID
@@ -97,10 +99,10 @@ export struct MessageBubble {
       this.avPlayer.url = httpUrl;
 
     } catch (err) {
-      console.error('播放失败:', err);
+      logger.error('播放失败:', err);
       this.isPlaying = false;
       this.stopPlayAnimation(); // ✅ 失败时停止动画
-      promptAction.showToast({ message: '语音播放失败' });
+      ToastUtils.show('语音播放失败');
     }
   }
 
@@ -109,37 +111,38 @@ export struct MessageBubble {
     if (!this.avPlayer) {
       return;
     }
+    const self = this;
 
     this.avPlayer.on('stateChange', async (state: string) => {
       switch (state) {
         case 'initialized':
-          await this.avPlayer?.prepare();
+          await self.avPlayer?.prepare();
           break;
         case 'prepared':
-          await this.avPlayer?.play();
+          await self.avPlayer?.play();
           break;
         case 'completed':
-          this.isPlaying = false;
-          this.playProgress = 0;
-          this.stopPlayAnimation(); // ✅ 播放完毕停止动画
-          await this.avPlayer?.stop();
+          self.isPlaying = false;
+          self.playProgress = 0;
+          self.stopPlayAnimation();
+          await self.avPlayer?.stop();
           break;
         case 'stopped':
-          this.isPlaying = false;
-          this.stopPlayAnimation(); // ✅ 停止动画
+          self.isPlaying = false;
+          self.stopPlayAnimation();
           break;
         case 'error':
-          console.error('播放器报错');
-          this.isPlaying = false;
-          this.stopPlayAnimation(); // ✅ 报错停止动画
+          logger.error('播放器报错');
+          self.isPlaying = false;
+          self.stopPlayAnimation();
           break;
       }
     });
 
     // 监听播放进度，用于做 UI 动画（如果需要）
     this.avPlayer.on('timeUpdate', (time: number) => {
-      if (this.durationMs > 0) {
-        this.playProgress = time / this.durationMs;
+      if (self.durationMs > 0) {
+        self.playProgress = time / self.durationMs;
       }
     });
   }
@@ -148,8 +151,9 @@ export struct MessageBubble {
   startPlayAnimation() {
     this.waveIndex = 1;
     // 每 400ms 切换一帧，模拟声波向外扩散
+    const self = this;
     this.animationInterval = setInterval(() => {
-      this.waveIndex = (this.waveIndex % 3) + 1;
+      self.waveIndex = (self.waveIndex % 3) + 1;
     }, 400);
   }
 
@@ -214,7 +218,7 @@ export struct MessageBubble {
           .objectFit(ImageFit.Cover)
           .margin(8)
           .onClick(() => {
-            promptAction.showToast({ message: '图片: ' + this.message.getMessageBody() });
+            ToastUtils.show('图片: ' + this.message.getMessageBody());
           })
           .gesture(
             LongPressGesture()
@@ -228,7 +232,7 @@ export struct MessageBubble {
           // 发送方的排版：时长在左，波形在右
           if (this.isOutgoing) {
             Text(this.getVoiceDurationText())
-              .fontSize(14).fontColor($r('sys.color.white') ).opacity(0.8).margin({ right: 8 })
+              .fontSize(14).fontColor($r('sys.color.white')).opacity(0.8).margin({ right: 8 })
           }
 
           // 🌀 纯代码手绘的三段式声波 (模拟微信效果)
@@ -263,7 +267,12 @@ export struct MessageBubble {
         }
         .backgroundColor(this.isOutgoing ? this.getThemeColors().outgoingBg : this.getThemeColors().messageBg)
         .borderRadius(18)
-        .padding({ left: 16, right: 16, top: 10, bottom: 10 })
+        .padding({
+          left: 16,
+          right: 16,
+          top: 10,
+          bottom: 10
+        })
         .width(this.getVoiceBubbleWidth())
         .justifyContent(this.isOutgoing ? FlexAlign.End : FlexAlign.Start)
         .alignItems(VerticalAlign.Center)

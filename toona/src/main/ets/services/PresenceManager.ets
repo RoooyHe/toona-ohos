@@ -1,14 +1,16 @@
-import { MatrixHttpClient, MatrixConfig } from '../network/MatrixHttpClient';
+import { AppLogger } from '../utils/AppLogger';
 import {
   GetPresenceResponse,
   SetPresenceRequest,
   PresenceState,
   PresenceListResponse
 } from '../models/MatrixTypes';
+import { MatrixConfig, MatrixHttpClient } from '../network/MatrixHttpClient';
 
 export class PresenceManager {
   private static instance: PresenceManager;
   private httpClient: MatrixHttpClient | null = null;
+  private logger = AppLogger.getLogger(PresenceManager);
 
   private constructor() {
   }
@@ -36,7 +38,7 @@ export class PresenceManager {
     try {
       return await this.ensureHttpClient().getPresence(userId);
     } catch (error) {
-      console.error('Failed to get presence:', error);
+      this.logger.error('Failed to get presence:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get presence: ${errMsg}`);
     }
@@ -50,7 +52,7 @@ export class PresenceManager {
       }
       await this.ensureHttpClient().setPresence(userId, request);
     } catch (error) {
-      console.error('Failed to set presence:', error);
+      this.logger.error('Failed to set presence:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to set presence: ${errMsg}`);
     }
@@ -72,7 +74,7 @@ export class PresenceManager {
     try {
       return await this.ensureHttpClient().getPresenceList(userIds);
     } catch (error) {
-      console.error('Failed to get presence list:', error);
+      this.logger.error('Failed to get presence list:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get presence list: ${errMsg}`);
     }

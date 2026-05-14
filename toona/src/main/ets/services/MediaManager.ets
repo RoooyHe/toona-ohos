@@ -1,6 +1,7 @@
-import { MatrixHttpClient, MatrixConfig } from '../network/MatrixHttpClient';
+import { AppLogger } from '../utils/AppLogger';
 import { MediaUploadResponse, MediaConfig as MediaConfigResponse, UrlPreviewResponse } from '../models/MatrixTypes';
 import { MxcUtils } from '../utils/MxcUtils';
+import { MatrixConfig, MatrixHttpClient } from '../network/MatrixHttpClient';
 
 interface GeneratedTypeLiteralInterface_1 {
   serverName: string;
@@ -10,6 +11,7 @@ interface GeneratedTypeLiteralInterface_1 {
 export class MediaManager {
   private static instance: MediaManager;
   private httpClient: MatrixHttpClient | null = null;
+  private logger = AppLogger.getLogger(MediaManager);
 
   private constructor() {
   }
@@ -42,7 +44,7 @@ export class MediaManager {
     try {
       return await this.ensureHttpClient().uploadMedia(data, contentType, fileName);
     } catch (error) {
-      console.error('Failed to upload media:', error);
+      this.logger.error('Failed to upload media:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to upload media: ${errMsg}`);
     }
@@ -67,7 +69,8 @@ export class MediaManager {
   }
 
   // ✅ 修复 4：通用文件同理
-  async uploadFile(data: ArrayBuffer, fileName: string, mimeType: string = 'application/octet-stream'): Promise<string> {
+  async uploadFile(data: ArrayBuffer, fileName: string,
+    mimeType: string = 'application/octet-stream'): Promise<string> {
     const response = await this.uploadMedia(data, mimeType, fileName);
     return response.content_uri;
   }
@@ -80,7 +83,7 @@ export class MediaManager {
     try {
       return await this.ensureHttpClient().downloadMedia(parsed.serverName, parsed.mediaId);
     } catch (error) {
-      console.error('Failed to download media:', error);
+      this.logger.error('Failed to download media:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to download media: ${errMsg}`);
     }
@@ -107,7 +110,7 @@ export class MediaManager {
         animated
       );
     } catch (error) {
-      console.error('Failed to get thumbnail:', error);
+      this.logger.error('Failed to get thumbnail:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get thumbnail: ${errMsg}`);
     }
@@ -117,7 +120,7 @@ export class MediaManager {
     try {
       return await this.ensureHttpClient().getUrlPreview(url, ts);
     } catch (error) {
-      console.error('Failed to get URL preview:', error);
+      this.logger.error('Failed to get URL preview:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get URL preview: ${errMsg}`);
     }
@@ -127,7 +130,7 @@ export class MediaManager {
     try {
       return await this.ensureHttpClient().getMediaConfig();
     } catch (error) {
-      console.error('Failed to get media config:', error);
+      this.logger.error('Failed to get media config:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get media config: ${errMsg}`);
     }

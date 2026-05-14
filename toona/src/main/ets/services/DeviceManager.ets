@@ -1,11 +1,13 @@
-import { MatrixHttpClient, MatrixConfig } from '../network/MatrixHttpClient';
+import { AppLogger } from '../utils/AppLogger';
 import { Device, DevicesResponse, UpdateDeviceRequest } from '../models/MatrixTypes';
 import { AuthManager } from './AuthManager';
 import { DeviceAuthData } from '../network/clients/DeviceHttpClient';
+import { MatrixConfig, MatrixHttpClient } from '../network/MatrixHttpClient';
 
 export class DeviceManager {
   private static instance: DeviceManager;
   private httpClient: MatrixHttpClient | null = null;
+  private logger = AppLogger.getLogger(DeviceManager);
 
   private constructor() {
   }
@@ -33,7 +35,7 @@ export class DeviceManager {
     try {
       return await this.ensureHttpClient().getDevices();
     } catch (error) {
-      console.error('Failed to get devices:', error);
+      this.logger.error('Failed to get devices:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get devices: ${errMsg}`);
     }
@@ -43,7 +45,7 @@ export class DeviceManager {
     try {
       return await this.ensureHttpClient().getDevice(deviceId);
     } catch (error) {
-      console.error('Failed to get device:', error);
+      this.logger.error('Failed to get device:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get device: ${errMsg}`);
     }
@@ -57,7 +59,7 @@ export class DeviceManager {
     try {
       await this.ensureHttpClient().updateDevice(deviceId, update);
     } catch (error) {
-      console.error('Failed to update device:', error);
+      this.logger.error('Failed to update device:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to update device: ${errMsg}`);
     }

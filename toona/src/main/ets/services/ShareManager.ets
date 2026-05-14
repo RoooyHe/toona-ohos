@@ -1,8 +1,10 @@
 import { BusinessError } from '@kit.BasicServicesKit';
-import promptAction from '@ohos.promptAction';
+import { ToastUtils } from '../utils/ToastUtils';
 import { common, Want } from '@kit.AbilityKit';
+import { AppLogger } from '../utils/AppLogger';
 
 export class ShareManager {
+  private logger = AppLogger.getLogger(ShareManager);
   private static instance: ShareManager;
 
   static getInstance(): ShareManager {
@@ -13,6 +15,7 @@ export class ShareManager {
   }
 
   shareText(title: string, content: string): void {
+    const logger = this.logger;
     try {
       const context: common.UIAbilityContext = getContext() as common.UIAbilityContext;
       const want: Want = {
@@ -25,14 +28,14 @@ export class ShareManager {
       };
 
       context.startAbility(want).then(() => {
-        console.info('Share started successfully');
+        logger.info('Share started successfully');
       }).catch((error: BusinessError) => {
-        console.error('Failed to start share: %{public}s', JSON.stringify(error));
-        promptAction.showToast({ message: '分享失败' });
+        logger.error('Failed to start share: %{public}s', error);
+        ToastUtils.show('分享失败');
       });
     } catch (error) {
-      console.error('Share error: %{public}s', JSON.stringify(error));
-      promptAction.showToast({ message: '分享失败' });
+      logger.error('Share error: %{public}s', error.message);
+      ToastUtils.show('分享失败');
     }
   }
 

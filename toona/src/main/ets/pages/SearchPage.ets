@@ -1,6 +1,9 @@
 import { RoomManager } from '../services/RoomManager';
 import { Room } from '../models/DataModels';
 import { getThemeColors } from '../utils/ThemeManager';
+import { AppLogger } from '../utils/AppLogger';
+
+const logger = AppLogger.getLogger('SearchPage');
 
 @Builder
 export function SearchPageBuilder(name: string, param: Object) {
@@ -35,7 +38,7 @@ struct SearchPage {
         this.searchResults = [];
       }
     } catch (error) {
-      console.error('Search failed:', error);
+logger.error('Search failed:', error);
       this.searchResults = [];
     } finally {
       this.isSearching = false;

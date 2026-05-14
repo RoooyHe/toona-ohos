@@ -1,4 +1,4 @@
-import promptAction from '@ohos.promptAction';
+import { ToastUtils } from '../utils/ToastUtils';
 import { AuthManager } from '../services/AuthManager';
 import { UserManager } from '../services/UserManager';
 import { PresenceManager } from '../services/PresenceManager';
@@ -28,6 +28,7 @@ import { BiometricSettings } from './components/settings/BiometricSettings';
 import { CollaborationSettings } from './components/settings/CollaborationSettings';
 import { AboutSection } from './components/settings/AboutSection';
 import { LogoutButton } from './components/settings/LogoutButton';
+import { AppLogger } from '../utils/AppLogger';
 
 @Builder
 export function SettingsPageBuilder(name: string, param: Object) {
@@ -67,6 +68,7 @@ export struct SettingsPage {
   private deviceSecurityManager: DeviceSecurityManager = DeviceSecurityManager.getInstance();
   private scanManager: ScanManager = ScanManager.getInstance();
   private userAuthManager: UserAuthManager = UserAuthManager.getInstance();
+  private logger = AppLogger.getLogger(SettingsPage);
   @Prop pathStack: NavPathStack;
 
   aboutToAppear() {
@@ -86,7 +88,7 @@ export struct SettingsPage {
       'dark': '夜间模式',
       'system': '跟随系统'
     };
-    promptAction.showToast({ message: `已切换至${messages[mode]}` });
+    ToastUtils.show(`已切换至${messages[mode]}`);
   }
 
   async loadUserData() {
@@ -105,7 +107,7 @@ export struct SettingsPage {
         const devicesResponse = await this.deviceManager.getDevices();
         this.devices = devicesResponse.devices || [];
       } catch (e) {
-        console.error('Failed to load devices:', e);
+        this.logger.error('Failed to load devices: %{public}s', e.message);
         this.devices = [];
       }
 
@@ -125,11 +127,11 @@ export struct SettingsPage {
             this.lowPriorityRooms.push(room);
           }
         } catch (e) {
-          console.error('Failed to check room tags:', e);
+          this.logger.error('Failed to check room tags: %{public}s', e.message);
         }
       }
     } catch (error) {
-      console.error('Failed to load user data:', error);
+      this.logger.error('Failed to load user data: %{public}s', error.message);
     } finally {
       this.isLoading = false;
     }
@@ -143,10 +145,10 @@ export struct SettingsPage {
       await this.userManager.setDisplayName(this.editName.trim());
       this.displayName = this.editName.trim();
       this.isEditingName = false;
-      promptAction.showToast({ message: '显示名称已更新' });
+      ToastUtils.show('显示名称已更新');
     } catch (error) {
-      console.error('Failed to save display name:', error);
-      promptAction.showToast({ message: '更新失败' });
+      this.logger.error('Failed to save display name: %{public}s', error.message);
+      ToastUtils.show('更新失败');
     }
   }
 
@@ -155,20 +157,20 @@ export struct SettingsPage {
       await this.presenceManager.setPresence(this.userId, state, this.statusMsg);
       this.presence = state;
       this.showPresenceMenu = false;
-      promptAction.showToast({ message: '状态已更新' });
+      ToastUtils.show('状态已更新');
     } catch (error) {
-      console.error('Failed to set presence:', error);
-      promptAction.showToast({ message: '更新失败' });
+      this.logger.error('Failed to set presence: %{public}s', error.message);
+      ToastUtils.show('更新失败');
     }
   }
 
   async setStatusMessage() {
     try {
       await this.presenceManager.setPresence(this.userId, this.presence, this.statusMsg);
-      promptAction.showToast({ message: '状态消息已更新' });
+      ToastUtils.show('状态消息已更新');
     } catch (error) {
-      console.error('Failed to set status message:', error);
-      promptAction.showToast({ message: '更新失败' });
+      this.logger.error('Failed to set status message: %{public}s', error.message);
+      ToastUtils.show('更新失败');
     }
   }
 
@@ -190,11 +192,11 @@ export struct SettingsPage {
         const mxcUri = await this.mediaManager.uploadImage(buffer.buffer as ArrayBuffer, fileName);
         await this.userManager.setAvatarUrl(mxcUri);
         this.avatarUrl = this.mediaManager.getHttpUrl(mxcUri);
-        promptAction.showToast({ message: '头像已更新' });
+        ToastUtils.show('头像已更新');
       }
     } catch (error) {
-      console.error('Failed to upload avatar:', error);
-      promptAction.showToast({ message: '头像上传失败' });
+      this.logger.error('Failed to upload avatar: %{public}s', error.message);
+      ToastUtils.show('头像上传失败');
     }
   }
 
@@ -211,10 +213,10 @@ export struct SettingsPage {
         await this.roomTagManager.addFavorite(room.id);
         this.favoriteRooms.push(room);
       }
-      promptAction.showToast({ message: isFav ? '已取消收藏' : '已添加收藏' });
+      ToastUtils.show(isFav ? '已取消收藏' : '已添加收藏');
     } catch (error) {
-      console.error('Failed to toggle favorite:', error);
-      promptAction.showToast({ message: '操作失败' });
+      this.logger.error('Failed to toggle favorite: %{public}s', error.message);
+      ToastUtils.show('操作失败');
     }
   }
 
@@ -231,10 +233,10 @@ export struct SettingsPage {
         await this.roomTagManager.addLowPriority(room.id);
         this.lowPriorityRooms.push(room);
       }
-      promptAction.showToast({ message: isLow ? '已取消低优先级' : '已设为低优先级' });
+      ToastUtils.show(isLow ? '已取消低优先级' : '已设为低优先级');
     } catch (error) {
-      console.error('Failed to toggle low priority:', error);
-      promptAction.showToast({ message: '操作失败' });
+      this.logger.error('Failed to toggle low priority: %{public}s', error.message);
+      ToastUtils.show('操作失败');
     }
   }
 
@@ -245,10 +247,10 @@ export struct SettingsPage {
       if (index >= 0) {
         this.devices.splice(index, 1);
       }
-      promptAction.showToast({ message: '设备已删除' });
+      ToastUtils.show('设备已删除');
     } catch (error) {
-      console.error('Failed to delete device:', error);
-      promptAction.showToast({ message: '删除失败' });
+      this.logger.error('Failed to delete device: %{public}s', error.message);
+      ToastUtils.show('删除失败');
     }
   }
 
@@ -388,30 +390,30 @@ export struct SettingsPage {
     .hideTitleBar(true);
   }
 
-async handleLogout() {
+  async handleLogout() {
     try {
       await this.authManager.logout();
       this.pathStack.clear();
     } catch (error) {
-      console.error('Logout failed:', error);
-      promptAction.showToast({ message: '退出失败' });
+      this.logger.error('Logout failed: %{public}s', error.message);
+      ToastUtils.show('退出失败');
     }
   }
 
   async onFindCollaborativeDevices() {
     const isSupported = await this.collaborationManager.isCollaborationSupported();
     if (!isSupported) {
-      promptAction.showToast({ message: '当前设备不支持跨设备协作' });
+      ToastUtils.show('当前设备不支持跨设备协作');
       return;
     }
 
     const devices = await this.collaborationManager.getCollaborationDevices();
     if (devices.length === 0) {
-      promptAction.showToast({ message: '未发现可协作设备' });
+      ToastUtils.show('未发现可协作设备');
       return;
     }
 
-    promptAction.showToast({ message: `发现 ${devices.length} 个可协作设备` });
+    ToastUtils.show(`发现 ${devices.length} 个可协作设备`);
   }
 
   async onCheckDeviceSecurity() {
@@ -426,7 +428,7 @@ async handleLogout() {
       message = '设备安全: 使用软件级安全保护';
     }
 
-    promptAction.showToast({ message, duration: 3000 });
+    ToastUtils.show(message, 3000);
   }
 
   async onScanQRCode() {
@@ -435,14 +437,14 @@ async handleLogout() {
       if (result) {
         const parsed = this.scanManager.parseMatrixToLink(result);
         if (parsed && parsed.roomId) {
-          promptAction.showToast({ message: `识别房间: ${parsed.roomId}` });
+          ToastUtils.show(`识别房间: ${parsed.roomId}`);
         } else {
-          promptAction.showToast({ message: '扫描成功，请在加入房间页面使用' });
+          ToastUtils.show('扫描成功，请在加入房间页面使用');
         }
       }
     } catch (error) {
-      console.error('Scan error: %{public}s', JSON.stringify(error));
-      promptAction.showToast({ message: '扫码失败' });
+      this.logger.error('Scan error: %{public}s', error.message);
+      ToastUtils.show('扫码失败');
     }
   }
 
@@ -451,22 +453,22 @@ async handleLogout() {
       const success = await this.userAuthManager.authenticateWithFace();
       if (success) {
         this.userAuthManager.setBiometricEnabled(true);
-        promptAction.showToast({ message: '生物识别登录已启用' });
+        ToastUtils.show('生物识别登录已启用');
       } else {
-        promptAction.showToast({ message: '生物识别验证失败' });
+        ToastUtils.show('生物识别验证失败');
       }
     } else {
       this.userAuthManager.setBiometricEnabled(false);
-      promptAction.showToast({ message: '生物识别登录已关闭' });
+      ToastUtils.show('生物识别登录已关闭');
     }
   }
 
   async onVerifyBiometric() {
     const success = await this.userAuthManager.authenticateWithFace();
     if (success) {
-      promptAction.showToast({ message: '生物识别验证成功' });
+      ToastUtils.show('生物识别验证成功');
     } else {
-      promptAction.showToast({ message: '生物识别验证失败' });
+      ToastUtils.show('生物识别验证失败');
     }
   }
 }

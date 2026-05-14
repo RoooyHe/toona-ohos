@@ -1,6 +1,9 @@
-import promptAction from '@ohos.promptAction';
 import { AuthManager } from '../services/AuthManager';
 import { ThemeColors, getThemeColors } from '../utils/ThemeManager';
+import { ToastUtils } from '../utils/ToastUtils';
+import { AppLogger } from '../utils/AppLogger';
+
+const logger = AppLogger.getLogger('RegisterPage');
 
 interface RegisterThemeColors extends ThemeColors {
   error: string;
@@ -66,22 +69,23 @@ struct RegisterPage {
 
     this.isLoading = true;
     this.errorMessage = '';
+    const self = this;
 
     this.doRegister(serverUrl).catch((error: Error) => {
-      console.error('Registration failed:', error);
+      logger.error('Registration failed:', error);
       const errorMsg: string = error.message;
       if (errorMsg.includes('M_USER_IN_USE')) {
-        this.errorMessage = '用户名已被使用';
+        self.errorMessage = '用户名已被使用';
       } else if (errorMsg.includes('M_WEAK_PASSWORD')) {
-        this.errorMessage = '密码强度不够';
+        self.errorMessage = '密码强度不够';
       } else if (errorMsg.includes(':')) {
         const parts: string[] = errorMsg.split(':');
-        this.errorMessage = parts[1] ? parts[1].trim() : errorMsg;
+        self.errorMessage = parts[1] ? parts[1].trim() : errorMsg;
       } else {
-        this.errorMessage = '注册失败，请检查服务器地址';
+        self.errorMessage = '注册失败，请检查服务器地址';
       }
     }).finally(() => {
-      this.isLoading = false;
+      self.isLoading = false;
     });
   }
 
@@ -98,10 +102,7 @@ struct RegisterPage {
 
     await this.authManager.register(this.username, this.password);
 
-    promptAction.showToast({
-      message: '注册成功',
-      duration: 2000
-    });
+    ToastUtils.show('注册成功', 2000);
 
     this.pathStack?.replacePath(new NavPathInfo('MainPage', undefined));
   }

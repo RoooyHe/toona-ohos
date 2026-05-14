@@ -1,4 +1,4 @@
-import { MatrixHttpClient, MatrixConfig } from '../network/MatrixHttpClient';
+import { AppLogger } from '../utils/AppLogger';
 import {
   Filter,
   CreateFilterResponse,
@@ -6,10 +6,12 @@ import {
   RoomFilterPart,
   PresenceFilter
 } from '../models/MatrixTypes';
+import { AppLogger } from '../utils/AppLogger';
 
 export class FilterManager {
   private static instance: FilterManager;
   private httpClient: MatrixHttpClient | null = null;
+  private logger = AppLogger.getLogger(FilterManager);
 
   private constructor() {
   }
@@ -37,7 +39,7 @@ export class FilterManager {
     try {
       return await this.ensureHttpClient().createFilter(userId, filter, version);
     } catch (error) {
-      console.error('Failed to create filter:', error);
+      logger.error('Failed to create filter:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to create filter: ${errMsg}`);
     }
@@ -47,7 +49,7 @@ export class FilterManager {
     try {
       return await this.ensureHttpClient().getFilter(userId, filterId, version);
     } catch (error) {
-      console.error('Failed to get filter:', error);
+      logger.error('Failed to get filter:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get filter: ${errMsg}`);
     }

@@ -1,4 +1,3 @@
-import promptAction from '@ohos.promptAction';
 import { getThemeColors } from '../../../utils/ThemeManager';
 
 @Component

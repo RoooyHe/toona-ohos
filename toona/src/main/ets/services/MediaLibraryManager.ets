@@ -1,5 +1,6 @@
 import { fileIo } from '@kit.CoreFileKit';
-import promptAction from '@ohos.promptAction';
+import { ToastUtils } from '../utils/ToastUtils';
+import { AppLogger } from '../utils/AppLogger';
 
 interface ImageInfo {
   width: number;
@@ -9,6 +10,7 @@ interface ImageInfo {
 
 export class MediaLibraryManager {
   private static instance: MediaLibraryManager;
+  private logger = AppLogger.getLogger(MediaLibraryManager);
 
   static getInstance(): MediaLibraryManager {
     if (!MediaLibraryManager.instance) {
@@ -19,13 +21,13 @@ export class MediaLibraryManager {
 
   async selectImage(): Promise<string | null> {
     // Stub implementation - photo picker API compatibility varies by SDK version
-    promptAction.showToast({ message: '图片选择功能暂不可用' });
+    ToastUtils.show('图片选择功能暂不可用');
     return null;
   }
 
   async selectMultipleImages(maxCount: number = 9): Promise<string[]> {
     // Stub implementation - photo picker API compatibility varies by SDK version
-    promptAction.showToast({ message: '图片选择功能暂不可用' });
+    ToastUtils.show('图片选择功能暂不可用');
     return [];
   }
 
@@ -38,7 +40,7 @@ export class MediaLibraryManager {
       fileIo.closeSync(file);
       return buffer;
     } catch (error) {
-      console.error('Failed to read file from URI: %{public}s', JSON.stringify(error));
+      this.logger.error('Failed to read file from URI: %{public}s', error.message);
       return null;
     }
   }
@@ -48,7 +50,7 @@ export class MediaLibraryManager {
       const file = fileIo.openSync(uri, fileIo.OpenMode.READ_ONLY);
       const stat = fileIo.statSync(file.fd);
       fileIo.closeSync(file);
-      
+
       const imageInfo: ImageInfo = {
         width: 0,
         height: 0,
@@ -56,7 +58,7 @@ export class MediaLibraryManager {
       };
       return imageInfo;
     } catch (error) {
-      console.error('Failed to get image info: %{public}s', JSON.stringify(error));
+      this.logger.error('Failed to get image info: %{public}s', error.message);
       return null;
     }
   }

@@ -3,7 +3,6 @@ import { MediaUploadResponse, MediaConfig, UrlPreviewResponse } from '../../mode
 import { BaseHttpClient } from './BaseHttpClient';
 
 export class MediaHttpClient extends BaseHttpClient {
-  // 在 MediaHttpClient.ets 中：
   async uploadMedia(
     data: ArrayBuffer,
     contentType: string,
@@ -24,7 +23,7 @@ export class MediaHttpClient extends BaseHttpClient {
     const encodedMediaId = encodeURIComponent(mediaId);
     const url = this.buildMediaUrl(`/download/${encodedServerName}/${encodedMediaId}`);
 
-    console.info(`[HTTP] GET ${url}`);
+    this.logger.info(`GET `);
 
     const httpRequest = http.createHttp();
 
@@ -45,7 +44,7 @@ export class MediaHttpClient extends BaseHttpClient {
         });
       });
 
-      console.info(`[HTTP] Response code: ${result.responseCode}`);
+      this.logger.info(`[HTTP] Response code: ${result.responseCode}`);
 
       if (result.responseCode >= 200 && result.responseCode < 300) {
         if (result.result instanceof ArrayBuffer) {
@@ -82,7 +81,7 @@ export class MediaHttpClient extends BaseHttpClient {
     }
     const url = this.buildMediaUrl(`/thumbnail/${encodedServerName}/${encodedMediaId}`, queryParams);
 
-    console.info(`[HTTP] GET ${url}`);
+    this.logger.info(`GET `);
 
     const httpRequest = http.createHttp();
 
@@ -103,7 +102,7 @@ export class MediaHttpClient extends BaseHttpClient {
         });
       });
 
-      console.info(`[HTTP] Response code: ${result.responseCode}`);
+      this.logger.info(`[HTTP] Response code: ${result.responseCode}`);
 
       if (result.responseCode >= 200 && result.responseCode < 300) {
         if (result.result instanceof ArrayBuffer) {
@@ -126,7 +125,7 @@ export class MediaHttpClient extends BaseHttpClient {
     const endpoint = '/preview_url';
     const fullUrl = this.buildMediaUrl(endpoint, queryParams);
 
-    console.info(`[HTTP] GET ${fullUrl}`);
+    this.logger.info(`[HTTP] GET ${fullUrl}`);
 
     const headers: Record<string, string> = {};
     if (this.accessToken) {
@@ -152,9 +151,9 @@ export class MediaHttpClient extends BaseHttpClient {
         });
       });
 
-      console.info(`[HTTP] Response code: ${result.responseCode}`);
+      this.logger.info(`[HTTP] Response code: ${result.responseCode}`);
       if (typeof result.result === 'string' && result.result.length > 0) {
-        console.info(`[HTTP] Response body: ${result.result}`);
+        this.logger.info(`[HTTP] Response body: ${result.result}`);
       }
 
       if (result.responseCode >= 200 && result.responseCode < 300) {
@@ -188,7 +187,7 @@ export class MediaHttpClient extends BaseHttpClient {
   async getMediaConfig(): Promise<MediaConfig> {
     const url = this.buildMediaUrl('/config');
 
-    console.info(`[HTTP] GET ${url}`);
+    this.logger.info(`GET `);
 
     const headers: Record<string, string> = {};
     if (this.accessToken) {
@@ -214,9 +213,9 @@ export class MediaHttpClient extends BaseHttpClient {
         });
       });
 
-      console.info(`[HTTP] Response code: ${result.responseCode}`);
+      this.logger.info(`[HTTP] Response code: ${result.responseCode}`);
       if (typeof result.result === 'string' && result.result.length > 0) {
-        console.info(`[HTTP] Response body: ${result.result}`);
+        this.logger.info(`[HTTP] Response body: ${result.result}`);
       }
 
       if (result.responseCode >= 200 && result.responseCode < 300) {

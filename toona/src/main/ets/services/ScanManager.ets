@@ -1,5 +1,6 @@
 import { scanCore, scanBarcode } from '@kit.ScanKit';
-import promptAction from '@ohos.promptAction';
+import { ToastUtils } from '../utils/ToastUtils';
+import { AppLogger } from '../utils/AppLogger';
 
 interface GeneratedTypeLiteralInterface_1 {
   type: string;
@@ -19,6 +20,7 @@ interface GeneratedTypeLiteralInterface_2 {
 
 export class ScanManager {
   private static instance: ScanManager;
+  private logger = AppLogger.getLogger(ScanManager);
 
   static getInstance(): ScanManager {
     if (!ScanManager.instance) {
@@ -28,6 +30,7 @@ export class ScanManager {
   }
 
   async startScan(): Promise<string | null> {
+    const logger = this.logger;
     try {
       const options: scanBarcode.ScanOptions = {
         scanTypes: [scanCore.ScanType.QR_CODE],
@@ -38,15 +41,15 @@ export class ScanManager {
       return new Promise<string | null>((resolve) => {
         scanBarcode.startScan(options, (err: Error, result: scanBarcode.ScanResult) => {
           if (err) {
-            console.error('Scan failed: %{public}s', JSON.stringify(err));
-            promptAction.showToast({ message: '扫码失败' });
+            logger.error('Scan failed: %{public}s', err);
+            ToastUtils.show('扫码失败');
             resolve(null);
             return;
           }
 
           if (result) {
             const scannedValue = result.originalValue;
-            console.info('Scanned: %{public}s', scannedValue);
+            logger.info(`Scanned: ${scannedValue}`);
             resolve(scannedValue);
           } else {
             resolve(null);
@@ -54,8 +57,8 @@ export class ScanManager {
         });
       });
     } catch (error) {
-      console.error('Scan error: %{public}s', JSON.stringify(error));
-      promptAction.showToast({ message: '扫码失败' });
+      logger.error('Scan error: %{public}s', error.message);
+      ToastUtils.show('扫码失败');
       return null;
     }
   }

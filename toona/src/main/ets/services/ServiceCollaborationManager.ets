@@ -1,4 +1,4 @@
-import promptAction from '@ohos.promptAction';
+import { ToastUtils } from '../utils/ToastUtils';
 
 interface CollaborationDeviceInfo {
   deviceId: string;
@@ -20,7 +20,7 @@ export class ServiceCollaborationManager {
 
   async startCollaboration(): Promise<boolean> {
     // Stub - CollaborationKit not available in current SDK
-    promptAction.showToast({ message: '跨设备协同功能暂不可用' });
+    ToastUtils.show('跨设备协同功能暂不可用');
     return false;
   }
 
@@ -36,7 +36,7 @@ export class ServiceCollaborationManager {
 
   async continueSession(targetDevice: CollaborationDeviceInfo): Promise<boolean> {
     // Stub - CollaborationKit not available in current SDK
-    promptAction.showToast({ message: '跨设备协同功能暂不可用' });
+    ToastUtils.show('跨设备协同功能暂不可用');
     return false;
   }
 

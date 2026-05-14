@@ -1,8 +1,11 @@
 import http from '@ohos.net.http';
+import { AppLogger } from '../../utils/AppLogger';
+
 
 export type HttpVersion = 'v3' | 'r0' | 'v1';
 
 export class BaseHttpClient {
+  protected logger = AppLogger.getLogger(BaseHttpClient);
   protected baseUrl: string;
   protected mediaBaseUrl: string;
   protected accessToken: string | null = null;
@@ -37,7 +40,7 @@ export class BaseHttpClient {
 
   public buildUrl(endpoint: string, queryParams?: Record<string, string | number>,
     version: HttpVersion = 'v3'): string {
-    console.info('BaseHttpClient: buildUrl called, baseUrl: ' + this.baseUrl + ', endpoint: ' + endpoint);
+    this.logger.info('BaseHttpClient: buildUrl called, baseUrl: ' + this.baseUrl + ', endpoint: ' + endpoint);
     let url = `${this.baseUrl}/_matrix/client/${version}${endpoint}`;
     if (queryParams) {
       const keys = Object.keys(queryParams);
@@ -73,9 +76,9 @@ export class BaseHttpClient {
     const headers = this.buildHeaders();
     const requestBody = body ? JSON.stringify(body) : undefined;
 
-    console.info(`[HTTP] ${method} ${url}`);
+    this.logger.info(`[HTTP] ${method} ${url}`);
     if (requestBody) {
-      console.info(`[HTTP] Request body: ${requestBody}`);
+      this.logger.info(`[HTTP] Request body: ${requestBody}`);
     }
 
     const httpRequest = http.createHttp();
@@ -98,9 +101,9 @@ export class BaseHttpClient {
         });
       });
 
-      console.info(`[HTTP] Response code: ${result.responseCode}`);
+      this.logger.info(`[HTTP] Response code: ${result.responseCode}`);
       if (typeof result.result === 'string' && result.result.length > 0) {
-        console.info(`[HTTP] Response body: ${result.result}`);
+        this.logger.info(`[HTTP] Response body: ${result.result}`);
       }
 
       if (result.responseCode >= 200 && result.responseCode < 300) {
@@ -150,7 +153,7 @@ export class BaseHttpClient {
     const url = `${this.baseUrl}/_matrix/client${endpoint}`;
     const headers = this.buildHeaders();
 
-    console.info(`[HTTP] GET ${url}`);
+    this.logger.info(`[HTTP] GET ${url}`);
 
     const httpRequest = http.createHttp();
     const result = await new Promise<http.HttpResponse>((resolve, reject) => {
@@ -168,9 +171,9 @@ export class BaseHttpClient {
       });
     });
 
-    console.info(`[HTTP] Response code: ${result.responseCode}`);
+    this.logger.info(`[HTTP] Response code: ${result.responseCode}`);
     if (typeof result.result === 'string' && result.result.length > 0) {
-      console.info(`[HTTP] Response body: ${result.result}`);
+      this.logger.info(`[HTTP] Response body: ${result.result}`);
     }
 
     if (result.responseCode >= 200 && result.responseCode < 300) {
@@ -233,7 +236,7 @@ export class BaseHttpClient {
         });
       });
 
-      console.info(`[HTTP] POST MEDIA ${url} - Status: ${result.responseCode}`);
+      this.logger.info(`[HTTP] POST MEDIA ${url} - Status: ${result.responseCode}`);
 
       if (result.responseCode >= 200 && result.responseCode < 300) {
         if (typeof result.result === 'string' && result.result.length > 0) {

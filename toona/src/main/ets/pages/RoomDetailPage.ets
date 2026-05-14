@@ -1,4 +1,5 @@
-import promptAction from '@ohos.promptAction';
+import { ToastUtils } from '../utils/ToastUtils';
+import { QuickDialogManager, QuickDialogParams, QuickDialogController } from 'quickdialog';
 import { RoomManager } from '../services/RoomManager';
 import { Message } from '../models/DataModels';
 import { SyncManager } from '../services/SyncManager';
@@ -23,6 +24,9 @@ import abilityAccessCtrl from '@ohos.abilityAccessCtrl';
 import common from '@ohos.app.ability.common';
 // 1. 引入必要的动画库
 import curves from '@ohos.curves';
+import { AppLogger } from '../utils/AppLogger';
+
+const logger = AppLogger.getLogger('RoomDetailPage');
 
 
 interface MemberPresence {
@@ -59,19 +63,17 @@ export function RoomDetailPageBuilder(name: string, param: Object) {
   })
 }
 
-// 2. 定义录音提示弹窗组件
-@CustomDialog
-export struct RecordingDialog {
-  controller: CustomDialogController
-  @Prop isRecording: boolean = false
+// 2. 录音提示弹窗内容组件（QuickDialog版）
+@Component
+struct RecordingDialogContent {
+  private dialogController: QuickDialogController | undefined = undefined
   @State waveScale: number = 1.0
 
   aboutToAppear() {
-    // 简单的呼吸灯动画，模拟音量变化
     animateTo({
       duration: 800,
       curve: curves.springMotion(),
-      iterations: -1, // 无限循环
+      iterations: -1,
       playMode: PlayMode.Alternate
     }, () => {
       this.waveScale = 1.3;
@@ -81,14 +83,12 @@ export struct RecordingDialog {
   build() {
     Column() {
       Stack() {
-        // 背景波纹
         Circle()
           .width(60)
           .height(60)
           .opacity(0.3)
           .scale({ x: this.waveScale, y: this.waveScale })
 
-        // 麦克风图标 (请确保 app.media.phone 是麦克风图标，如果不是可以换一个)
         Image($r('app.media.phone'))
           .width(40)
           .height(40)
@@ -96,17 +96,22 @@ export struct RecordingDialog {
       }
       .margin({ top: 20, bottom: 15 })
 
-      Text(this.isRecording ? '松开 发送' : '手指上滑，取消发送')
+      Text('松开 发送')
         .fontSize(14)
         .fontColor(Color.White)
         .margin({ bottom: 20 })
     }
     .width(140)
     .height(140)
-    .backgroundColor('rgba(0,0,0,0.6)') // 半透明黑底
+    .backgroundColor('rgba(0,0,0,0.6)')
     .borderRadius(16)
     .justifyContent(FlexAlign.Center)
   }
+}
+
+@Builder
+function RecordingDialogBuilder(dialogParams: QuickDialogParams) {
+  RecordingDialogContent()
 }
 
 @Component
@@ -145,13 +150,8 @@ struct RoomDetailPage {
   private mediaLibraryManager: MediaLibraryManager = MediaLibraryManager.getInstance();
   private shareManager: ShareManager = ShareManager.getInstance();
   private deviceSecurityManager: DeviceSecurityManager = DeviceSecurityManager.getInstance();
-  // 声明录音弹窗控制器
-  recordingDialogController: CustomDialogController = new CustomDialogController({
-    builder: RecordingDialog({ isRecording: this.isRecording }),
-    alignment: DialogAlignment.Center, // 屏幕居中显示
-    autoCancel: false, // 禁用点击空白处关闭
-    customStyle: true // 使用我们自己定义的圆角和背景
-  });
+  // 录音弹窗 QuickDialog 控制器
+  private recordingDialogController: QuickDialogController | undefined = undefined;
   pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
@@ -159,27 +159,28 @@ struct RoomDetailPage {
     this.loadMessages();
     this.loadMemberPresences();
 
+    const self = this;
     this.presenceInterval = setInterval(() => {
-      this.loadMemberPresences();
-      this.checkTypingUsers();
+      self.loadMemberPresences();
+      self.checkTypingUsers();
     }, 30000) as number;
 
     this.syncManager.setRoomLeftCallback((leftRoomId: string) => {
-      if (leftRoomId === this.roomId) {
-        promptAction.showToast({ message: '已离开房间' });
-        this.pathStack.pop();
+      if (leftRoomId === self.roomId) {
+        ToastUtils.show('已离开房间');
+        self.pathStack.pop();
       }
     });
 
     this.syncManager.setNewMessagesCallback((msgRoomId: string) => {
-      if (msgRoomId === this.roomId) {
-        this.loadMessages();
+      if (msgRoomId === self.roomId) {
+        self.loadMessages();
       }
     });
 
     this.syncManager.setNewMessagesCallback((msgRoomId: string, messages: Message[]) => {
-      if (msgRoomId === this.roomId) {
-        this.checkTypingUsers();
+      if (msgRoomId === self.roomId) {
+        self.checkTypingUsers();
       }
     });
   }
@@ -226,7 +227,7 @@ struct RoomDetailPage {
       }
       this.memberPresences = presences;
     } catch (error) {
-      console.error('Failed to load member presences:', error);
+      logger.error('Failed to load member presences:', error);
     }
   }
 
@@ -240,7 +241,7 @@ struct RoomDetailPage {
         }
       }
     } catch (error) {
-      console.error('Failed to load room topic:', error);
+      logger.error('Failed to load room topic:', error);
     }
   }
 
@@ -252,7 +253,7 @@ struct RoomDetailPage {
       // this.typingUsers = typing.filter(id => id !== currentUserId);
       return;
     } catch (error) {
-      console.error('Failed to check typing users:', error);
+      logger.error('Failed to check typing users:', error);
     }
   }
 
@@ -265,11 +266,12 @@ struct RoomDetailPage {
     if (this.typingStopTimeout) {
       clearTimeout(this.typingStopTimeout);
     }
+    const self = this;
     this.typingStopTimeout = setTimeout(() => {
-      this.roomManager.stopTyping(this.roomId).catch(() => {
+      self.roomManager.stopTyping(self.roomId).catch(() => {
       });
-      this.typingTimeout = 0;
-      this.typingStopTimeout = 0;
+      self.typingTimeout = 0;
+      self.typingStopTimeout = 0;
     }, 3000) as number;
   }
 
@@ -280,8 +282,8 @@ struct RoomDetailPage {
         await this.uploadImages([uri]);
       }
     } catch (error) {
-      console.error('Failed to pick image: %{public}s', JSON.stringify(error));
-      promptAction.showToast({ message: '选择图片失败' });
+      logger.error('Failed to pick image: %{public}s', error);
+      ToastUtils.show('选择图片失败');
     }
   }
 
@@ -301,7 +303,7 @@ struct RoomDetailPage {
       if (photoSelectResult && photoSelectResult.photoUris && photoSelectResult.photoUris.length > 0) {
         let imageUri = photoSelectResult.photoUris[0];
 
-        promptAction.showToast({ message: '正在准备发送图片...' });
+        ToastUtils.show('正在准备发送图片...');
 
         // ✅ 修正 1：使用已引入的 fileIo 替代未引入的 fs
         let file = fileIo.openSync(imageUri, fileIo.OpenMode.READ_ONLY);
@@ -316,7 +318,7 @@ struct RoomDetailPage {
         await this.uploadAndSendImage(buffer, fileName, stat.size);
       }
     } catch (error) {
-      console.error('PhotoPicker failed or user canceled:', error);
+      logger.error('PhotoPicker failed or user canceled:', error);
     }
   }
 
@@ -352,14 +354,14 @@ struct RoomDetailPage {
         // ✅ 核心修复：使用项目中专门负责发送消息的 messageManager
         await this.messageManager.sendMessage(this.roomId, 'm.room.message', imageMessageContent);
 
-        promptAction.showToast({ message: '图片发送成功' });
+        ToastUtils.show('图片发送成功');
 
         // 发送完如果想马上在列表看到，可以取消这行注释刷新一下列表
         // this.loadMessages();
       }
     } catch (error) {
-      console.error('Failed to send image:', (error as Error).message);
-      promptAction.showToast({ message: '图片发送失败' });
+      logger.error('Failed to send image:', error.message);
+      ToastUtils.show('图片发送失败');
     }
   }
 
@@ -375,11 +377,11 @@ struct RoomDetailPage {
       if (grantStatus === abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED) {
         return true; // 用户点击了允许
       } else {
-        promptAction.showToast({ message: '需要麦克风权限才能录制语音' });
+        ToastUtils.show('需要麦克风权限才能录制语音');
         return false; // 用户点击了拒绝
       }
     } catch (err) {
-      console.error('Failed to request permission:', err);
+      logger.error('Failed to request permission:', err);
       return false;
     }
   }
@@ -416,12 +418,15 @@ struct RoomDetailPage {
       await this.avRecorder.start();
 
       this.isRecording = true;
-      // ✅ 关键改动 1：拉起半透明的波纹动画弹窗
-      this.recordingDialogController.open();
-      // 删掉这行 Toast：promptAction.showToast({ message: '正在录音... 松开发送' });
+      // ✅ QuickDialog：创建并拉起半透明的波纹动画弹窗
+      this.recordingDialogController = QuickDialogManager.newBuilder(
+        this.getUIContext(),
+        wrapBuilder(RecordingDialogBuilder)
+      ).build();
+      this.recordingDialogController.show();
     } catch (err) {
-      console.error('Failed to start recording:', err);
-      promptAction.showToast({ message: '无法启动录音设备' });
+      logger.error('Failed to start recording:', err);
+      ToastUtils.show('无法启动录音设备');
     }
   }
 
@@ -434,8 +439,8 @@ struct RoomDetailPage {
         this.avRecorder = undefined;
         this.isRecording = false;
 
-        // ✅ 关键改动 2：关闭动画弹窗
-        this.recordingDialogController.close();
+        // ✅ QuickDialog：关闭动画弹窗
+        this.recordingDialogController?.dismiss();
 
         fileIo.closeSync(this.audioFd);
 
@@ -445,14 +450,14 @@ struct RoomDetailPage {
         fileIo.readSync(file.fd, buffer);
         fileIo.closeSync(file);
 
-        // 删掉这行，不需要提示了：promptAction.showToast({ message: '录音结束，正在发送...' });
+        // 删掉这行，不需要提示了：ToastUtils.show('录音结束，正在发送...');
 
         const fileName = `voice_${Date.now()}.m4a`;
         await this.uploadAndSendAudio(buffer, fileName, stat.size);
       } catch (err) {
-        console.error('Failed to stop recording:', err);
+        logger.error('Failed to stop recording:', err);
         this.isRecording = false;
-        this.recordingDialogController.close(); // 发生错误时也要关闭弹窗
+        this.recordingDialogController?.dismiss(); // 发生错误时也要关闭弹窗
       }
     }
   }
@@ -498,8 +503,8 @@ struct RoomDetailPage {
         this.loadMessages();
       }
     } catch (error) {
-      console.error('Failed to send audio:', (error as Error).message);
-      promptAction.showToast({ message: '语音发送失败' });
+      logger.error('Failed to send audio:', error.message);
+      ToastUtils.show('语音发送失败');
     }
   }
 
@@ -510,8 +515,8 @@ struct RoomDetailPage {
         await this.uploadImages(uris);
       }
     } catch (error) {
-      console.error('Failed to pick images: %{public}s', JSON.stringify(error));
-      promptAction.showToast({ message: '选择图片失败' });
+      logger.error('Failed to pick images: %{public}s', error);
+      ToastUtils.show('选择图片失败');
     }
   }
 
@@ -542,19 +547,19 @@ struct RoomDetailPage {
             this.messages[index].status = MessageStatus.SENT;
           }
         } catch (error) {
-          console.error('Failed to send image:', error);
+          logger.error('Failed to send image:', error);
           const index = this.messages.findIndex(m => m.eventId === tempMessage.eventId);
           if (index >= 0) {
             this.messages[index].status = MessageStatus.FAILED;
           }
         }
       } catch (error) {
-        console.error('Failed to upload image: %{public}s', JSON.stringify(error));
-        promptAction.showToast({ message: '图片上传失败' });
+        logger.error('Failed to upload image: %{public}s', error.message);
+        ToastUtils.show('图片上传失败');
       }
     }
     if (uris.length > 1) {
-      promptAction.showToast({ message: `已发送 ${uris.length} 张图片` });
+      ToastUtils.show(`已发送 ${uris.length} 张图片`);
     }
   }
 
@@ -563,7 +568,7 @@ struct RoomDetailPage {
       const roomMessages = await this.roomManager.getRoomMessages(this.roomId, 50);
       this.messages = roomMessages.reverse();
     } catch (error) {
-      console.error('Failed to load messages:', error);
+      logger.error('Failed to load messages:', error);
     } finally {
       this.isLoading = false;
     }
@@ -622,23 +627,23 @@ struct RoomDetailPage {
         this.messages[index].status = MessageStatus.SENT;
       }
     } catch (error) {
-      console.error('Failed to send message:', error);
+      logger.error('Failed to send message:', error);
       const index = this.messages.findIndex(m => m.eventId === tempMessage.eventId);
       if (index >= 0) {
         this.messages[index].status = MessageStatus.FAILED;
       }
-      promptAction.showToast({ message: '发送失败' });
+      ToastUtils.show('发送失败');
     }
   }
 
   async leaveRoom() {
     try {
       await this.roomManager.leaveRoom(this.roomId);
-      promptAction.showToast({ message: '已离开房间' });
+      ToastUtils.show('已离开房间');
       this.pathStack?.pop();
     } catch (error) {
-      console.error('Failed to leave room:', error);
-      promptAction.showToast({ message: '离开失败' });
+      logger.error('Failed to leave room:', error);
+      ToastUtils.show('离开失败');
     }
   }
 
@@ -663,9 +668,9 @@ struct RoomDetailPage {
 
   copyMessage(message: Message) {
     try {
-      promptAction.showToast({ message: '消息已复制' });
+      ToastUtils.show('消息已复制');
     } catch (error) {
-      console.error('Failed to copy message:', error);
+      logger.error('Failed to copy message:', error);
     }
     this.showMessageAction = false;
     this.selectedMessage = null;
@@ -685,15 +690,9 @@ struct RoomDetailPage {
     const result = this.deviceSecurityManager.analyzeMessageSecurity(body, senderId);
 
     if (result.isSuspicious) {
-      promptAction.showToast({
-        message: `安全提醒: ${result.warnings.join(', ')}`,
-        duration: 4000
-      });
+      ToastUtils.show(`安全提醒: ${result.warnings.join(', ')}`, 4000);
     } else {
-      promptAction.showToast({
-        message: '消息安全检测通过',
-        duration: 2000
-      });
+      ToastUtils.show('消息安全检测通过', 2000);
     }
 
     this.showReplyMenu = false;
@@ -717,10 +716,10 @@ struct RoomDetailPage {
       if (index >= 0) {
         this.messages.splice(index, 1);
       }
-      promptAction.showToast({ message: '消息已删除' });
+      ToastUtils.show('消息已删除');
     } catch (error) {
-      console.error('Failed to delete message:', error);
-      promptAction.showToast({ message: '删除失败' });
+      logger.error('Failed to delete message:', error);
+      ToastUtils.show('删除失败');
     }
     this.showMessageAction = false;
     this.selectedMessage = null;
@@ -740,14 +739,15 @@ struct RoomDetailPage {
     }
 
     if (!this.editingMessage.eventId || this.editingMessage.eventId.startsWith('temp_')) {
-      promptAction.showToast({ message: '消息尚未发送，无法编辑' });
+      ToastUtils.show('消息尚未发送，无法编辑');
       this.cancelEdit();
       return;
     }
 
     try {
       await this.messageManager.editMessage(this.roomId, this.editingMessage.eventId, this.editText.trim());
-      const index = this.messages.findIndex(m => m.eventId === this.editingMessage!.eventId);
+      const editingMessage = this.editingMessage;
+      const index = this.messages.findIndex(m => m.eventId === editingMessage!.eventId);
       if (index >= 0) {
         const newContent: Record<string, string | object> = {
           'msgtype': 'm.text',
@@ -755,10 +755,10 @@ struct RoomDetailPage {
         };
         this.messages[index].content = newContent;
       }
-      promptAction.showToast({ message: '消息已编辑' });
+      ToastUtils.show('消息已编辑');
     } catch (error) {
-      console.error('Failed to edit message:', error);
-      promptAction.showToast({ message: '编辑失败' });
+      logger.error('Failed to edit message:', error);
+      ToastUtils.show('编辑失败');
     }
     this.cancelEdit();
   }
@@ -771,11 +771,11 @@ struct RoomDetailPage {
   }
 
   startVoiceCall() {
-    promptAction.showToast({ message: '语音通话功能开发中' });
+    ToastUtils.show('语音通话功能开发中');
   }
 
   startVideoCall() {
-    promptAction.showToast({ message: '视频通话功能开发中' });
+    ToastUtils.show('视频通话功能开发中');
   }
 
   getReplySenderName(sender: string): string {
@@ -1131,7 +1131,10 @@ struct RoomDetailPage {
       .width('100%')
       .height('100%');
     }
-    .hideTitleBar(true);
+    .hideTitleBar(true)
+    .onBackPressed(() => {
+      return QuickDialogManager.dismissLastShowingDialog()
+    });
   }
 
   getMessageSenderName(message: Message): string {

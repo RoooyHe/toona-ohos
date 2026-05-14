@@ -1,10 +1,13 @@
-import { MatrixHttpClient, MatrixConfig } from '../network/MatrixHttpClient';
+
 import {
   LoginResponse, RegisterResponse, WhoAmIResponse, VersionsResponse
 } from '../models/MatrixTypes';
 import { Session } from '../models/DataModels';
-import { SecureStorage } from '../storage/SecureStorage';
+import { SPHelper, RandomUtil } from '@wondertek/wdkitlib';
 import { Context } from '@kit.AbilityKit';
+
+import { MatrixConfig, MatrixHttpClient } from '../network/MatrixHttpClient';
+import { AppLogger } from '../utils/AppLogger';
 
 enum TokenValidationResult {
   VALID = 'valid',
@@ -14,14 +17,12 @@ enum TokenValidationResult {
 
 export class AuthManager {
   private static instance: AuthManager;
+  private static logger = AppLogger.getLogger(AuthManager);
   private httpClient: MatrixHttpClient | null = null;
   private session: Session | null = null;
-  private secureStorage: SecureStorage;
   private isInitialized: boolean = false;
 
-  private constructor() {
-    this.secureStorage = SecureStorage.getInstance();
-  }
+  private constructor() {}
 
   static getInstance(): AuthManager {
     if (!AuthManager.instance) {
@@ -34,7 +35,6 @@ export class AuthManager {
     if (this.isInitialized) {
       return;
     }
-    await this.secureStorage.init(context);
     this.isInitialized = true;
   }
 
@@ -61,7 +61,7 @@ export class AuthManager {
       }
       return false;
     } catch (error) {
-      console.error('Failed to check homeserver version:', error);
+      AuthManager.logger.error('Failed to check homeserver version:', error);
       return false;
     }
   }
@@ -89,7 +89,7 @@ export class AuthManager {
       const response = await this.httpClient.post<LoginResponse>('/login', loginBody);
 
       const homeServer = MatrixConfig.getInstance().getHomeserver();
-      console.info('AuthManager: Login success, homeServer: ' + homeServer);
+      AuthManager.logger.info('AuthManager: Login success, homeServer: ' + homeServer);
       this.session =
         Session.fromLoginResponse(response.user_id, response.access_token, homeServer, response.device_id);
       this.session.isGuest = false;
@@ -97,11 +97,11 @@ export class AuthManager {
       this.httpClient.setAccessToken(response.access_token);
 
       await this.saveSession();
-      console.info('AuthManager: Session saved with homeServer: ' + this.session.homeServer);
+      AuthManager.logger.info('AuthManager: Session saved with homeServer: ' + this.session.homeServer);
 
       return this.session;
     } catch (error) {
-      console.error('Login failed:', error);
+      AuthManager.logger.error('Login failed:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Login failed: ${errMsg}`);
     }
@@ -135,7 +135,7 @@ export class AuthManager {
 
       return this.session;
     } catch (error) {
-      console.error('Registration failed:', error);
+      AuthManager.logger.error('Registration failed:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Registration failed: ${errMsg}`);
     }
@@ -149,63 +149,58 @@ export class AuthManager {
     try {
       await this.httpClient.post<object>('/logout');
     } catch (error) {
-      console.error('Logout request failed:', error);
+      AuthManager.logger.error('Logout request failed:', error);
     } finally {
       await this.clearSession();
     }
   }
 
   async restoreSession(): Promise<Session | null> {
-    console.info('AuthManager: Starting session restore');
+    AuthManager.logger.info('AuthManager: Starting session restore');
     
-    if (!this.secureStorage) {
-      console.error('AuthManager: secureStorage not available');
-      return null;
-    }
-
     try {
-      const sessionJson = await this.secureStorage.loadSession();
+      const sessionJson = await SPHelper.default.get('matrix_session', '') as string;
       if (!sessionJson) {
-        console.info('AuthManager: No session found in storage');
+        AuthManager.logger.info('AuthManager: No session found in storage');
         return null;
       }
 
-      console.info('AuthManager: Session data loaded, parsing...');
+      AuthManager.logger.info('AuthManager: Session data loaded, parsing...');
       const sessionData: Record<string, string> = JSON.parse(sessionJson) as Record<string, string>;
       this.session = Session.fromJSON(sessionData);
-      console.info('AuthManager: Session parsed, userId: ' + this.session.userId + ', homeServer: ' + this.session.homeServer);
+      AuthManager.logger.info('AuthManager: Session parsed, userId: ' + this.session.userId + ', homeServer: ' + this.session.homeServer);
 
       MatrixConfig.getInstance().setHomeserver(this.session.homeServer);
-      console.info('AuthManager: setHomeserver called with: ' + this.session.homeServer);
+      AuthManager.logger.info('AuthManager: setHomeserver called with: ' + this.session.homeServer);
       this.httpClient = MatrixConfig.getInstance().getHttpClient();
       this.httpClient.setAccessToken(this.session.accessToken);
-      console.info('AuthManager: HTTP client configured with token');
+      AuthManager.logger.info('AuthManager: HTTP client configured with token');
 
-      console.info('AuthManager: Validating token...');
+      AuthManager.logger.info('AuthManager: Validating token...');
       const validationResult = await this.validateToken();
       
       if (validationResult === TokenValidationResult.VALID) {
-        console.info('AuthManager: Session restored successfully');
+        AuthManager.logger.info('AuthManager: Session restored successfully');
         return this.session;
       }
       
       if (validationResult === TokenValidationResult.INVALID) {
-        console.warn('AuthManager: Token is invalid (server rejected it), clearing session');
+        AuthManager.logger.warn('AuthManager: Token is invalid (server rejected it), clearing session');
         await this.clearSession();
         return null;
       }
       
       if (validationResult === TokenValidationResult.NETWORK_ERROR) {
-        console.warn('AuthManager: Token validation failed due to network error, keeping session for retry');
+        AuthManager.logger.warn('AuthManager: Token validation failed due to network error, keeping session for retry');
         return this.session;
       }
 
       return this.session;
     } catch (error) {
-      console.error('AuthManager: Failed to restore session:', error);
+      AuthManager.logger.error('AuthManager: Failed to restore session:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       if (errMsg.includes('JSON parse') || errMsg.includes('SyntaxError')) {
-        console.error('AuthManager: Session data is corrupted, clearing session');
+        AuthManager.logger.error('AuthManager: Session data is corrupted, clearing session');
         await this.clearSession();
       }
       return null;
@@ -224,7 +219,7 @@ export class AuthManager {
       }
       return TokenValidationResult.INVALID;
     } catch (error) {
-      console.error('Token validation error:', error);
+      AuthManager.logger.error('Token validation error:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       if (errMsg.includes('401') || errMsg.includes('403') || errMsg.includes('Forbidden') || errMsg.includes('Unauthorized')) {
         return TokenValidationResult.INVALID;
@@ -235,16 +230,16 @@ export class AuthManager {
 
   private async saveSession(): Promise<void> {
     if (!this.session) {
-      console.warn('AuthManager: No session to save');
+      AuthManager.logger.warn('AuthManager: No session to save');
       return;
     }
     const sessionJson = JSON.stringify(this.session.toJSON());
-    console.info('AuthManager: Saving session...');
+    AuthManager.logger.info('AuthManager: Saving session...');
     try {
-      await this.secureStorage.saveSession(sessionJson);
-      console.info('AuthManager: Session saved successfully');
+      await SPHelper.default.saveAndFlush('matrix_session', sessionJson);
+      AuthManager.logger.info('AuthManager: Session saved successfully');
     } catch (error) {
-      console.error('AuthManager: Failed to save session:', error);
+      AuthManager.logger.error('AuthManager: Failed to save session:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to save session: ${errMsg}`);
     }
@@ -255,9 +250,9 @@ export class AuthManager {
     this.httpClient?.setAccessToken(null);
     MatrixConfig.getInstance().clear();
     try {
-      await this.secureStorage.clearSession();
+      await SPHelper.default.delete('matrix_session');
     } catch (error) {
-      console.error('AuthManager: Failed to clear session from storage:', error);
+      AuthManager.logger.error('AuthManager: Failed to clear session from storage:', error);
     }
   }
 
@@ -281,12 +276,8 @@ export class AuthManager {
   }
 
   private generateDeviceId(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let result = 'TOONA';
-    for (let i = 0; i < 10; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
+    const randomPart = RandomUtil.generateUUIDRandom().replace(/-/g, '').substring(0, 10);
+    return 'TOONA' + randomPart;
   }
 
   async updateNextBatch(nextBatch: string): Promise<void> {

@@ -1,4 +1,4 @@
-import { MatrixHttpClient, MatrixConfig } from '../network/MatrixHttpClient';
+import { AppLogger } from '../utils/AppLogger';
 import {
   RoomAvatarContent,
   RoomAvatarContentInfo,
@@ -9,10 +9,12 @@ import {
   SetReadMarkersRequest,
   ReceiptContent
 } from '../models/MatrixTypes';
+import { AppLogger } from '../utils/AppLogger';
 
 export class RoomStateManager {
   private static instance: RoomStateManager;
   private httpClient: MatrixHttpClient | null = null;
+  private logger = AppLogger.getLogger(RoomStateManager);
 
   private constructor() {
   }
@@ -44,8 +46,8 @@ export class RoomStateManager {
       }
       await this.ensureHttpClient().setRoomAvatar(roomId, avatar);
     } catch (error) {
-      console.error('Failed to set room avatar:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to set room avatar: ${errMsg}`);
       throw new Error(`Failed to set room avatar: ${errMsg}`);
     }
   }
@@ -55,8 +57,8 @@ export class RoomStateManager {
       const result = await this.ensureHttpClient().getCanonicalAlias(roomId);
       return result?.alias ?? null;
     } catch (error) {
-      console.error('Failed to get canonical alias:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to get canonical alias: ${errMsg}`);
       throw new Error(`Failed to get canonical alias: ${errMsg}`);
     }
   }
@@ -65,8 +67,8 @@ export class RoomStateManager {
     try {
       await this.ensureHttpClient().setCanonicalAlias(roomId, alias);
     } catch (error) {
-      console.error('Failed to set canonical alias:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to set canonical alias: ${errMsg}`);
       throw new Error(`Failed to set canonical alias: ${errMsg}`);
     }
   }
@@ -76,7 +78,7 @@ export class RoomStateManager {
       const result = await this.ensureHttpClient().getRoomAliases(roomId);
       return result?.aliases ?? [];
     } catch (error) {
-      console.error('Failed to get room aliases:', error);
+		this.logger.error('Failed to get room aliases:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get room aliases: ${errMsg}`);
     }
@@ -86,7 +88,7 @@ export class RoomStateManager {
     try {
       await this.ensureHttpClient().setRoomAliases(roomId, aliases);
     } catch (error) {
-      console.error('Failed to set room aliases:', error);
+		this.logger.error('Failed to set room aliases:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to set room aliases: ${errMsg}`);
     }
@@ -96,7 +98,7 @@ export class RoomStateManager {
     try {
       return await this.ensureHttpClient().getRoomMembers(roomId, start, end);
     } catch (error) {
-      console.error('Failed to get room members:', error);
+		this.logger.error('Failed to get room members:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get room members: ${errMsg}`);
     }
@@ -112,7 +114,7 @@ export class RoomStateManager {
       }
       await this.ensureHttpClient().setReadMarkers(roomId, request);
     } catch (error) {
-      console.error('Failed to set read markers:', error);
+		this.logger.error('Failed to set read markers:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to set read markers: ${errMsg}`);
     }
@@ -126,7 +128,7 @@ export class RoomStateManager {
     try {
       return await this.ensureHttpClient().getReceipt(roomId, receiptType, eventId);
     } catch (error) {
-      console.error('Failed to get receipt:', error);
+		this.logger.error('Failed to get receipt:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get receipt: ${errMsg}`);
     }
@@ -136,7 +138,7 @@ export class RoomStateManager {
     try {
       await this.ensureHttpClient().createRoomAlias(roomAlias, roomId, servers);
     } catch (error) {
-      console.error('Failed to create room alias:', error);
+		this.logger.error('Failed to create room alias:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to create room alias: ${errMsg}`);
     }
@@ -146,7 +148,7 @@ export class RoomStateManager {
     try {
       await this.ensureHttpClient().deleteRoomAlias(roomAlias);
     } catch (error) {
-      console.error('Failed to delete room alias:', error);
+		this.logger.error('Failed to delete room alias:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to delete room alias: ${errMsg}`);
     }
@@ -156,7 +158,7 @@ export class RoomStateManager {
     try {
       return await this.ensureHttpClient().resolveRoomAlias(roomAlias);
     } catch (error) {
-      console.error('Failed to resolve room alias:', error);
+		this.logger.error('Failed to resolve room alias:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to resolve room alias: ${errMsg}`);
     }
@@ -166,7 +168,7 @@ export class RoomStateManager {
     try {
       return await this.ensureHttpClient().getPublicRooms(server, limit, since);
     } catch (error) {
-      console.error('Failed to get public rooms:', error);
+		this.logger.error('Failed to get public rooms:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get public rooms: ${errMsg}`);
     }
@@ -185,7 +187,7 @@ export class RoomStateManager {
       }
       return await this.ensureHttpClient().postPublicRooms(room);
     } catch (error) {
-      console.error('Failed to search public rooms:', error);
+		this.logger.error('Failed to search public rooms:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to search public rooms: ${errMsg}`);
     }
