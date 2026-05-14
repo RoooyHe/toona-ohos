@@ -4,7 +4,8 @@
   "dependencies": {
     "quickdialog": "^1.0.0",
     "@wondertek/wdkitlib": "^1.0.0",
-    "@pie/log4a": "^1.5.16"
+    "@pie/log4a": "^1.5.16",
+    "@mlethe/room": "^1.1.1"
   },
   "devDependencies": {
     "@ohos/hypium": "1.0.25",
