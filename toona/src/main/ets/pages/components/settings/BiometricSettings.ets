@@ -67,7 +67,7 @@ export struct BiometricSettings {
           Button('验证')
             .fontSize(12)
             .backgroundColor(getThemeColors().primary)
-            .fontColor('#ffffff')
+            .fontColor(getThemeColors().onPrimary)
             .padding({
               left: 16,
               right: 16,

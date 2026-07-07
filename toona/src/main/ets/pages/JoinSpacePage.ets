@@ -31,15 +31,15 @@ struct CreateSpaceDialogContent {
       Text('创建空间')
         .fontSize(18)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#ff333333')
+        .fontColor(getThemeColors().text)
         .margin({ bottom: 20 })
 
       TextInput({ placeholder: '空间名称' })
         .width('100%')
         .height(44)
         .fontSize(16)
-        .backgroundColor('#fff5f5f5')
-        .borderRadius(8)
+        .backgroundColor(getThemeColors().inputBg)
+        .borderRadius(6)
         .onChange((value: string) => {
           this.spaceName = value;
         })
@@ -47,11 +47,11 @@ struct CreateSpaceDialogContent {
       Row() {
         Button('取消')
           .fontSize(16)
-          .backgroundColor('#fff5f5f5')
-          .fontColor('#ff333333')
+          .backgroundColor(getThemeColors().inputBg)
+          .fontColor(getThemeColors().text)
           .width('45%')
           .height(44)
-          .borderRadius(8)
+          .borderRadius(6)
           .onClick(() => {
             this.dialogController?.dismiss()
           })
@@ -59,10 +59,10 @@ struct CreateSpaceDialogContent {
         Button('创建')
           .fontSize(16)
           .backgroundColor(getThemeColors().primary)
-          .fontColor('#ffffff')
+          .fontColor(getThemeColors().onPrimary)
           .width('45%')
           .height(44)
-          .borderRadius(8)
+          .borderRadius(6)
       .onClick(() => {
             this.dialogController?.callEventFromDialog('confirm', {
               spaceName: this.spaceName
@@ -74,7 +74,7 @@ struct CreateSpaceDialogContent {
     }
     .width('85%')
     .padding(20)
-    .backgroundColor(Color.White)
+    .backgroundColor(getThemeColors().surface)
     .borderRadius(16)
   }
 }
@@ -237,7 +237,7 @@ this.pathStack.pop();
             .height(44)
             .fontSize(16)
             .backgroundColor(getThemeColors().inputBg)
-            .borderRadius(10)
+            .borderRadius(6)
             .margin({ bottom: 10 })
             .onChange((value: string) => {
               this.searchQuery = value;
@@ -249,10 +249,10 @@ this.pathStack.pop();
           Button('搜索')
             .fontSize(14)
             .backgroundColor(getThemeColors().primary)
-            .fontColor('#ffffff')
+            .fontColor(getThemeColors().onPrimary)
             .width('100%')
             .height(40)
-            .borderRadius(10)
+            .borderRadius(6)
             .onClick(() => {
               this.searchPublicSpaces();
             });
@@ -270,7 +270,7 @@ this.pathStack.pop();
                     Text(space.name?.charAt(0).toUpperCase() || '#')
                       .fontSize(18)
                       .fontWeight(FontWeight.Bold)
-                      .fontColor('#ffffff')
+                      .fontColor(getThemeColors().onPrimary)
                       .width(40)
                       .height(40)
                       .borderRadius(20)
@@ -329,7 +329,7 @@ this.pathStack.pop();
             Button('+')
               .fontSize(24)
               .backgroundColor(getThemeColors().primary)
-              .fontColor('#ffffff')
+              .fontColor(getThemeColors().onPrimary)
               .width(36)
               .height(36)
               .borderRadius(18)
@@ -356,7 +356,7 @@ this.pathStack.pop();
             .height(44)
             .fontSize(16)
             .backgroundColor(getThemeColors().inputBg)
-            .borderRadius(10)
+            .borderRadius(6)
             .onChange((value: string) => {
               this.spaceAddress = value;
             });
@@ -364,10 +364,10 @@ this.pathStack.pop();
           Button(this.isJoining ? '加入中...' : '加入')
             .fontSize(16)
             .backgroundColor(getThemeColors().primary)
-            .fontColor('#ffffff')
+            .fontColor(getThemeColors().onPrimary)
             .width('100%')
             .height(44)
-            .borderRadius(10)
+            .borderRadius(6)
             .margin({ top: 10 })
             .enabled(!this.isJoining)
             .onClick(() => {

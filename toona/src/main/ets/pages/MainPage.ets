@@ -256,8 +256,8 @@ ToastUtils.show('退出登录失败', 3000);
         if (count > 0) {
           Text(count > 99 ? '99+' : count.toString())
             .fontSize(10)
-            .fontColor($r('sys.color.white'))
-            .backgroundColor('#e53935')
+            .fontColor(getThemeColors().onPrimary)
+            .backgroundColor(getThemeColors().error)
             .borderRadius(10)
             .padding({
               left: count > 99 ? 4 : 6,
@@ -428,7 +428,7 @@ ToastUtils.show('退出登录失败', 3000);
               .height(16);
             Text('同步失败')
               .fontSize(12)
-              .fontColor('#e53935')
+              .fontColor(getThemeColors().error)
               .margin({ left: 4 });
           }
           .margin({ right: 12 })

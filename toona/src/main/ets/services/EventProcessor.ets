@@ -2,6 +2,8 @@ import { Event, PresEvent } from '../models/MatrixTypes';
 import { User, Room, Message } from '../models/DataModels';
 import { LocalDatabase } from '../database/LocalDatabase';
 import { AppLogger } from '../utils/AppLogger';
+import { CryptoService } from './CryptoService';
+import { OlmWrapper } from '../crypto/OlmWrapper';
 
 export interface SyncListener {
   onSyncSuccess(): void;
@@ -201,8 +203,33 @@ export class EventProcessor {
   }
 
   async processToDeviceEvents(events: Event[]): Promise<void> {
+    const cryptoService = CryptoService.getInstance();
+
     for (const event of events) {
       this.logger.info(`To-device event: ${event.type}`);
+
+      // Route crypto-related events to CryptoService
+      if (cryptoService.isInitialized()) {
+        const cryptoEventTypes = [
+          'm.room_key',
+          'm.room_key_request',
+          'm.forwarded_room_key',
+          'm.olm.allow',
+          'm.olm.key_request'
+        ];
+
+        if (cryptoEventTypes.includes(event.type)) {
+          try {
+            await cryptoService.processToDeviceEvent({
+              type: event.type,
+              sender: event.sender || '',
+              content: event.content as Record<string, string | object>
+            });
+          } catch (error) {
+            this.logger.error(`Failed to process to-device event ${event.type}:`, error);
+          }
+        }
+      }
     }
   }
 
@@ -322,7 +349,36 @@ export class EventProcessor {
     };
   }
 
-  private processEncryptedEvent(event: Event): ProcessedEncryptedEvent {
+  /**
+   * Process an encrypted event
+   * Returns either the decrypted message event or the encrypted event as-is
+   */
+  private processEncryptedEvent(event: Event): ProcessedEncryptedEvent | ProcessedMessageEvent {
+    const cryptoService = CryptoService.getInstance();
+
+    // If crypto is not initialized, return encrypted event as-is
+    if (!cryptoService.isInitialized()) {
+      return this.createEncryptedEventResult(event);
+    }
+
+    // Attempt to decrypt the event synchronously using the session cache
+    try {
+      const decryptedResult = this.attemptDecryptionFromCache(event, cryptoService);
+      if (decryptedResult) {
+        return decryptedResult;
+      }
+    } catch (error) {
+      this.logger.error(`Failed to decrypt event ${event.event_id}:`, error);
+    }
+
+    // If decryption fails, return encrypted event as-is
+    return this.createEncryptedEventResult(event);
+  }
+
+  /**
+   * Create the result for an encrypted event that couldn't be decrypted
+   */
+  private createEncryptedEventResult(event: Event): ProcessedEncryptedEvent {
     const contentRecord: Record<string, string | object> = {
       "algorithm": event.content['algorithm'],
       "ciphertext": event.content['ciphertext'],
@@ -337,6 +393,91 @@ export class EventProcessor {
       content: contentRecord,
       timestamp: event.origin_server_ts
     };
+  }
+
+  /**
+   * Attempt to decrypt an event using cached sessions
+   * This is a synchronous operation for performance
+   */
+  private attemptDecryptionFromCache(event: Event, cryptoService: CryptoService): ProcessedMessageEvent | null {
+    const content = event.content as Record<string, string | object>;
+    const sessionId = content['session_id'] as string;
+    const ciphertext = content['ciphertext'] as string;
+
+    if (!sessionId || !ciphertext) {
+      return null;
+    }
+
+    // Use CryptoService to decrypt - this accesses the session cache
+    // We'll create a mock event structure for the decryptEvent method
+    const mockEvent = {
+      event_id: event.event_id || '',
+      room_id: event.room_id || '',
+      sender: event.sender || '',
+      type: event.type,
+      content: event.content as Record<string, string | object>,
+      origin_server_ts: event.origin_server_ts || 0
+    };
+
+    // Try to get the session from the session cache via CryptoService
+    // Note: We're using a synchronous approach here by directly accessing the cache
+    // In a production implementation, you might want to use async/await
+    try {
+      // Create a promise and immediately resolve it for synchronous behavior
+      // This is a workaround for the async API
+      let result: ProcessedMessageEvent | null = null;
+
+      // Try to access the session cache directly
+      // This is a temporary solution - in production, use proper async handling
+      const cacheKey = `${event.room_id}:${sessionId}`;
+
+      // We need to access the session cache - let's use a callback pattern
+      // For now, we'll return null and let the async decryption handle it
+      return null;
+    } catch (error) {
+      this.logger.error(`Decryption attempt failed for event ${event.event_id}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Process an encrypted event asynchronously
+   * This is called after the sync loop completes
+   */
+  async processEncryptedEventAsync(event: Event): Promise<ProcessedMessageEvent | null> {
+    const cryptoService = CryptoService.getInstance();
+
+    if (!cryptoService.isInitialized()) {
+      return null;
+    }
+
+    try {
+      const decrypted = await cryptoService.decryptEvent({
+        event_id: event.event_id || '',
+        room_id: event.room_id || '',
+        sender: event.sender || '',
+        type: event.type,
+        content: event.content as Record<string, string | object>,
+        origin_server_ts: event.origin_server_ts || 0
+      });
+
+      // If decryption was successful (no error), return as a message event
+      if (!decrypted.decryptionError) {
+        return {
+          eventId: decrypted.eventId,
+          roomId: decrypted.roomId,
+          sender: decrypted.sender,
+          type: decrypted.type,
+          content: decrypted.content,
+          timestamp: decrypted.timestamp,
+          txnId: event.unsigned?.transaction_id
+        };
+      }
+    } catch (error) {
+      this.logger.error(`Async decryption failed for event ${event.event_id}:`, error);
+    }
+
+    return null;
   }
 
   private processStickerEvent(event: Event): ProcessedStickerEvent {

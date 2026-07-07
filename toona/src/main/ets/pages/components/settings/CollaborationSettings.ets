@@ -37,7 +37,7 @@ export struct CollaborationSettings {
           Button('查找设备')
             .fontSize(12)
             .backgroundColor(getThemeColors().primary)
-            .fontColor('#ffffff')
+            .fontColor(getThemeColors().onPrimary)
             .padding({
               left: 12,
               right: 12,

@@ -2,18 +2,34 @@ import { ToastUtils } from '../../utils/ToastUtils';
 import { Message, MessageStatus } from '../../models/DataModels';
 import { MediaManager } from '../../services/MediaManager';
 import { getThemeColors } from '../../utils/ThemeManager';
+import { VerificationService } from '../../services/VerificationService';
+import { VerificationState } from '../../crypto/types/CryptoTypes';
 import media from '@ohos.multimedia.media';
 import { AppLogger } from '../../utils/AppLogger';
 
 
 interface BubbleThemeColors {
   bg: string;
+  bgSoft: string;
   text: string;
   textSecondary: string;
+  textMute: string;
+  textMute2: string;
+  textFaint: string;
   inputBg: string;
   primary: string;
+  primaryDeep: string;
+  primarySoft: string;
+  onPrimary: string;
   error: string;
+  success: string;
+  warning: string;
   divider: string;
+  dividerStrong: string;
+  dividerCool: string;
+  surface: string;
+  surfaceNight: string;
+  surfaceNightSoft: string;
   headerBg: string;
   messageBg: string;
   outgoingBg: string;
@@ -36,6 +52,8 @@ export struct MessageBubble {
   onLongPress: (message: Message) => void = () => {
   };
   private mediaManager: MediaManager = MediaManager.getInstance();
+  private verificationService: VerificationService = VerificationService.getInstance();
+  @State deviceTrustLevel: VerificationState = VerificationState.UNVERIFIED;
 
   aboutToAppear(): void {
     // 解析语音消息的时长 (如果有的话)
@@ -177,15 +195,29 @@ export struct MessageBubble {
     const base = getThemeColors();
     return {
       bg: base.bg,
+      bgSoft: base.bgSoft,
       text: base.text,
       textSecondary: base.textSecondary,
+      textMute: base.textMute,
+      textMute2: base.textMute2,
+      textFaint: base.textFaint,
       inputBg: base.inputBg,
       primary: base.primary,
-      error: '#e53935',
+      primaryDeep: base.primaryDeep,
+      primarySoft: base.primarySoft,
+      onPrimary: base.onPrimary,
+      error: base.error,
+      success: base.success,
+      warning: base.warning,
       divider: base.divider,
+      dividerStrong: base.dividerStrong,
+      dividerCool: base.dividerCool,
+      surface: base.surface,
+      surfaceNight: base.surfaceNight,
+      surfaceNightSoft: base.surfaceNightSoft,
       headerBg: base.surface,
       messageBg: base.surface,
-      outgoingBg: '#10a37f'
+      outgoingBg: base.primary
     };
   }
 
@@ -194,9 +226,39 @@ export struct MessageBubble {
     return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
   }
 
+  /**
+   * Get verification status icon for a sender
+   */
+  private getVerificationIcon(): string {
+    if (!this.message.sender) {
+      return '';
+    }
+
+    // In a real implementation, look up the sender's device trust level
+    // For now, return a default icon
+    return '✓';
+  }
+
+  /**
+   * Get verification status color
+   */
+  private getVerificationColor(): string {
+    switch (this.deviceTrustLevel) {
+      case VerificationState.VERIFIED:
+        return this.getThemeColors().success;
+      case VerificationState.BLOCKED:
+        return this.getThemeColors().error;
+      default:
+        return this.getThemeColors().textMute2;
+    }
+  }
+
   build() {
     Column() {
-      if (this.message.replyEventId) {
+      // Handle encrypted messages
+      if (this.message.isEncryptedMessage()) {
+        this.buildEncryptedMessage();
+      } else if (this.message.replyEventId) {
         Row() {
           Text('↳ ')
             .fontSize(12)
@@ -232,7 +294,7 @@ export struct MessageBubble {
           // 发送方的排版：时长在左，波形在右
           if (this.isOutgoing) {
             Text(this.getVoiceDurationText())
-              .fontSize(14).fontColor($r('sys.color.white')).opacity(0.8).margin({ right: 8 })
+              .fontSize(14).fontColor(this.getThemeColors().onPrimary).opacity(0.8).margin({ right: 8 })
           }
 
           // 🌀 纯代码手绘的三段式声波 (模拟微信效果)
@@ -244,14 +306,14 @@ export struct MessageBubble {
             Text(')')
               .fontSize(16)
               .fontWeight(FontWeight.Bold)
-              .fontColor(this.isOutgoing ? '#ffffff' : this.getThemeColors().primary)
+              .fontColor(this.isOutgoing ? this.getThemeColors().onPrimary : this.getThemeColors().primary)
               .opacity(this.waveIndex >= 2 ? 1 : 0) // 隐藏时用透明度，保持占位
 
             // 第三条弧线
             Text(')')
               .fontSize(20)
               .fontWeight(FontWeight.Bold)
-              .fontColor(this.isOutgoing ? '#ffffff' : this.getThemeColors().primary)
+              .fontColor(this.isOutgoing ? this.getThemeColors().onPrimary : this.getThemeColors().primary)
               .opacity(this.waveIndex >= 3 ? 1 : 0)
               .margin({ left: -6 }) // 紧凑一点
           }
@@ -266,7 +328,7 @@ export struct MessageBubble {
           }
         }
         .backgroundColor(this.isOutgoing ? this.getThemeColors().outgoingBg : this.getThemeColors().messageBg)
-        .borderRadius(18)
+        .borderRadius(12)
         .padding({
           left: 16,
           right: 16,
@@ -297,18 +359,18 @@ export struct MessageBubble {
           Column() {
             Text(this.message.getMessageBody())
               .fontSize(14)
-              .fontColor(this.isOutgoing ? '#ffffff' : this.getThemeColors().text)
+              .fontColor(this.isOutgoing ? this.getThemeColors().onPrimary : this.getThemeColors().text)
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis });
             Text('文件')
               .fontSize(12)
-              .fontColor(this.isOutgoing ? '#cccccc' : this.getThemeColors().textSecondary);
+              .fontColor(this.isOutgoing ? this.getThemeColors().textFaint : this.getThemeColors().textSecondary);
           }
           .layoutWeight(1)
           .margin({ left: 8 });
         }
         .backgroundColor(this.isOutgoing ? this.getThemeColors().outgoingBg : this.getThemeColors().messageBg)
-        .borderRadius(18)
+        .borderRadius(12)
         .padding(12)
         .alignItems(VerticalAlign.Center)
         .gesture(
@@ -322,7 +384,7 @@ export struct MessageBubble {
         Row() {
           Text(this.message.getMessageBody())
             .fontSize(16)
-            .fontColor(this.isOutgoing ? '#ffffff' : this.getThemeColors().text)
+            .fontColor(this.isOutgoing ? this.getThemeColors().onPrimary : this.getThemeColors().text)
             .margin({
               left: 12,
               right: 12,
@@ -333,17 +395,17 @@ export struct MessageBubble {
           if (this.message.status === MessageStatus.SENDING) {
             Text('...')
               .fontSize(12)
-              .fontColor('#cccccc')
+              .fontColor(this.getThemeColors().textFaint)
               .margin({ right: 8 });
           } else if (this.message.status === MessageStatus.FAILED) {
             Text('!')
               .fontSize(12)
-              .fontColor('#e53935')
+              .fontColor(this.getThemeColors().error)
               .margin({ right: 8 });
           }
         }
         .backgroundColor(this.isOutgoing ? this.getThemeColors().outgoingBg : this.getThemeColors().messageBg)
-        .borderRadius(18)
+        .borderRadius(12)
         .alignItems(VerticalAlign.Bottom)
         .gesture(
           LongPressGesture()
@@ -353,13 +415,91 @@ export struct MessageBubble {
         );
       }
 
-      Text(this.formatTime(this.message.timestamp))
-        .fontSize(11)
-        .fontColor(this.getThemeColors().textSecondary)
-        .margin({ top: 2 });
+      // Message footer with time and verification status
+      Row() {
+        Text(this.formatTime(this.message.timestamp))
+          .fontSize(11)
+          .fontColor(this.getThemeColors().textSecondary);
+
+        // Show verification indicator for non-outgoing messages
+        if (!this.isOutgoing && this.message.sender) {
+          Text(this.getVerificationIcon())
+            .fontSize(10)
+            .fontColor(this.getVerificationColor())
+            .margin({ left: 4 });
+        }
+      }
+      .margin({ top: 2 });
     }
     .width('100%')
     .alignItems(this.isOutgoing ? HorizontalAlign.End : HorizontalAlign.Start)
     .margin({ top: 5, bottom: 5 });
+  }
+
+  @Builder
+  buildEncryptedMessage() {
+    Column() {
+      if (this.message.isDecryptionFailed()) {
+        // Show decryption error with retry option
+        Row() {
+          Text('🔒')
+            .fontSize(16)
+            .margin({ right: 6 });
+          Column() {
+            Text('Unable to decrypt')
+              .fontSize(14)
+              .fontColor(this.getThemeColors().textSecondary);
+            Text(this.message.getDecryptionError() || 'Unknown error')
+              .fontSize(12)
+              .fontColor(this.getThemeColors().textMute2)
+              .margin({ top: 2 });
+
+            // Show retry button for retryable errors
+            if (this.message.isRetryableDecryptionError()) {
+              Text('Tap to retry')
+                .fontSize(12)
+                .fontColor(this.getThemeColors().primary)
+                .margin({ top: 4 })
+                .onClick(() => {
+                  // Request keys for this message
+                  ToastUtils.show('Requesting encryption keys...');
+                });
+            }
+          }
+          .alignItems(HorizontalAlign.Start);
+        }
+        .width('100%')
+        .padding({ left: 12, right: 12, top: 10, bottom: 10 })
+        .backgroundColor(this.isOutgoing ? this.getThemeColors().outgoingBg : this.getThemeColors().messageBg)
+        .borderRadius(12)
+        .gesture(
+          LongPressGesture()
+            .onAction(() => {
+              this.onLongPress(this.message);
+            })
+        );
+      } else {
+        // Show encrypted message placeholder
+        Row() {
+          Text('🔒')
+            .fontSize(16)
+            .margin({ right: 6 });
+          Text('Encrypted message')
+            .fontSize(14)
+            .fontColor(this.getThemeColors().textSecondary)
+            .opacity(0.8);
+        }
+        .width('100%')
+        .padding({ left: 12, right: 12, top: 10, bottom: 10 })
+        .backgroundColor(this.isOutgoing ? this.getThemeColors().outgoingBg : this.getThemeColors().messageBg)
+        .borderRadius(12)
+        .gesture(
+          LongPressGesture()
+            .onAction(() => {
+              this.onLongPress(this.message);
+            })
+        );
+      }
+    }
   }
 }

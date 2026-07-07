@@ -9,10 +9,27 @@ interface MemberPresence {
 
 interface MemberPanelThemeColors {
   bg: string;
+  bgSoft: string;
   text: string;
   textSecondary: string;
+  textMute: string;
+  textMute2: string;
+  textFaint: string;
+  inputBg: string;
   primary: string;
+  primaryDeep: string;
+  primarySoft: string;
+  onPrimary: string;
+  error: string;
+  success: string;
+  warning: string;
   divider: string;
+  dividerStrong: string;
+  dividerCool: string;
+  surface: string;
+  surfaceNight: string;
+  surfaceNightSoft: string;
+  tabBg: string;
 }
 
 @Component
@@ -25,10 +42,27 @@ export struct MemberListPanel {
     const base = getThemeColors();
     return {
       bg: base.bg,
+      bgSoft: base.bgSoft,
       text: base.text,
       textSecondary: base.textSecondary,
+      textMute: base.textMute,
+      textMute2: base.textMute2,
+      textFaint: base.textFaint,
+      inputBg: base.inputBg,
       primary: base.primary,
-      divider: base.divider
+      primaryDeep: base.primaryDeep,
+      primarySoft: base.primarySoft,
+      onPrimary: base.onPrimary,
+      error: base.error,
+      success: base.success,
+      warning: base.warning,
+      divider: base.divider,
+      dividerStrong: base.dividerStrong,
+      dividerCool: base.dividerCool,
+      surface: base.surface,
+      surfaceNight: base.surfaceNight,
+      surfaceNightSoft: base.surfaceNightSoft,
+      tabBg: base.tabBg
     };
   }
 
@@ -46,15 +80,16 @@ export struct MemberListPanel {
   }
 
   getPresenceColor(presence: PresenceState): string {
+    const colors = getThemeColors();
     switch (presence) {
       case 'online':
-        return '#4CAF50';
+        return colors.success;
       case 'offline':
-        return '#9E9E9E';
+        return colors.textMute;
       case 'unavailable':
-        return '#FF9800';
+        return colors.warning;
       default:
-        return '#9E9E9E';
+        return colors.textMute;
     }
   }
 
@@ -100,7 +135,7 @@ export struct MemberListPanel {
                   Text(member.displayName.charAt(0).toUpperCase())
                     .fontSize(16)
                     .fontWeight(FontWeight.Bold)
-                    .fontColor('#ffffff')
+                    .fontColor(this.getThemeColors().onPrimary)
                     .width(36)
                     .height(36)
                     .borderRadius(18)

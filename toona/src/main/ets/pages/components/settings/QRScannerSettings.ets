@@ -37,7 +37,7 @@ export struct QRScannerSettings {
           Button('扫码')
             .fontSize(12)
             .backgroundColor(getThemeColors().primary)
-            .fontColor('#ffffff')
+            .fontColor(getThemeColors().onPrimary)
             .padding({
               left: 16,
               right: 16,

@@ -13,7 +13,7 @@ export struct DeviceManagement {
         Text('设备管理')
           .fontSize(16)
           .fontWeight(FontWeight.Medium)
-          .fontColor('#333333');
+          .fontColor(getThemeColors().text);
       }
       .width('100%')
       .padding({
@@ -27,7 +27,7 @@ export struct DeviceManagement {
         if (this.devices.length === 0) {
           Text('暂无设备信息')
             .fontSize(14)
-            .fontColor('#999999')
+            .fontColor(getThemeColors().textMute2)
             .padding({
               left: 20,
               right: 20,
@@ -40,10 +40,10 @@ export struct DeviceManagement {
               Column() {
                 Text(device.display_name || '未知设备')
                   .fontSize(14)
-                  .fontColor('#333333');
+                  .fontColor(getThemeColors().text);
                 Text(device.device_id || '')
                   .fontSize(11)
-                  .fontColor('#999999')
+                  .fontColor(getThemeColors().textMute2)
                   .margin({ top: 2 });
               }
               .alignItems(HorizontalAlign.Start)
@@ -52,8 +52,8 @@ export struct DeviceManagement {
               if (device.device_id === this.currentDeviceId) {
                 Text('当前设备')
                   .fontSize(12)
-                  .fontColor('#10a37f')
-                  .backgroundColor('#e8f5e9')
+                  .fontColor(getThemeColors().primary)
+                  .backgroundColor(getThemeColors().bgSoft)
                   .padding({
                     left: 8,
                     right: 8,
@@ -64,8 +64,8 @@ export struct DeviceManagement {
               } else {
                 Button('删除')
                   .fontSize(12)
-                  .backgroundColor('#ffebee')
-                  .fontColor('#e53935')
+                  .backgroundColor(getThemeColors().bgSoft)
+                  .fontColor(getThemeColors().error)
                   .height(28)
                   .borderRadius(6)
                   .onClick(() => {
@@ -84,7 +84,7 @@ export struct DeviceManagement {
         }
       }
       .width('100%')
-      .backgroundColor('#ffffff');
+      .backgroundColor(getThemeColors().surface);
     }
     .width('100%')
     .margin({ top: 10 });

@@ -8,11 +8,11 @@ export struct LogoutButton {
     Column() {
       Button('退出登录')
         .fontSize(16)
-        .fontColor('#e53935')
-        .backgroundColor($r('sys.color.white'))
+        .fontColor(getThemeColors().error)
+        .backgroundColor(getThemeColors().surface)
         .width('100%')
         .height(48)
-        .borderRadius(8)
+        .borderRadius(6)
         .margin({
           top: 20,
           left: 20,
@@ -24,7 +24,7 @@ export struct LogoutButton {
         });
     }
     .width('100%')
-    .backgroundColor($r('sys.color.white'))
+    .backgroundColor(getThemeColors().surface)
     .margin({ top: 10 });
   }
 }

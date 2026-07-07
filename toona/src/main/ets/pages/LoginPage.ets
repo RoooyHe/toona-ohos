@@ -223,6 +223,7 @@ struct LoginPage {
               .fontSize(40)
               .fontWeight(FontWeight.Bold)
               .fontColor(getThemeColors().primary)
+              .letterSpacing(-1.2)
               .margin({ bottom: 10 });
             Text('Matrix IM Client')
               .fontSize(16)
@@ -237,7 +238,7 @@ struct LoginPage {
               .height(50)
               .fontSize(16)
               .backgroundColor(getThemeColors().inputBg)
-              .borderRadius(10)
+              .borderRadius(6)
               .margin({ bottom: 15 })
               .onChange((value: string) => {
                 this.homeserver = value;
@@ -247,7 +248,7 @@ struct LoginPage {
               .height(50)
               .fontSize(16)
               .backgroundColor(getThemeColors().inputBg)
-              .borderRadius(10)
+              .borderRadius(6)
               .margin({ bottom: 15 })
               .onChange((value: string) => {
                 this.userId = value;
@@ -257,7 +258,7 @@ struct LoginPage {
               .height(50)
               .fontSize(16)
               .backgroundColor(getThemeColors().inputBg)
-              .borderRadius(10)
+              .borderRadius(6)
               .type(InputType.Password)
               .margin({ bottom: 10 })
               .onChange((value: string) => {
@@ -304,7 +305,8 @@ struct LoginPage {
               .fontSize(18)
               .fontWeight(FontWeight.Medium)
               .backgroundColor(getThemeColors().primary)
-              .borderRadius(10)
+              .fontColor(getThemeColors().onPrimary)
+              .borderRadius(6)
               .margin({ top: 10 })
               .enabled(!this.isLoading && !this.isDiscovering)
               .onClick(() => {
@@ -334,9 +336,9 @@ struct LoginPage {
               .fontWeight(FontWeight.Medium)
               .backgroundColor(getThemeColors().bg)
               .fontColor(getThemeColors().primary)
-              .borderRadius(10)
+              .borderRadius(6)
               .borderWidth(1)
-              .borderColor(getThemeColors().primary)
+              .borderColor(getThemeColors().dividerStrong)
               .enabled(!this.isLoading && !this.isDiscovering)
               .onClick(() => {
                 this.handleSSOLogin();
@@ -348,8 +350,8 @@ struct LoginPage {
               .fontSize(18)
               .fontWeight(FontWeight.Medium)
               .backgroundColor(getThemeColors().primary)
-              .fontColor('#ffffff')
-              .borderRadius(10)
+              .fontColor(getThemeColors().onPrimary)
+              .borderRadius(6)
               .margin({ top: 10 })
               .enabled(!this.isLoading && !this.isDiscovering)
               .onClick(() => {

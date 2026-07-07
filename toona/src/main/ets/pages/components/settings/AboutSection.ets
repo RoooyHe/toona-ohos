@@ -119,11 +119,11 @@ export struct AboutSection {
         Row() {
           Text('隐私政策')
             .fontSize(14)
-            .fontColor('#10a37f');
+            .fontColor(getThemeColors().primary);
           Blank();
           Text('→')
             .fontSize(14)
-            .fontColor('#10a37f');
+            .fontColor(getThemeColors().primary);
         }
         .width('100%')
         .padding({
@@ -141,11 +141,11 @@ ToastUtils.show('隐私政策页面开发中');
         Row() {
           Text('服务条款')
             .fontSize(14)
-            .fontColor('#10a37f');
+            .fontColor(getThemeColors().primary);
           Blank();
           Text('→')
             .fontSize(14)
-            .fontColor('#10a37f');
+            .fontColor(getThemeColors().primary);
         }
         .width('100%')
         .padding({
@@ -163,11 +163,11 @@ ToastUtils.show('服务条款页面开发中');
         Row() {
           Text('开放源代码')
             .fontSize(14)
-            .fontColor('#10a37f');
+            .fontColor(getThemeColors().primary);
           Blank();
           Text('→')
             .fontSize(14)
-            .fontColor('#10a37f');
+            .fontColor(getThemeColors().primary);
         }
         .width('100%')
         .padding({

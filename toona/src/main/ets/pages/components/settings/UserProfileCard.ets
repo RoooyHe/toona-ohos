@@ -25,11 +25,12 @@ export struct UserProfileCard {
   }
 
   getPresenceColor(state: PresenceState): string {
+    const colors = getThemeColors();
     switch (state) {
-      case 'online': return '#4CAF50';
-      case 'offline': return '#9E9E9E';
-      case 'unavailable': return '#FF9800';
-      default: return '#9E9E9E';
+      case 'online': return colors.success;
+      case 'offline': return colors.textMute;
+      case 'unavailable': return colors.warning;
+      default: return colors.textMute;
     }
   }
 
@@ -71,11 +72,11 @@ export struct UserProfileCard {
               Text(this.getAvatarInitials())
                 .fontSize(24)
                 .fontWeight(FontWeight.Bold)
-                .fontColor('#ffffff')
+                .fontColor(getThemeColors().onPrimary)
                 .width(60)
                 .height(60)
                 .borderRadius(30)
-                .backgroundColor('#10a37f')
+                .backgroundColor(getThemeColors().primary)
                 .textAlign(TextAlign.Center);
             }
 
@@ -84,7 +85,7 @@ export struct UserProfileCard {
                 .width(14)
                 .height(14)
                 .fill(this.getPresenceColor(this.presence))
-                .stroke('#ffffff')
+                .stroke(getThemeColors().surface)
                 .strokeWidth(2);
             }
             .width(14)
@@ -94,11 +95,11 @@ export struct UserProfileCard {
             Row() {
               Text('✎')
                 .fontSize(10)
-                .fontColor('#ffffff')
+                .fontColor(getThemeColors().onPrimary)
                 .width(18)
                 .height(18)
                 .borderRadius(9)
-                .backgroundColor('#10a37f')
+                .backgroundColor(getThemeColors().primary)
                 .textAlign(TextAlign.Center)
                 .onClick(() => {
                   this.onPickAvatar();
@@ -127,8 +128,8 @@ export struct UserProfileCard {
 
                 Button('保存')
                   .fontSize(12)
-                  .backgroundColor('#10a37f')
-                  .fontColor('#ffffff')
+                  .backgroundColor(getThemeColors().primary)
+                  .fontColor(getThemeColors().onPrimary)
                   .width(50)
                   .height(30)
                   .borderRadius(6)

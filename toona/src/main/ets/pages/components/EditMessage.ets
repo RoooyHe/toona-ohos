@@ -3,10 +3,27 @@ import { getThemeColors } from '../../utils/ThemeManager';
 
 interface EditMessageThemeColors {
   bg: string;
+  bgSoft: string;
   text: string;
   textSecondary: string;
+  textMute: string;
+  textMute2: string;
+  textFaint: string;
   inputBg: string;
   primary: string;
+  primaryDeep: string;
+  primarySoft: string;
+  onPrimary: string;
+  error: string;
+  success: string;
+  warning: string;
+  divider: string;
+  dividerStrong: string;
+  dividerCool: string;
+  surface: string;
+  surfaceNight: string;
+  surfaceNightSoft: string;
+  tabBg: string;
 }
 
 @Component
@@ -20,10 +37,27 @@ export struct EditMessage {
     const base = getThemeColors();
     return {
       bg: base.bg,
+      bgSoft: base.bgSoft,
       text: base.text,
       textSecondary: base.textSecondary,
+      textMute: base.textMute,
+      textMute2: base.textMute2,
+      textFaint: base.textFaint,
       inputBg: base.inputBg,
-      primary: base.primary
+      primary: base.primary,
+      primaryDeep: base.primaryDeep,
+      primarySoft: base.primarySoft,
+      onPrimary: base.onPrimary,
+      error: base.error,
+      success: base.success,
+      warning: base.warning,
+      divider: base.divider,
+      dividerStrong: base.dividerStrong,
+      dividerCool: base.dividerCool,
+      surface: base.surface,
+      surfaceNight: base.surfaceNight,
+      surfaceNightSoft: base.surfaceNightSoft,
+      tabBg: base.tabBg
     };
   }
 
@@ -73,7 +107,7 @@ export struct EditMessage {
           Button('保存')
             .fontSize(12)
             .backgroundColor(this.getThemeColors().primary)
-            .fontColor('#ffffff')
+            .fontColor(this.getThemeColors().onPrimary)
             .width(48)
             .height(28)
             .borderRadius(6)

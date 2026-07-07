@@ -10,6 +10,9 @@ import { ServiceCollaborationManager } from '../services/ServiceCollaborationMan
 import { DeviceSecurityManager } from '../services/DeviceSecurityManager';
 import { ScanManager } from '../services/ScanManager';
 import { UserAuthManager } from '../services/UserAuthManager';
+import { CryptoService } from '../services/CryptoService';
+import { VerificationService } from '../services/VerificationService';
+import { VerificationState } from '../crypto/types/CryptoTypes';
 import { Room } from '../models/DataModels';
 import { Device } from '../models/MatrixTypes';
 import { PresenceState } from '../models/MatrixTypes';
@@ -56,6 +59,8 @@ export struct SettingsPage {
   @State selectedRoomForTags: Room | null = null;
   @State showAboutPage: boolean = false;
   @State colorModeType: ColorModeType = 'light';
+  @State isE2EEEnabled: boolean = false;
+  @State deviceId: string = '';
   private authManager: AuthManager = AuthManager.getInstance();
   private userManager: UserManager = UserManager.getInstance();
   private presenceManager: PresenceManager = PresenceManager.getInstance();
@@ -68,6 +73,8 @@ export struct SettingsPage {
   private deviceSecurityManager: DeviceSecurityManager = DeviceSecurityManager.getInstance();
   private scanManager: ScanManager = ScanManager.getInstance();
   private userAuthManager: UserAuthManager = UserAuthManager.getInstance();
+  private cryptoService: CryptoService = CryptoService.getInstance();
+  private verificationService: VerificationService = VerificationService.getInstance();
   private logger = AppLogger.getLogger(SettingsPage);
   @Prop pathStack: NavPathStack;
 
@@ -78,6 +85,7 @@ export struct SettingsPage {
     }
     this.colorModeType = this.themeManager.getColorModeType();
     this.loadUserData();
+    this.loadEncryptionStatus();
   }
 
   setColorMode(mode: ColorModeType) {
@@ -267,7 +275,7 @@ export struct SettingsPage {
                 .height(40);
               Text('加载中...')
                 .fontSize(14)
-                .fontColor('#999999')
+                .fontColor(getThemeColors().textMute2)
                 .margin({ top: 10 });
             }
             .width('100%')
@@ -353,6 +361,167 @@ export struct SettingsPage {
               }
             });
 
+            // Encryption Settings Section
+            Column() {
+              Row() {
+                Text('加密设置')
+                  .fontSize(16)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor(getThemeColors().text);
+              }
+              .width('100%')
+              .padding({
+                left: 20,
+                right: 20,
+                top: 15,
+                bottom: 10
+              });
+
+              Column() {
+                Row() {
+                  Text('端到端加密')
+                    .fontSize(14)
+                    .fontColor(getThemeColors().text);
+                  Blank();
+                  Toggle({ type: ToggleType.Switch, isOn: this.isE2EEEnabled })
+                    .selectedColor(getThemeColors().primary)
+                    .onChange((isOn: boolean) => {
+                      this.toggleE2EE(isOn);
+                    });
+                }
+                .width('100%')
+                .padding({
+                  left: 20,
+                  right: 20,
+                  top: 12,
+                  bottom: 12
+                });
+
+                if (this.isE2EEEnabled) {
+                  Divider().color(getThemeColors().divider);
+
+                  Row() {
+                    Text('设备ID')
+                      .fontSize(14)
+                      .fontColor(getThemeColors().textSecondary);
+                    Blank();
+                    Text(this.deviceId || '未初始化')
+                      .fontSize(14)
+                      .fontColor(getThemeColors().textMute2);
+                  }
+                  .width('100%')
+                  .padding({
+                    left: 20,
+                    right: 20,
+                    top: 12,
+                    bottom: 12
+                  });
+
+                  Divider().color(getThemeColors().divider);
+
+                  Row() {
+                    Text('加密状态')
+                      .fontSize(14)
+                      .fontColor(getThemeColors().textSecondary);
+                    Blank();
+                    Row() {
+                      Circle()
+                        .width(8)
+                        .height(8)
+                        .fill(this.isE2EEEnabled ? getThemeColors().success : getThemeColors().textMute);
+                      Text(this.isE2EEEnabled ? '已启用' : '未启用')
+                        .fontSize(14)
+                        .fontColor(getThemeColors().textMute2)
+                        .margin({ left: 6 });
+                    }
+                  }
+                  .width('100%')
+                  .padding({
+                    left: 20,
+                    right: 20,
+                    top: 12,
+                    bottom: 12
+                  });
+                }
+              }
+              .width('100%')
+              .backgroundColor(getThemeColors().surface);
+            }
+            .width('100%')
+            .margin({ top: 10 });
+
+            // Verification Settings Section
+            Column() {
+              Row() {
+                Text('设备验证')
+                  .fontSize(16)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor(getThemeColors().text);
+              }
+              .width('100%')
+              .padding({
+                left: 20,
+                right: 20,
+                top: 15,
+                bottom: 10
+              });
+
+              Column() {
+                Row() {
+                  Text('验证状态')
+                    .fontSize(14)
+                    .fontColor(getThemeColors().textSecondary);
+                  Blank();
+                  Text(this.isE2EEEnabled ? '设备已验证' : '未验证')
+                    .fontSize(14)
+                    .fontColor(this.isE2EEEnabled ? getThemeColors().success : getThemeColors().textMute2);
+                }
+                .width('100%')
+                .padding({
+                  left: 20,
+                  right: 20,
+                  top: 12,
+                  bottom: 12
+                });
+
+                if (this.isE2EEEnabled) {
+                  Divider().color(getThemeColors().divider);
+
+                  Row() {
+                    Text('验证其他设备')
+                      .fontSize(14)
+                      .fontColor(getThemeColors().text);
+                    Blank();
+                    Button('开始验证')
+                      .fontSize(12)
+                      .backgroundColor(getThemeColors().primary)
+                      .fontColor(getThemeColors().onPrimary)
+                      .borderRadius(6)
+                      .padding({
+                        left: 12,
+                        right: 12,
+                        top: 6,
+                        bottom: 6
+                      })
+                      .onClick(() => {
+                        this.startDeviceVerification();
+                      });
+                  }
+                  .width('100%')
+                  .padding({
+                    left: 20,
+                    right: 20,
+                    top: 12,
+                    bottom: 12
+                  });
+                }
+              }
+              .width('100%')
+              .backgroundColor(getThemeColors().surface);
+            }
+            .width('100%')
+            .margin({ top: 10 });
+
             BiometricSettings({
               onToggleBiometric: (enable: boolean) => {
                 this.onToggleBiometric(enable);
@@ -388,6 +557,50 @@ export struct SettingsPage {
     .width('100%')
     .height('100%')
     .hideTitleBar(true);
+  }
+
+  async toggleE2EE(enable: boolean) {
+    if (enable) {
+      try {
+        await this.cryptoService.initialize();
+        this.isE2EEEnabled = true;
+        this.deviceId = this.cryptoService.getDeviceId();
+        ToastUtils.show('端到端加密已启用');
+      } catch (error) {
+        this.logger.error('Failed to enable E2EE: %{public}s', error.message);
+        ToastUtils.show('启用加密失败');
+        this.isE2EEEnabled = false;
+      }
+    } else {
+      ToastUtils.show('端到端加密当前无法关闭');
+    }
+  }
+
+  loadEncryptionStatus() {
+    this.isE2EEEnabled = this.cryptoService.isInitialized();
+    if (this.isE2EEEnabled) {
+      this.deviceId = this.cryptoService.getDeviceId();
+    }
+  }
+
+  async startDeviceVerification() {
+    if (!this.isE2EEEnabled) {
+      ToastUtils.show('请先启用端到端加密');
+      return;
+    }
+
+    try {
+      // For demo purposes, we'll show a toast
+      // In a real implementation, this would open a device list and allow selecting a device to verify
+      ToastUtils.show('设备验证功能开发中');
+
+      // Example of starting SAS verification:
+      // const transactionId = await this.verificationService.startSasVerification(userId, deviceId);
+      // Then show the SAS verification dialog with the transactionId
+    } catch (error) {
+      this.logger.error('Failed to start device verification: %{public}s', error.message);
+      ToastUtils.show('启动验证失败');
+    }
   }
 
   async handleLogout() {

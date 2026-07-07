@@ -14,7 +14,7 @@ export struct SettingsHeader {
       .padding({ left: 10, right: 10 })
       .backgroundColor(getThemeColors().bg);
 
-      Divider().color('#f0f0f0');
+      Divider().color(getThemeColors().divider);
     }
   }
 }

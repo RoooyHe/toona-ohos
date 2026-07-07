@@ -55,7 +55,7 @@ struct SpaceListItem {
           .toUpperCase())
           .fontSize(14)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#ffffff')
+          .fontColor(getThemeColors().onPrimary)
           .width(32)
           .height(32)
           .borderRadius(16)

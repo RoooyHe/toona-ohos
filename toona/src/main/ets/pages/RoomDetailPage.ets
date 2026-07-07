@@ -890,7 +890,7 @@ struct RoomDetailPage {
         Button('离开房间')
           .fontSize(16)
           .backgroundColor(getThemeColors().bg)
-          .fontColor('#e53935')
+          .fontColor(getThemeColors().error)
           .width('100%')
           .height(44)
           .onClick(() => {

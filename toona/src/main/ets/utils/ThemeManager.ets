@@ -3,15 +3,41 @@ import ConfigurationConstant from '@ohos.app.ability.ConfigurationConstant';
 export type ColorModeType = 'light' | 'dark' | 'system';
 
 export interface ThemeColors {
+  // Surfaces
   bg: string;
+  bgSoft: string;
+  surface: string;
+  surfaceNight: string;
+  surfaceNightSoft: string;
+
+  // Text
   text: string;
   textSecondary: string;
-  inputBg: string;
+  textMute: string;
+  textMute2: string;
+  textFaint: string;
+
+  // Brand
   primary: string;
+  primaryDeep: string;
+  primarySoft: string;
+  onPrimary: string;
+
+  // Borders
   divider: string;
-  surface: string;
-  tabBg: string;
+  dividerStrong: string;
+  dividerCool: string;
+
+  // Semantic
   error: string;
+  success: string;
+  warning: string;
+
+  // Form
+  inputBg: string;
+
+  // Tab
+  tabBg: string;
 }
 
 export class ThemeManager {
@@ -83,26 +109,52 @@ export class ThemeManager {
     if (dark) {
       return {
         bg: '#1a1a1a',
-        text: '#ffffff',
-        textSecondary: '#999999',
-        inputBg: '#2a2a2a',
-        primary: '#10a37f',
-        divider: '#3a3a3a',
+        bgSoft: '#222222',
         surface: '#2a2a2a',
-        tabBg: '#2a2a2a',
-        error: '#e53935'
+        surfaceNight: '#1c1c1c',
+        surfaceNightSoft: '#202020',
+        text: '#ffffff',
+        textSecondary: '#cccccc',
+        textMute: '#999999',
+        textMute2: '#777777',
+        textFaint: '#555555',
+        primary: '#3ecf8e',
+        primaryDeep: '#24b47e',
+        primarySoft: '#4ade80',
+        onPrimary: '#171717',
+        divider: '#3a3a3a',
+        dividerStrong: '#555555',
+        dividerCool: '#333333',
+        error: '#e53935',
+        success: '#4CAF50',
+        warning: '#FF9800',
+        inputBg: '#2a2a2a',
+        tabBg: '#2a2a2a'
       };
     }
     return {
       bg: '#ffffff',
-      text: '#333333',
-      textSecondary: '#999999',
-      inputBg: '#f5f5f5',
-      primary: '#10a37f',
-      divider: '#f0f0f0',
+      bgSoft: '#fafafa',
       surface: '#ffffff',
-      tabBg: '#f0f0f0',
-      error: '#e53935'
+      surfaceNight: '#1c1c1c',
+      surfaceNightSoft: '#202020',
+      text: '#171717',
+      textSecondary: '#212121',
+      textMute: '#707070',
+      textMute2: '#9a9a9a',
+      textFaint: '#b2b2b2',
+      primary: '#3ecf8e',
+      primaryDeep: '#24b47e',
+      primarySoft: '#4ade80',
+      onPrimary: '#171717',
+      divider: '#dfdfdf',
+      dividerStrong: '#c7c7c7',
+      dividerCool: '#ededed',
+      error: '#e53935',
+      success: '#4CAF50',
+      warning: '#FF9800',
+      inputBg: '#fafafa',
+      tabBg: '#f0f0f0'
     };
   }
 }

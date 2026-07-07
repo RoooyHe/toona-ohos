@@ -21,11 +21,12 @@ export struct PresenceSettings {
   }
 
   getPresenceColor(state: PresenceState): string {
+    const colors = getThemeColors();
     switch (state) {
-      case 'online': return '#4CAF50';
-      case 'offline': return '#9E9E9E';
-      case 'unavailable': return '#FF9800';
-      default: return '#9E9E9E';
+      case 'online': return colors.success;
+      case 'offline': return colors.textMute;
+      case 'unavailable': return colors.warning;
+      default: return colors.textMute;
     }
   }
 
@@ -91,7 +92,7 @@ export struct PresenceSettings {
                 if (this.presence === state) {
                   Text('✓')
                     .fontSize(14)
-                    .fontColor('#10a37f');
+                    .fontColor(getThemeColors().primary);
                 }
               }
               .width('100%')
@@ -141,11 +142,11 @@ export struct PresenceSettings {
 
         Button('保存状态消息')
           .fontSize(14)
-          .backgroundColor('#10a37f')
-          .fontColor('#ffffff')
+          .backgroundColor(getThemeColors().primary)
+          .fontColor(getThemeColors().onPrimary)
           .width('calc(100% - 40)')
           .height(36)
-          .borderRadius(8)
+          .borderRadius(6)
           .margin({ left: 20, right: 20, bottom: 12 })
           .onClick(() => {
             this.onSaveStatusMessage();

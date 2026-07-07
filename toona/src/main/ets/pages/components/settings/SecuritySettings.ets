@@ -36,8 +36,8 @@ export struct SecuritySettings {
 
           Button('检测')
             .fontSize(12)
-            .backgroundColor('#FF9800')
-            .fontColor('#ffffff')
+            .backgroundColor(getThemeColors().warning)
+            .fontColor(getThemeColors().onPrimary)
             .padding({
               left: 12,
               right: 12,

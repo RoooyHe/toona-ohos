@@ -11,6 +11,8 @@ import { MessageDao } from './dao/MessageDao';
 import { RoomDao } from './dao/RoomDao';
 import { UserDao } from './dao/UserDao';
 import { RoomMemberDao } from './dao/RoomMemberDao';
+import { CryptoDao } from './dao/CryptoDao';
+import { DeviceKeysStorage } from './dao/DeviceKeysDao';
 import { MessageEntity } from './entities/MessageEntity';
 import { RoomEntity } from './entities/RoomEntity';
 import { UserEntity } from './entities/UserEntity';
@@ -47,6 +49,15 @@ export class LocalDatabase {
       this.roomDao = Room.getDao(RoomDao);
       this.userDao = Room.getDao(UserDao);
       this.roomMemberDao = Room.getDao(RoomMemberDao);
+
+      // Initialize CryptoDao for E2EE support
+      const cryptoDao = CryptoDao.getInstance();
+      cryptoDao.init();
+
+      // Initialize DeviceKeysStorage for device key persistence
+      const deviceKeysStorage = DeviceKeysStorage.getInstance();
+      deviceKeysStorage.init();
+
       this.isInitialized = true;
     } catch (error) {
       LocalDatabase.logger.error('Failed to initialize Room database:', error);

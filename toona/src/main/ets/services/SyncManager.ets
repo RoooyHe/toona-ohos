@@ -4,6 +4,7 @@ import { AuthManager } from './AuthManager';
 import { LocalDatabase } from '../database/LocalDatabase';
 import { Room, Message, TagInfo } from '../models/DataModels';
 import { EventProcessor, SyncListener } from './EventProcessor';
+import { CryptoService } from './CryptoService';
 import { Context } from '@kit.AbilityKit';
 import { AppLogger } from '../utils/AppLogger';
 
@@ -46,6 +47,16 @@ export class SyncManager {
 
   async init(context: Context): Promise<void> {
     await this.localDatabase.init(context);
+
+    // Initialize CryptoService for E2EE support
+    try {
+      const cryptoService = CryptoService.getInstance();
+      await cryptoService.initialize();
+      this.logger.info('CryptoService initialized successfully');
+    } catch (error) {
+      this.logger.error('Failed to initialize CryptoService:', error);
+      // Continue without E2EE - app will work for unencrypted rooms
+    }
   }
 
   addListener(listener: SyncListener): void {

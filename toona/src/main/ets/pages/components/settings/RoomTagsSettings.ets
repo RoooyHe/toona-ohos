@@ -17,7 +17,7 @@ export struct RoomTagsSettings {
         Text('房间标签')
           .fontSize(16)
           .fontWeight(FontWeight.Medium)
-          .fontColor('#333333');
+          .fontColor(getThemeColors().text);
       }
       .width('100%')
       .padding({
@@ -31,7 +31,7 @@ export struct RoomTagsSettings {
         Row() {
           Text('收藏的房间')
             .fontSize(14)
-            .fontColor('#666666');
+            .fontColor(getThemeColors().textMute);
         }
         .width('100%')
         .padding({
@@ -44,7 +44,7 @@ export struct RoomTagsSettings {
         if (this.favoriteRooms.length === 0) {
           Text('暂无收藏的房间')
             .fontSize(12)
-            .fontColor('#999999')
+            .fontColor(getThemeColors().textMute2)
             .padding({ left: 20, bottom: 12 });
         } else {
           Column() {
@@ -52,11 +52,11 @@ export struct RoomTagsSettings {
               Row() {
                 Text(room.getDisplayName())
                   .fontSize(14)
-                  .fontColor('#333333')
+                  .fontColor(getThemeColors().text)
                   .layoutWeight(1);
                 Text('★')
                   .fontSize(14)
-                  .fontColor('#FF9800');
+                  .fontColor(getThemeColors().warning);
               }
               .width('100%')
               .padding({
@@ -71,15 +71,15 @@ export struct RoomTagsSettings {
             });
           }
           .width('100%')
-          .backgroundColor('#fafafa');
+          .backgroundColor(getThemeColors().bgSoft);
         }
 
-        Divider().color('#f0f0f0').margin({ top: 8 });
+        Divider().color(getThemeColors().divider).margin({ top: 8 });
 
         Row() {
           Text('低优先级的房间')
             .fontSize(14)
-            .fontColor('#666666');
+            .fontColor(getThemeColors().textMute);
         }
         .width('100%')
         .padding({
@@ -92,7 +92,7 @@ export struct RoomTagsSettings {
         if (this.lowPriorityRooms.length === 0) {
           Text('暂无低优先级的房间')
             .fontSize(12)
-            .fontColor('#999999')
+            .fontColor(getThemeColors().textMute2)
             .padding({ left: 20, bottom: 12 });
         } else {
           Column() {
@@ -100,11 +100,11 @@ export struct RoomTagsSettings {
               Row() {
                 Text(room.getDisplayName())
                   .fontSize(14)
-                  .fontColor('#333333')
+                  .fontColor(getThemeColors().text)
                   .layoutWeight(1);
                 Text('▼')
                   .fontSize(14)
-                  .fontColor('#9E9E9E');
+                  .fontColor(getThemeColors().textMute);
               }
               .width('100%')
               .padding({
@@ -119,15 +119,15 @@ export struct RoomTagsSettings {
             });
           }
           .width('100%')
-          .backgroundColor('#fafafa');
+          .backgroundColor(getThemeColors().bgSoft);
         }
 
-        Divider().color('#f0f0f0').margin({ top: 8 });
+        Divider().color(getThemeColors().divider).margin({ top: 8 });
 
         Row() {
           Text('管理所有房间标签')
             .fontSize(14)
-            .fontColor('#10a37f');
+            .fontColor(getThemeColors().primary);
         }
         .width('100%')
         .padding({
@@ -146,19 +146,19 @@ export struct RoomTagsSettings {
               Row() {
                 Text(room.getDisplayName())
                   .fontSize(14)
-                  .fontColor('#333333')
+                  .fontColor(getThemeColors().text)
                   .layoutWeight(1);
 
                 Text(this.favoriteRooms.some(r => r.id === room.id) ? '★' : '☆')
                   .fontSize(14)
-                  .fontColor(this.favoriteRooms.some(r => r.id === room.id) ? '#FF9800' : '#CCCCCC')
+                  .fontColor(this.favoriteRooms.some(r => r.id === room.id) ? getThemeColors().warning : getThemeColors().textFaint)
                   .onClick(() => {
                     this.onToggleFavorite(room);
                   });
 
                 Text(this.lowPriorityRooms.some(r => r.id === room.id) ? '▼' : '▽')
                   .fontSize(14)
-                  .fontColor(this.lowPriorityRooms.some(r => r.id === room.id) ? '#9E9E9E' : '#CCCCCC')
+                  .fontColor(this.lowPriorityRooms.some(r => r.id === room.id) ? getThemeColors().textMute : getThemeColors().textFaint)
                   .margin({ left: 12 })
                   .onClick(() => {
                     this.onToggleLowPriority(room);
@@ -174,11 +174,11 @@ export struct RoomTagsSettings {
             });
           }
           .width('100%')
-          .backgroundColor('#fafafa');
+          .backgroundColor(getThemeColors().bgSoft);
         }
       }
       .width('100%')
-      .backgroundColor('#ffffff');
+      .backgroundColor(getThemeColors().surface);
     }
     .width('100%')
     .margin({ top: 10 });

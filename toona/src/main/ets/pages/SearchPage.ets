@@ -63,7 +63,7 @@ logger.error('Search failed:', error);
             .height(40)
             .fontSize(16)
             .backgroundColor(getThemeColors().inputBg)
-            .borderRadius(10)
+            .borderRadius(6)
             .fontColor(getThemeColors().text)
             .placeholderColor(getThemeColors().textSecondary)
             .onChange((value: string) => {
@@ -76,10 +76,10 @@ logger.error('Search failed:', error);
           Button('搜索')
             .fontSize(14)
             .backgroundColor(getThemeColors().primary)
-            .fontColor('#ffffff')
+            .fontColor(getThemeColors().onPrimary)
             .width(60)
             .height(40)
-            .borderRadius(10)
+            .borderRadius(6)
             .margin({ left: 10 })
             .onClick(() => {
               this.onSearch();
@@ -151,7 +151,7 @@ logger.error('Search failed:', error);
                     Text(room.getDisplayName().charAt(0).toUpperCase())
                       .fontSize(20)
                       .fontWeight(FontWeight.Bold)
-                      .fontColor('#ffffff')
+                      .fontColor(getThemeColors().onPrimary)
                       .width(50)
                       .height(50)
                       .borderRadius(25)

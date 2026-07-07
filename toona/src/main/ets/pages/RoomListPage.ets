@@ -122,7 +122,7 @@ struct RoomListPage {
                     Text(room.getDisplayName().charAt(0).toUpperCase())
                       .fontSize(20)
                       .fontWeight(FontWeight.Bold)
-                      .fontColor($r('sys.color.white'))
+                      .fontColor(getThemeColors().onPrimary)
                       .width(50)
                       .height(50)
                       .borderRadius(25)
@@ -133,7 +133,7 @@ struct RoomListPage {
                   if (this.favoriteRoomIds.includes(room.id)) {
                     Text('★')
                       .fontSize(14)
-                      .fontColor('#FF9800')
+                      .fontColor(getThemeColors().warning)
                       .position({ x: 35, y: -3 });
                   }
                 }
@@ -169,8 +169,8 @@ struct RoomListPage {
 
                     Text(room.unreadCount > 99 ? '99+' : room.unreadCount.toString())
                       .fontSize(12)
-                      .fontColor('#ffffff')
-                      .backgroundColor(room.unreadCount > 0 ? getThemeColors().primary : '#cccccc')
+                      .fontColor(getThemeColors().onPrimary)
+                      .backgroundColor(room.unreadCount > 0 ? getThemeColors().primary : getThemeColors().textFaint)
                       .borderRadius(10)
                       .padding({
                         left: room.unreadCount > 99 ? 4 : 8,

@@ -313,6 +313,76 @@ export class Message {
   isFileMessage(): boolean {
     return this.getMessageType() === 'm.file';
   }
+
+  /**
+   * Check if this is an encrypted message
+   */
+  isEncryptedMessage(): boolean {
+    return this.type === 'm.room.encrypted';
+  }
+
+  /**
+   * Check if this message failed to decrypt
+   */
+  isDecryptionFailed(): boolean {
+    const body = this.content?.['body'] as string;
+    return body !== undefined && body.startsWith('[Unable to decrypt');
+  }
+
+  /**
+   * Get the decryption error message if decryption failed
+   */
+  getDecryptionError(): string | null {
+    if (!this.isDecryptionFailed()) {
+      return null;
+    }
+    const body = this.content?.['body'] as string;
+    // Extract error from "[Unable to decrypt: ...]"
+    const match = body.match(/\[Unable to decrypt: (.+)\]/);
+    return match ? match[1] : 'Unknown error';
+  }
+
+  /**
+   * Check if the decryption error is retryable
+   * (e.g., missing session that might arrive later)
+   */
+  isRetryableDecryptionError(): boolean {
+    const error = this.getDecryptionError();
+    if (!error) {
+      return false;
+    }
+    // These errors might be resolved if we receive the session later
+    return error === 'No session available for decryption' ||
+           error === 'CryptoService not initialized';
+  }
+
+  /**
+   * Create a message from decrypted content
+   */
+  static fromDecryptedContent(
+    eventId: string,
+    roomId: string,
+    sender: string,
+    type: string,
+    content: Record<string, string | object>,
+    timestamp: number,
+    currentUserId: string
+  ): Message {
+    const isOutgoing = sender === currentUserId;
+
+    // Create a mock event
+    const event: Event = {
+      event_id: eventId,
+      room_id: roomId,
+      sender: sender,
+      type: type,
+      content: content,
+      origin_server_ts: timestamp
+    };
+
+    const msg = new Message(event, isOutgoing);
+    return msg;
+  }
 }
 
 export { MessageStatus };

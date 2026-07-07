@@ -5,8 +5,29 @@ import { AppLogger } from '../utils/AppLogger';
 
 const logger = AppLogger.getLogger('RegisterPage');
 
-interface RegisterThemeColors extends ThemeColors {
+interface RegisterThemeColors {
+  bg: string;
+  bgSoft: string;
+  text: string;
+  textSecondary: string;
+  textMute: string;
+  textMute2: string;
+  textFaint: string;
+  inputBg: string;
+  primary: string;
+  primaryDeep: string;
+  primarySoft: string;
+  onPrimary: string;
+  divider: string;
+  dividerStrong: string;
+  dividerCool: string;
+  surface: string;
+  surfaceNight: string;
+  surfaceNightSoft: string;
+  tabBg: string;
   error: string;
+  success: string;
+  warning: string;
 }
 
 @Builder
@@ -34,14 +55,27 @@ struct RegisterPage {
     const colors = getThemeColors();
     return {
       bg: colors.bg,
+      bgSoft: colors.bgSoft,
       text: colors.text,
       textSecondary: colors.textSecondary,
+      textMute: colors.textMute,
+      textMute2: colors.textMute2,
+      textFaint: colors.textFaint,
       inputBg: colors.inputBg,
       primary: colors.primary,
+      primaryDeep: colors.primaryDeep,
+      primarySoft: colors.primarySoft,
+      onPrimary: colors.onPrimary,
       divider: colors.divider,
+      dividerStrong: colors.dividerStrong,
+      dividerCool: colors.dividerCool,
       surface: colors.surface,
+      surfaceNight: colors.surfaceNight,
+      surfaceNightSoft: colors.surfaceNightSoft,
       tabBg: colors.tabBg,
-      error: colors.error
+      error: colors.error,
+      success: colors.success,
+      warning: colors.warning
     };
   }
 
@@ -129,6 +163,7 @@ struct RegisterPage {
             .fontSize(28)
             .fontWeight(FontWeight.Bold)
             .fontColor(getThemeColors().text)
+            .letterSpacing(-0.42)
             .margin({ bottom: 40 });
 
           TextInput({ placeholder: ' homeserver (如: matrix.org)' })
@@ -136,7 +171,7 @@ struct RegisterPage {
             .height(50)
             .fontSize(16)
             .backgroundColor(getThemeColors().inputBg)
-            .borderRadius(10)
+            .borderRadius(6)
             .margin({ bottom: 15 })
             .textAlign(TextAlign.Start)
             .fontColor(getThemeColors().text)
@@ -150,7 +185,7 @@ struct RegisterPage {
             .height(50)
             .fontSize(16)
             .backgroundColor(getThemeColors().inputBg)
-            .borderRadius(10)
+            .borderRadius(6)
             .margin({ bottom: 15 })
             .fontColor(getThemeColors().text)
             .placeholderColor(getThemeColors().textSecondary)
@@ -163,7 +198,7 @@ struct RegisterPage {
             .height(50)
             .fontSize(16)
             .backgroundColor(getThemeColors().inputBg)
-            .borderRadius(10)
+            .borderRadius(6)
             .type(InputType.Password)
             .margin({ bottom: 15 })
             .fontColor(getThemeColors().text)
@@ -177,7 +212,7 @@ struct RegisterPage {
             .height(50)
             .fontSize(16)
             .backgroundColor(getThemeColors().inputBg)
-            .borderRadius(10)
+            .borderRadius(6)
             .type(InputType.Password)
             .margin({ bottom: 10 })
             .fontColor(getThemeColors().text)
@@ -199,7 +234,8 @@ struct RegisterPage {
             .fontSize(18)
             .fontWeight(FontWeight.Medium)
             .backgroundColor(getThemeColors().primary)
-            .borderRadius(10)
+            .fontColor(getThemeColors().onPrimary)
+            .borderRadius(6)
             .margin({ top: 20 })
             .enabled(!this.isLoading)
             .onClick(() => {

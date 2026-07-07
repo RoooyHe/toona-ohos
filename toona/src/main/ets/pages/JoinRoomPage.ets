@@ -33,15 +33,15 @@ struct CreateRoomDialogContent {
       Text('创建聊天室')
         .fontSize(18)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#ff333333')
+        .fontColor(getThemeColors().text)
         .margin({ bottom: 20 })
 
       TextInput({ placeholder: '房间名称' })
         .width('100%')
         .height(44)
         .fontSize(16)
-        .backgroundColor('#fff5f5f5')
-        .borderRadius(8)
+        .backgroundColor(getThemeColors().inputBg)
+        .borderRadius(6)
         .onChange((value: string) => {
           this.roomName = value;
         })
@@ -49,7 +49,7 @@ struct CreateRoomDialogContent {
       Row() {
         Text('设为公开房间')
           .fontSize(14)
-          .fontColor('#ff333333')
+          .fontColor(getThemeColors().text)
         Blank()
         Toggle({ type: ToggleType.Switch, isOn: this.isPublic })
           .selectedColor(getThemeColors().primary)
@@ -63,11 +63,11 @@ struct CreateRoomDialogContent {
       Row() {
         Button('取消')
           .fontSize(16)
-          .backgroundColor('#fff5f5f5')
-          .fontColor('#ff333333')
+          .backgroundColor(getThemeColors().inputBg)
+          .fontColor(getThemeColors().text)
           .width('45%')
           .height(44)
-          .borderRadius(8)
+          .borderRadius(6)
           .onClick(() => {
             this.dialogController?.dismiss()
           })
@@ -75,10 +75,10 @@ struct CreateRoomDialogContent {
         Button('创建')
           .fontSize(16)
           .backgroundColor(getThemeColors().primary)
-          .fontColor('#ffffff')
+          .fontColor(getThemeColors().onPrimary)
           .width('45%')
           .height(44)
-          .borderRadius(8)
+          .borderRadius(6)
           .onClick(() => {
             this.dialogController?.callEventFromDialog('confirm', {
               roomName: this.roomName,
@@ -91,7 +91,7 @@ struct CreateRoomDialogContent {
     }
     .width('85%')
     .padding(20)
-    .backgroundColor(Color.White)
+    .backgroundColor(getThemeColors().surface)
     .borderRadius(16)
   }
 }
@@ -291,7 +291,7 @@ struct JoinRoomPage {
               .height(44)
               .fontSize(16)
               .backgroundColor(getThemeColors().inputBg)
-              .borderRadius(10)
+              .borderRadius(6)
               .margin({ bottom: 10 })
               .onChange((value: string) => {
                 this.searchQuery = value;
@@ -303,10 +303,10 @@ struct JoinRoomPage {
             Button('搜索')
               .fontSize(14)
               .backgroundColor(getThemeColors().primary)
-              .fontColor('#ffffff')
+              .fontColor(getThemeColors().onPrimary)
               .width('100%')
               .height(40)
-              .borderRadius(10)
+              .borderRadius(6)
               .onClick(() => {
                 this.searchUsers();
               });
@@ -324,7 +324,7 @@ struct JoinRoomPage {
                       Text(user.display_name?.charAt(0).toUpperCase() || user.user_id.charAt(0).toUpperCase())
                         .fontSize(18)
                         .fontWeight(FontWeight.Bold)
-                        .fontColor('#ffffff')
+                        .fontColor(getThemeColors().onPrimary)
                         .width(40)
                         .height(40)
                         .borderRadius(20)
@@ -368,7 +368,7 @@ struct JoinRoomPage {
               Button('+')
                 .fontSize(24)
                 .backgroundColor(getThemeColors().primary)
-                .fontColor('#ffffff')
+                .fontColor(getThemeColors().onPrimary)
                 .width(36)
                 .height(36)
                 .borderRadius(18)
@@ -395,7 +395,7 @@ struct JoinRoomPage {
               .height(44)
               .fontSize(16)
               .backgroundColor(getThemeColors().inputBg)
-              .borderRadius(10)
+              .borderRadius(6)
               .onChange((value: string) => {
                 this.roomAddress = value;
               });
@@ -403,10 +403,10 @@ struct JoinRoomPage {
             Button('Scan')
               .fontSize(20)
               .backgroundColor(getThemeColors().primary)
-              .fontColor('#ffffff')
+              .fontColor(getThemeColors().onPrimary)
               .width(44)
               .height(44)
-              .borderRadius(10)
+              .borderRadius(6)
               .margin({ left: 8 })
               .onClick(() => {
                 this.onScanQRCode();
@@ -415,10 +415,10 @@ struct JoinRoomPage {
             Button(this.isJoining ? '加入中...' : '加入')
               .fontSize(16)
               .backgroundColor(getThemeColors().primary)
-              .fontColor('#ffffff')
+              .fontColor(getThemeColors().onPrimary)
               .width('100%')
               .height(44)
-              .borderRadius(10)
+              .borderRadius(6)
               .margin({ top: 10 })
               .enabled(!this.isJoining)
               .onClick(() => {

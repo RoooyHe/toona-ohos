@@ -30,7 +30,7 @@ struct SpaceRoomItem {
       Text(this.room.getDisplayName().charAt(0).toUpperCase())
         .fontSize(18)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#ffffff')
+        .fontColor(getThemeColors().onPrimary)
         .width(40)
         .height(40)
         .borderRadius(20)
