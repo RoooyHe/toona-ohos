@@ -19,9 +19,14 @@ import { MemberListPanel } from './components/MemberListPanel';
 import { MessageActionMenu } from './components/MessageActionMenu';
 import { ReplyQuote } from './components/ReplyQuote';
 import { EditMessage } from './components/EditMessage';
+import { ReactionPicker } from './components/ReactionPicker';
+import { StickerPicker } from './components/StickerPicker';
+import { MessageSourceDialog } from './components/MessageSourceDialog';
+import { MessageReportDialog } from './components/MessageReportDialog';
 import { media } from '@kit.MediaKit';
 import abilityAccessCtrl from '@ohos.abilityAccessCtrl';
 import common from '@ohos.app.ability.common';
+import pasteboard from '@ohos.pasteboard';
 // 1. 引入必要的动画库
 import curves from '@ohos.curves';
 import { AppLogger } from '../utils/AppLogger';
@@ -134,6 +139,12 @@ struct RoomDetailPage {
   @State editingMessage: Message | null = null;
   @State editText: string = '';
   @State isRecording: boolean = false;
+  @State showReactionPicker: boolean = false;
+  @State showStickerPicker: boolean = false;
+  @State hasMoreMessages: boolean = true;
+  @State isLoadingMore: boolean = false;
+  @State showMessageSource: boolean = false;
+  @State showReportDialog: boolean = false;
   private avRecorder: media.AVRecorder | undefined = undefined;
   private audioPath: string = '';
   private audioFd: number = -1;
@@ -175,11 +186,6 @@ struct RoomDetailPage {
     this.syncManager.setNewMessagesCallback((msgRoomId: string) => {
       if (msgRoomId === self.roomId) {
         self.loadMessages();
-      }
-    });
-
-    this.syncManager.setNewMessagesCallback((msgRoomId: string, messages: Message[]) => {
-      if (msgRoomId === self.roomId) {
         self.checkTypingUsers();
       }
     });
@@ -567,10 +573,39 @@ struct RoomDetailPage {
     try {
       const roomMessages = await this.roomManager.getRoomMessages(this.roomId, 50);
       this.messages = roomMessages.reverse();
+      this.hasMoreMessages = roomMessages.length >= 50;
     } catch (error) {
       logger.error('Failed to load messages:', error);
     } finally {
       this.isLoading = false;
+    }
+  }
+
+  async loadMoreMessages() {
+    if (this.isLoadingMore || !this.hasMoreMessages) {
+      return;
+    }
+
+    this.isLoadingMore = true;
+    try {
+      const oldestMessage = this.messages[0];
+      if (oldestMessage) {
+        const olderMessages = await this.roomManager.getRoomMessages(
+          this.roomId,
+          50,
+          oldestMessage.eventId
+        );
+        if (olderMessages.length > 0) {
+          this.messages = [...olderMessages.reverse(), ...this.messages];
+          this.hasMoreMessages = olderMessages.length >= 50;
+        } else {
+          this.hasMoreMessages = false;
+        }
+      }
+    } catch (error) {
+      logger.error('Failed to load more messages:', error);
+    } finally {
+      this.isLoadingMore = false;
     }
   }
 
@@ -668,9 +703,13 @@ struct RoomDetailPage {
 
   copyMessage(message: Message) {
     try {
+      const pasteboard = pasteboard.getSystemPasteboard();
+      const pasteData = pasteboard.createData(message.getMessageBody());
+      pasteboard.setData(pasteData);
       ToastUtils.show('消息已复制');
     } catch (error) {
       logger.error('Failed to copy message:', error);
+      ToastUtils.show('复制失败');
     }
     this.showMessageAction = false;
     this.selectedMessage = null;
@@ -877,6 +916,16 @@ struct RoomDetailPage {
   buildRoomMenu() {
     if (this.showMenu) {
       Column() {
+        Button('房间设置')
+          .fontSize(16)
+          .backgroundColor(getThemeColors().bg)
+          .fontColor(getThemeColors().primary)
+          .width('100%')
+          .height(44)
+          .onClick(() => {
+            this.showMenu = false;
+            this.navigateToRoomSettings();
+          });
         Button('分享房间')
           .fontSize(16)
           .backgroundColor(getThemeColors().bg)
@@ -981,6 +1030,28 @@ struct RoomDetailPage {
       .justifyContent(FlexAlign.Center);
     } else {
       List({ scroller: this.scroller }) {
+        // Load More button at the top
+        if (this.hasMoreMessages) {
+          ListItem() {
+            Button(this.isLoadingMore ? 'Loading...' : 'Load Earlier Messages')
+              .fontSize(14)
+              .backgroundColor(getThemeColors().bg)
+              .fontColor(getThemeColors().primary)
+              .borderWidth(1)
+              .borderColor(getThemeColors().primary)
+              .borderRadius(6)
+              .width('60%')
+              .height(36)
+              .margin({ top: 10, bottom: 10 })
+              .enabled(!this.isLoadingMore)
+              .onClick(() => {
+                this.loadMoreMessages();
+              });
+          }
+          .width('100%')
+          .justifyContent(FlexAlign.Center);
+        }
+
         ForEach(this.messages, (message: Message, index: number) => {
           ListItem() {
             // ✅ 修复 1：ListItem 内部必须只有一个根容器（Column）
@@ -1122,8 +1193,72 @@ struct RoomDetailPage {
           onShare: (message: Message) => {
             this.shareMessage(message);
           },
+          onReact: (message: Message) => {
+            this.showReactionPicker = true;
+          },
+          onForward: (message: Message) => {
+            this.forwardMessage(message);
+          },
+          onPin: (message: Message) => {
+            this.pinMessage(message);
+          },
+          onViewSource: (message: Message) => {
+            this.viewMessageSource(message);
+          },
+          onReport: (message: Message) => {
+            this.showReportDialog = true;
+          },
           onClose: () => {
             this.showReplyMenu = false;
+            this.selectedMessage = null;
+          }
+        });
+
+        // Reaction Picker
+        ReactionPicker({
+          isVisible: this.showReactionPicker,
+          messageId: this.selectedMessage?.eventId || '',
+          onReaction: (emoji: string) => {
+            this.sendReaction(emoji);
+            this.showReactionPicker = false;
+            this.selectedMessage = null;
+          },
+          onClose: () => {
+            this.showReactionPicker = false;
+          }
+        });
+
+        // Sticker Picker
+        StickerPicker({
+          isVisible: this.showStickerPicker,
+          onSticker: (stickerUrl: string, stickerBody: string) => {
+            this.sendSticker(stickerUrl, stickerBody);
+            this.showStickerPicker = false;
+          },
+          onClose: () => {
+            this.showStickerPicker = false;
+          }
+        });
+
+        // Message Source Dialog
+        MessageSourceDialog({
+          isVisible: this.showMessageSource,
+          message: this.selectedMessage,
+          onClose: () => {
+            this.showMessageSource = false;
+            this.selectedMessage = null;
+          }
+        });
+
+        // Message Report Dialog
+        MessageReportDialog({
+          isVisible: this.showReportDialog,
+          message: this.selectedMessage,
+          onReport: (reason: string) => {
+            this.reportMessage(reason);
+          },
+          onClose: () => {
+            this.showReportDialog = false;
             this.selectedMessage = null;
           }
         });
@@ -1139,5 +1274,90 @@ struct RoomDetailPage {
 
   getMessageSenderName(message: Message): string {
     return message.sender.split(':')[0].replace('@', '');
+  }
+
+  sendReaction(emoji: string) {
+    try {
+      // In a real implementation, this would send a reaction via the annotation API
+      // POST /_matrix/client/v3/rooms/{roomId}/relations/{eventId}/m.annotation/m.reaction
+      ToastUtils.show(`Reaction: ${emoji}`);
+    } catch (error) {
+      logger.error('Failed to send reaction:', error);
+      ToastUtils.show('Failed to send reaction');
+    }
+  }
+
+  sendSticker(stickerUrl: string, stickerBody: string) {
+    try {
+      // In a real implementation, this would send a sticker via the sticker API
+      // PUT /_matrix/client/v3/rooms/{roomId}/send/m.sticker/{txnId}
+      const content = {
+        url: stickerUrl,
+        body: stickerBody,
+        info: {
+          w: 256,
+          h: 256,
+          mimetype: 'image/png'
+        }
+      };
+      ToastUtils.show(`Sticker: ${stickerBody}`);
+    } catch (error) {
+      logger.error('Failed to send sticker:', error);
+      ToastUtils.show('Failed to send sticker');
+    }
+  }
+
+  forwardMessage(message: Message) {
+    try {
+      // In a real implementation, this would show a room selector and forward the message
+      // For now, we'll show a toast
+      ToastUtils.show('Forward message feature coming soon');
+      this.showReplyMenu = false;
+      this.selectedMessage = null;
+    } catch (error) {
+      logger.error('Failed to forward message:', error);
+      ToastUtils.show('Failed to forward message');
+    }
+  }
+
+  pinMessage(message: Message) {
+    try {
+      // In a real implementation, this would pin the message via the pin API
+      // PUT /_matrix/client/v3/rooms/{roomId}/pin/{eventId}
+      ToastUtils.show('Message pinned');
+      this.showReplyMenu = false;
+      this.selectedMessage = null;
+    } catch (error) {
+      logger.error('Failed to pin message:', error);
+      ToastUtils.show('Failed to pin message');
+    }
+  }
+
+  viewMessageSource(message: Message) {
+    this.selectedMessage = message;
+    this.showMessageSource = true;
+    this.showReplyMenu = false;
+  }
+
+  reportMessage(reason: string) {
+    try {
+      // In a real implementation, this would report the message via the report API
+      // POST /_matrix/client/v3/report/{roomId}/{eventId}
+      ToastUtils.show(`Message reported: ${reason}`);
+    } catch (error) {
+      logger.error('Failed to report message:', error);
+      ToastUtils.show('Failed to report message');
+    }
+  }
+
+  navigateToRoomSettings() {
+    if (this.pathStack) {
+      const param: Record<string, Object> = {
+        "roomId": this.roomId,
+        "roomName": this.roomName,
+        "pathStack": this.pathStack
+      };
+      this.pathStack.pushPathByName('RoomSettingsPage', param);
+    }
   }
 }

@@ -5,11 +5,16 @@
     "pages/MainPage",
     "pages/RoomListPage",
     "pages/RoomDetailPage",
+    "pages/RoomSettingsPage",
     "pages/SearchPage",
     "pages/JoinRoomPage",
     "pages/JoinSpacePage",
     "pages/SpacePage",
     "pages/SpaceDetailPage",
-    "pages/SettingsPage"
+    "pages/SettingsPage",
+    "pages/UserProfilePage",
+    "pages/InviteManagementPage",
+    "pages/NotificationSettingsPage",
+    "pages/MessageSearchPage"
   ]
 }

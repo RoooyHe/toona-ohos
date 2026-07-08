@@ -1,0 +1,241 @@
+import { ToastUtils } from '../utils/ToastUtils';
+import { RoomManager } from '../services/RoomManager';
+import { AuthManager } from '../services/AuthManager';
+import { MediaManager } from '../services/MediaManager';
+import { getThemeColors } from '../utils/ThemeManager';
+import { AppLogger } from '../utils/AppLogger';
+
+const logger = AppLogger.getLogger('InviteManagementPage');
+
+interface RoomInvite {
+  roomId: string;
+  name: string;
+  topic: string;
+  avatarUrl: string;
+  inviter: string;
+  timestamp: number;
+}
+
+@Builder
+export function InviteManagementPageBuilder(name: string, param: Object) {
+  InviteManagementPage({
+    pathStack: ((param as Record<string, Object>)['pathStack'] as NavPathStack) || new NavPathStack()
+  })
+}
+
+@Component
+struct InviteManagementPage {
+  @State invites: RoomInvite[] = [];
+  @State isLoading: boolean = true;
+  @State processingInvite: string = '';
+  private roomManager: RoomManager = RoomManager.getInstance();
+  private authManager: AuthManager = AuthManager.getInstance();
+  private mediaManager: MediaManager = MediaManager.getInstance();
+  @Prop pathStack: NavPathStack;
+  private logger = AppLogger.getLogger('InviteManagementPage');
+
+  aboutToAppear() {
+    this.loadInvites();
+  }
+
+  async loadInvites() {
+    this.isLoading = true;
+    try {
+      // In a real implementation, this would fetch invites from the sync response
+      // For now, we'll use an empty array
+      this.invites = [];
+    } catch (error) {
+      this.logger.error('Failed to load invites:', error);
+      ToastUtils.show('Failed to load invites');
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  async acceptInvite(invite: RoomInvite) {
+    this.processingInvite = invite.roomId;
+    try {
+      await this.roomManager.joinRoom(invite.roomId);
+      ToastUtils.show('Joined room');
+      this.invites = this.invites.filter(i => i.roomId !== invite.roomId);
+      this.pathStack.pop();
+    } catch (error) {
+      this.logger.error('Failed to accept invite:', error);
+      ToastUtils.show('Failed to join room');
+    } finally {
+      this.processingInvite = '';
+    }
+  }
+
+  async declineInvite(invite: RoomInvite) {
+    this.processingInvite = invite.roomId;
+    try {
+      await this.roomManager.leaveRoom(invite.roomId);
+      ToastUtils.show('Invite declined');
+      this.invites = this.invites.filter(i => i.roomId !== invite.roomId);
+    } catch (error) {
+      this.logger.error('Failed to decline invite:', error);
+      ToastUtils.show('Failed to decline invite');
+    } finally {
+      this.processingInvite = '';
+    }
+  }
+
+  build() {
+    NavDestination() {
+      Column() {
+        // Header
+        Row() {
+          Button('←')
+            .fontSize(18)
+            .backgroundColor('transparent')
+            .fontColor(getThemeColors().primary)
+            .width(36)
+            .height(36)
+            .onClick(() => {
+              this.pathStack.pop();
+            });
+
+          Text('Invites')
+            .fontSize(18)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(getThemeColors().text)
+            .layoutWeight(1);
+        }
+        .width('100%')
+        .padding({ left: 10, right: 10, top: 10, bottom: 10 })
+        .backgroundColor(getThemeColors().bg);
+
+        Divider().color(getThemeColors().divider);
+
+        if (this.isLoading) {
+          Column() {
+            LoadingProgress()
+              .width(40)
+              .height(40);
+            Text('Loading invites...')
+              .fontSize(14)
+              .fontColor(getThemeColors().textSecondary)
+              .margin({ top: 10 });
+          }
+          .width('100%')
+          .layoutWeight(1)
+          .justifyContent(FlexAlign.Center);
+        } else if (this.invites.length === 0) {
+          Column() {
+            Text('No pending invites')
+              .fontSize(16)
+              .fontColor(getThemeColors().textSecondary);
+            Text('When someone invites you to a room, it will appear here.')
+              .fontSize(14)
+              .fontColor(getThemeColors().textMute2)
+              .margin({ top: 8 })
+              .textAlign(TextAlign.Center);
+          }
+          .width('100%')
+          .layoutWeight(1)
+          .justifyContent(FlexAlign.Center)
+          .padding(40);
+        } else {
+          List() {
+            ForEach(this.invites, (invite: RoomInvite) => {
+              ListItem() {
+                Column() {
+                  Row() {
+                    // Room Avatar
+                    Stack() {
+                      if (invite.avatarUrl) {
+                        Image(this.mediaManager.getHttpUrl(invite.avatarUrl))
+                          .width(48)
+                          .height(48)
+                          .borderRadius(24);
+                      } else {
+                        Text(invite.name.charAt(0).toUpperCase() || '?')
+                          .fontSize(20)
+                          .fontWeight(FontWeight.Bold)
+                          .fontColor(getThemeColors().onPrimary)
+                          .width(48)
+                          .height(48)
+                          .borderRadius(24)
+                          .backgroundColor(getThemeColors().primary)
+                          .textAlign(TextAlign.Center);
+                      }
+                    }
+                    .width(48)
+                    .height(48)
+                    .margin({ right: 12 });
+
+                    Column() {
+                      Text(invite.name || 'Unknown Room')
+                        .fontSize(16)
+                        .fontWeight(FontWeight.Medium)
+                        .fontColor(getThemeColors().text)
+                        .maxLines(1)
+                        .textOverflow({ overflow: TextOverflow.Ellipsis });
+
+                      if (invite.topic) {
+                        Text(invite.topic)
+                          .fontSize(12)
+                          .fontColor(getThemeColors().textSecondary)
+                          .maxLines(1)
+                          .textOverflow({ overflow: TextOverflow.Ellipsis })
+                          .margin({ top: 4 });
+                      }
+
+                      Text(`Invited by ${invite.inviter}`)
+                        .fontSize(12)
+                        .fontColor(getThemeColors().textMute2)
+                        .margin({ top: 4 });
+                    }
+                    .layoutWeight(1);
+                  }
+                  .width('100%');
+
+                  // Action Buttons
+                  Row() {
+                    Button('Decline')
+                      .fontSize(14)
+                      .backgroundColor(getThemeColors().bg)
+                      .fontColor(getThemeColors().error)
+                      .borderWidth(1)
+                      .borderColor(getThemeColors().error)
+                      .borderRadius(6)
+                      .padding({ left: 16, right: 16, top: 8, bottom: 8 })
+                      .enabled(this.processingInvite !== invite.roomId)
+                      .onClick(() => {
+                        this.declineInvite(invite);
+                      });
+
+                    Blank();
+
+                    Button('Accept')
+                      .fontSize(14)
+                      .backgroundColor(getThemeColors().primary)
+                      .fontColor(getThemeColors().onPrimary)
+                      .borderRadius(6)
+                      .padding({ left: 16, right: 16, top: 8, bottom: 8 })
+                      .enabled(this.processingInvite !== invite.roomId)
+                      .onClick(() => {
+                        this.acceptInvite(invite);
+                      });
+                  }
+                  .width('100%')
+                  .margin({ top: 12 });
+                }
+                .width('100%')
+                .padding(16)
+                .backgroundColor(getThemeColors().surface);
+              }
+            });
+          }
+          .width('100%')
+          .layoutWeight(1);
+        }
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor(getThemeColors().bg);
+    }
+    .hideTitleBar(true);
+  }
+}

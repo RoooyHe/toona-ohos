@@ -537,11 +537,81 @@ export struct SettingsPage {
               }
             });
 
+            // Invite Management Section
+            Column() {
+              Row() {
+                Text('Invites')
+                  .fontSize(16)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor(getThemeColors().text);
+                Blank();
+                Button('View')
+                  .fontSize(12)
+                  .backgroundColor(getThemeColors().primary)
+                  .fontColor(getThemeColors().onPrimary)
+                  .borderRadius(6)
+                  .padding({
+                    left: 12,
+                    right: 12,
+                    top: 6,
+                    bottom: 6
+                  })
+                  .onClick(() => {
+                    this.navigateToInviteManagement();
+                  });
+              }
+              .width('100%')
+              .padding({
+                left: 20,
+                right: 20,
+                top: 15,
+                bottom: 15
+              });
+            }
+            .width('100%')
+            .margin({ top: 10 })
+            .backgroundColor(getThemeColors().surface);
+
             QRScannerSettings({
               onScanQRCode: () => {
                 this.onScanQRCode();
               }
             });
+
+            // Notification Settings Section
+            Column() {
+              Row() {
+                Text('Notification Settings')
+                  .fontSize(16)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor(getThemeColors().text);
+                Blank();
+                Button('Configure')
+                  .fontSize(12)
+                  .backgroundColor(getThemeColors().primary)
+                  .fontColor(getThemeColors().onPrimary)
+                  .borderRadius(6)
+                  .padding({
+                    left: 12,
+                    right: 12,
+                    top: 6,
+                    bottom: 6
+                  })
+                  .onClick(() => {
+                    this.navigateToNotificationSettings();
+                  });
+              }
+              .width('100%')
+              .padding({
+                left: 20,
+                right: 20,
+                top: 15,
+                bottom: 15
+              });
+            }
+            .width('100%')
+            .margin({ top: 10 })
+            .backgroundColor(getThemeColors().surface);
 
             AboutSection();
 
@@ -682,6 +752,24 @@ export struct SettingsPage {
       ToastUtils.show('生物识别验证成功');
     } else {
       ToastUtils.show('生物识别验证失败');
+    }
+  }
+
+  navigateToInviteManagement() {
+    if (this.pathStack) {
+      const param: Record<string, Object> = {
+        "pathStack": this.pathStack
+      };
+      this.pathStack.pushPathByName('InviteManagementPage', param);
+    }
+  }
+
+  navigateToNotificationSettings() {
+    if (this.pathStack) {
+      const param: Record<string, Object> = {
+        "pathStack": this.pathStack
+      };
+      this.pathStack.pushPathByName('NotificationSettingsPage', param);
     }
   }
 }

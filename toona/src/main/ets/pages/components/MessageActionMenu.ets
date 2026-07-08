@@ -36,6 +36,11 @@ export struct MessageActionMenu {
   onEdit: (message: Message) => void = () => {};
   onSecurityCheck: (message: Message) => void = () => {};
   onShare: (message: Message) => void = () => {};
+  onReact: (message: Message) => void = () => {};
+  onForward: (message: Message) => void = () => {};
+  onPin: (message: Message) => void = () => {};
+  onViewSource: (message: Message) => void = () => {};
+  onReport: (message: Message) => void = () => {};
   onClose: () => void = () => {};
 
   getThemeColors(): ActionMenuThemeColors {
@@ -90,6 +95,17 @@ export struct MessageActionMenu {
               this.onCopy(this.selectedMessage);
             });
 
+          Divider().color(this.getThemeColors().divider);
+
+          Text('回复')
+            .fontSize(14)
+            .fontColor(this.getThemeColors().text)
+            .width('100%')
+            .padding({ left: 15, top: 12, bottom: 12 })
+            .onClick(() => {
+              this.onReact(this.selectedMessage);
+            });
+
           if (this.selectedMessage.isOutgoing) {
             Divider().color(this.getThemeColors().divider);
 
@@ -134,6 +150,50 @@ export struct MessageActionMenu {
             .padding({ left: 15, top: 12, bottom: 12 })
             .onClick(() => {
               this.onShare(this.selectedMessage);
+            });
+
+          Divider().color(this.getThemeColors().divider);
+
+          Text('转发')
+            .fontSize(14)
+            .fontColor(this.getThemeColors().primary)
+            .width('100%')
+            .padding({ left: 15, top: 12, bottom: 12 })
+            .onClick(() => {
+              this.onForward(this.selectedMessage);
+            });
+
+          Divider().color(this.getThemeColors().divider);
+
+          Text('置顶')
+            .fontSize(14)
+            .fontColor(this.getThemeColors().primary)
+            .width('100%')
+            .padding({ left: 15, top: 12, bottom: 12 })
+            .onClick(() => {
+              this.onPin(this.selectedMessage);
+            });
+
+          Divider().color(this.getThemeColors().divider);
+
+          Text('查看源码')
+            .fontSize(14)
+            .fontColor(this.getThemeColors().textSecondary)
+            .width('100%')
+            .padding({ left: 15, top: 12, bottom: 12 })
+            .onClick(() => {
+              this.onViewSource(this.selectedMessage);
+            });
+
+          Divider().color(this.getThemeColors().divider);
+
+          Text('举报')
+            .fontSize(14)
+            .fontColor(this.getThemeColors().error)
+            .width('100%')
+            .padding({ left: 15, top: 12, bottom: 12 })
+            .onClick(() => {
+              this.onReport(this.selectedMessage);
             });
 
           Divider().color(this.getThemeColors().divider);

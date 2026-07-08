@@ -158,7 +158,7 @@ ToastUtils.show('退出登录失败', 3000);
     const param: Record<string, Object> = {
       "pathStack": this.pathStack
     };
-    this.pathStack.pushPathByName('SearchPage', param);
+    this.pathStack.pushPathByName('MessageSearchPage', param);
     const self = this;
     setTimeout(() => { self.isNavigating = false; }, 500);
   }

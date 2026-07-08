@@ -34,6 +34,11 @@
       "buildFunction": "RoomListPageBuilder"
     },
     {
+      "name": "RoomSettingsPage",
+      "pageSourceFile": "src/main/ets/pages/RoomSettingsPage.ets",
+      "buildFunction": "RoomSettingsPageBuilder"
+    },
+    {
       "name": "SearchPage",
       "pageSourceFile": "src/main/ets/pages/SearchPage.ets",
       "buildFunction": "SearchPageBuilder"
@@ -52,6 +57,26 @@
       "name": "SpacePage",
       "pageSourceFile": "src/main/ets/pages/SpacePage.ets",
       "buildFunction": "SpacePageBuilder"
+    },
+    {
+      "name": "UserProfilePage",
+      "pageSourceFile": "src/main/ets/pages/UserProfilePage.ets",
+      "buildFunction": "UserProfilePageBuilder"
+    },
+    {
+      "name": "InviteManagementPage",
+      "pageSourceFile": "src/main/ets/pages/InviteManagementPage.ets",
+      "buildFunction": "InviteManagementPageBuilder"
+    },
+    {
+      "name": "NotificationSettingsPage",
+      "pageSourceFile": "src/main/ets/pages/NotificationSettingsPage.ets",
+      "buildFunction": "NotificationSettingsPageBuilder"
+    },
+    {
+      "name": "MessageSearchPage",
+      "pageSourceFile": "src/main/ets/pages/MessageSearchPage.ets",
+      "buildFunction": "MessageSearchPageBuilder"
     }
   ]
 }

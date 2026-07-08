@@ -4,6 +4,8 @@ import { MediaManager } from '../../services/MediaManager';
 import { getThemeColors } from '../../utils/ThemeManager';
 import { VerificationService } from '../../services/VerificationService';
 import { VerificationState } from '../../crypto/types/CryptoTypes';
+import { ImageViewer } from './ImageViewer';
+import { FilePreview } from './FilePreview';
 import media from '@ohos.multimedia.media';
 import { AppLogger } from '../../utils/AppLogger';
 
@@ -54,6 +56,13 @@ export struct MessageBubble {
   private mediaManager: MediaManager = MediaManager.getInstance();
   private verificationService: VerificationService = VerificationService.getInstance();
   @State deviceTrustLevel: VerificationState = VerificationState.UNVERIFIED;
+  @State showImageViewer: boolean = false;
+  @State showFilePreview: boolean = false;
+  @State selectedImageUrl: string = '';
+  @State selectedFileUrl: string = '';
+  @State selectedFileName: string = '';
+  @State selectedFileSize: number = 0;
+  @State selectedMimeType: string = '';
 
   aboutToAppear(): void {
     // 解析语音消息的时长 (如果有的话)
@@ -280,7 +289,7 @@ export struct MessageBubble {
           .objectFit(ImageFit.Cover)
           .margin(8)
           .onClick(() => {
-            ToastUtils.show('图片: ' + this.message.getMessageBody());
+            this.openImageViewer();
           })
           .gesture(
             LongPressGesture()
@@ -373,6 +382,9 @@ export struct MessageBubble {
         .borderRadius(12)
         .padding(12)
         .alignItems(VerticalAlign.Center)
+        .onClick(() => {
+          this.openFilePreview();
+        })
         .gesture(
           LongPressGesture()
             .onAction(() => {
@@ -500,6 +512,51 @@ export struct MessageBubble {
             })
         );
       }
+
+      // ImageViewer overlay
+      ImageViewer({
+        isVisible: this.showImageViewer,
+        imageUrl: this.selectedImageUrl,
+        sender: this.message.sender,
+        timestamp: this.message.timestamp,
+        onClose: () => {
+          this.showImageViewer = false;
+        }
+      });
+
+      // FilePreview overlay
+      FilePreview({
+        isVisible: this.showFilePreview,
+        fileUrl: this.selectedFileUrl,
+        fileName: this.selectedFileName,
+        fileSize: this.selectedFileSize,
+        mimeType: this.selectedMimeType,
+        sender: this.message.sender,
+        timestamp: this.message.timestamp,
+        onClose: () => {
+          this.showFilePreview = false;
+        }
+      });
     }
+  }
+
+  private openImageViewer() {
+    const url = this.message.content['url'] as string;
+    if (url) {
+      this.selectedImageUrl = url;
+      this.showImageViewer = true;
+    }
+  }
+
+  private openFilePreview() {
+    const url = this.message.content['url'] as string;
+    const body = this.message.getMessageBody();
+    const info = this.message.content['info'] as Record<string, string | object>;
+
+    this.selectedFileUrl = url || '';
+    this.selectedFileName = body;
+    this.selectedFileSize = (info?.['size'] as number) || 0;
+    this.selectedMimeType = (info?.['mimetype'] as string) || 'application/octet-stream';
+    this.showFilePreview = true;
   }
 }

@@ -8,7 +8,8 @@ import {
   NotificationsResponse,
   SetNotificationMarkerRequest
 } from '../models/MatrixTypes';
-import { AppLogger } from '../utils/AppLogger';
+import { MatrixHttpClient } from '../network/MatrixHttpClient';
+import { MatrixConfig } from '../network/MatrixConfig';
 
 export class PushManager {
   private static instance: PushManager;

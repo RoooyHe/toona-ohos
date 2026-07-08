@@ -9,7 +9,8 @@ import {
   SetReadMarkersRequest,
   ReceiptContent
 } from '../models/MatrixTypes';
-import { AppLogger } from '../utils/AppLogger';
+import { MatrixHttpClient } from '../network/MatrixHttpClient';
+import { MatrixConfig } from '../network/MatrixConfig';
 
 export class RoomStateManager {
   private static instance: RoomStateManager;

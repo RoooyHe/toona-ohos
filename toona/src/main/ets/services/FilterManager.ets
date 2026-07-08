@@ -6,7 +6,8 @@ import {
   RoomFilterPart,
   PresenceFilter
 } from '../models/MatrixTypes';
-import { AppLogger } from '../utils/AppLogger';
+import { MatrixHttpClient } from '../network/MatrixHttpClient';
+import { MatrixConfig } from '../network/MatrixConfig';
 
 export class FilterManager {
   private static instance: FilterManager;
@@ -39,7 +40,7 @@ export class FilterManager {
     try {
       return await this.ensureHttpClient().createFilter(userId, filter, version);
     } catch (error) {
-      logger.error('Failed to create filter:', error);
+      this.logger.error('Failed to create filter:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to create filter: ${errMsg}`);
     }
@@ -49,7 +50,7 @@ export class FilterManager {
     try {
       return await this.ensureHttpClient().getFilter(userId, filterId, version);
     } catch (error) {
-      logger.error('Failed to get filter:', error);
+      this.logger.error('Failed to get filter:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get filter: ${errMsg}`);
     }

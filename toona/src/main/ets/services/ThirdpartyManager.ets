@@ -4,7 +4,8 @@ import {
   ThirdpartyUserResponse,
   ThirdpartyLocationResponse
 } from '../models/MatrixTypes';
-import { AppLogger } from '../utils/AppLogger';
+import { MatrixHttpClient } from '../network/MatrixHttpClient';
+import { MatrixConfig } from '../network/MatrixConfig';
 
 export class ThirdpartyManager {
   private static instance: ThirdpartyManager;
@@ -37,7 +38,7 @@ export class ThirdpartyManager {
     try {
       return await this.ensureHttpClient().getThirdpartyProtocols();
     } catch (error) {
-      logger.error('Failed to get thirdparty protocols:', error);
+      this.logger.error('Failed to get thirdparty protocols:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get thirdparty protocols: ${errMsg}`);
     }
@@ -47,7 +48,7 @@ export class ThirdpartyManager {
     try {
       return await this.ensureHttpClient().getThirdpartyProtocol(protocol);
     } catch (error) {
-      logger.error('Failed to get thirdparty protocol:', error);
+      this.logger.error('Failed to get thirdparty protocol:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get thirdparty protocol: ${errMsg}`);
     }
@@ -60,7 +61,7 @@ export class ThirdpartyManager {
     try {
       return await this.ensureHttpClient().thirdpartyUserSearch(protocol, params);
     } catch (error) {
-      logger.error('Failed to search thirdparty user:', error);
+      this.logger.error('Failed to search thirdparty user:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to search thirdparty user: ${errMsg}`);
     }
@@ -70,7 +71,7 @@ export class ThirdpartyManager {
     try {
       return await this.ensureHttpClient().thirdpartyUserDiscovery(params);
     } catch (error) {
-      logger.error('Failed to discover thirdparty user:', error);
+      this.logger.error('Failed to discover thirdparty user:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to discover thirdparty user: ${errMsg}`);
     }
@@ -83,7 +84,7 @@ export class ThirdpartyManager {
     try {
       return await this.ensureHttpClient().thirdpartyLocationSearch(protocol, params);
     } catch (error) {
-      logger.error('Failed to search thirdparty location:', error);
+      this.logger.error('Failed to search thirdparty location:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to search thirdparty location: ${errMsg}`);
     }
@@ -93,7 +94,7 @@ export class ThirdpartyManager {
     try {
       return await this.ensureHttpClient().thirdpartyLocationDiscovery(params);
     } catch (error) {
-      logger.error('Failed to discover thirdparty location:', error);
+      this.logger.error('Failed to discover thirdparty location:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to discover thirdparty location: ${errMsg}`);
     }

@@ -1,5 +1,4 @@
 import { AppLogger } from '../utils/AppLogger';
-import { AppLogger } from '../utils/AppLogger';
 import {
   QueryKeysRequest,
   QueryKeysResponse,

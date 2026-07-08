@@ -1,6 +1,7 @@
 import { AppLogger } from '../utils/AppLogger';
 import { OpenIdRequest, OpenIdResponse } from '../models/MatrixTypes';
-import { AppLogger } from '../utils/AppLogger';
+import { MatrixHttpClient } from '../network/MatrixHttpClient';
+import { MatrixConfig } from '../network/MatrixConfig';
 
 export class OpenIdManager {
   private static instance: OpenIdManager;
