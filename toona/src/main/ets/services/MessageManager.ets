@@ -145,6 +145,10 @@ this.logger.error('Failed to delete message:', error);
     }
   }
 
+  async getMessages(roomId: string, limit: number = 50, beforeEventId?: string): Promise<Message[]> {
+    return this.localDatabase.getMessages(roomId, limit, beforeEventId);
+  }
+
   async getMessage(roomId: string, eventId: string): Promise<Message | null> {
     const messages = await this.localDatabase.getMessages(roomId, 1);
     return messages.find(m => m.eventId === eventId) || null;

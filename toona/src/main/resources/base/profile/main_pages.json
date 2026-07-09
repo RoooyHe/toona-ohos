@@ -1,5 +1,6 @@
 {
   "src": [
+    "pages/AppNavigation",
     "pages/LoginPage",
     "pages/RegisterPage",
     "pages/MainPage",

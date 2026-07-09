@@ -129,9 +129,7 @@ interface DirectorySearchResponse {
 
 @Builder
 export function JoinRoomPageBuilder(name: string, param: Object) {
-  JoinRoomPage({
-    pathStack: ((param as Record<string, Object>)['pathStack'] as NavPathStack) || new NavPathStack()
-  })
+  JoinRoomPage()
 }
 
 @Component
@@ -146,7 +144,7 @@ struct JoinRoomPage {
   private authManager: AuthManager = AuthManager.getInstance();
   private httpClient: MatrixHttpClient | null = null;
   private scanManager: ScanManager = ScanManager.getInstance();
-  @Prop pathStack: NavPathStack;
+  pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
     this.httpClient = this.authManager.getHttpClient();
@@ -188,8 +186,7 @@ struct JoinRoomPage {
     const roomId = await this.roomManager.createRoom(options);
     const param: Record<string, Object> = {
       "roomId": roomId,
-      "roomName": userId,
-      "pathStack": this.pathStack
+      "roomName": userId
     };
     this.pathStack.pushPathByName('RoomDetailPage', param);
   }
@@ -236,7 +233,7 @@ struct JoinRoomPage {
     }
     await this.roomManager.joinRoom(roomId);
     ToastUtils.show('加入成功');
-    this.pathStack?.pop();
+    this.pathStack.pop();
   }
 
   createRoom() {
@@ -267,7 +264,7 @@ struct JoinRoomPage {
     };
     await this.roomManager.createRoom(options);
     ToastUtils.show('创建成功');
-    this.pathStack?.pop();
+    this.pathStack.pop();
   }
 
   build() {
@@ -437,6 +434,9 @@ struct JoinRoomPage {
       .width('100%')
       .height('100%');
     }
+    .onReady((ctx: NavDestinationContext) => {
+      this.pathStack = ctx.pathStack;
+    })
     .hideTitleBar(true);
   }
 }

@@ -57,110 +57,102 @@ export struct StickerPicker {
   ];
 
   build() {
-    if (!this.isVisible) {
-      return;
-    }
-
     Stack() {
-      // Background overlay
-      Column()
-        .width('100%')
-        .height('100%')
-        .backgroundColor('rgba(0, 0, 0, 0.3)')
-        .onClick(() => {
-          this.onClose();
-        });
+      if (this.isVisible) {
+        Column()
+          .width('100%')
+          .height('100%')
+          .backgroundColor('rgba(0, 0, 0, 0.3)')
+          .onClick(() => {
+            this.onClose();
+          });
 
-      // Sticker picker card
-      Column() {
-        // Header
-        Row() {
-          Text('Stickers')
-            .fontSize(16)
-            .fontWeight(FontWeight.Medium)
-            .fontColor(getThemeColors().text)
-            .layoutWeight(1);
+        Column() {
+          Row() {
+            Text('Stickers')
+              .fontSize(16)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(getThemeColors().text)
+              .layoutWeight(1);
 
-          Button('✕')
-            .fontSize(14)
-            .backgroundColor('transparent')
-            .fontColor(getThemeColors().textSecondary)
-            .width(28)
-            .height(28)
-            .onClick(() => {
-              this.onClose();
-            });
-        }
-        .width('100%')
-        .padding({ left: 12, right: 12, top: 12, bottom: 8 });
-
-        // Pack tabs
-        Row() {
-          ForEach(this.stickerPacks, (pack: StickerPack, index: number) => {
-            Text(pack.name)
-              .fontSize(12)
-              .fontColor(this.selectedPack === index ? getThemeColors().primary : getThemeColors().textSecondary)
-              .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-              .backgroundColor(this.selectedPack === index ? getThemeColors().bgSoft : 'transparent')
-              .borderRadius(12)
-              .margin({ right: 6 })
+            Button('✕')
+              .fontSize(14)
+              .backgroundColor('transparent')
+              .fontColor(getThemeColors().textSecondary)
+              .width(28)
+              .height(28)
               .onClick(() => {
-                this.selectedPack = index;
+                this.onClose();
               });
-          });
-        }
-        .width('100%')
-        .padding({ left: 12, right: 12, bottom: 8 });
+          }
+          .width('100%')
+          .padding({ left: 12, right: 12, top: 12, bottom: 8 });
 
-        // Sticker grid
-        Grid() {
-          ForEach(this.getCurrentStickers(), (sticker: StickerItem) => {
-            GridItem() {
-              Column() {
-                // Placeholder for sticker image
-                Text(sticker.body.charAt(0))
-                  .fontSize(24)
-                  .fontWeight(FontWeight.Bold)
-                  .fontColor(getThemeColors().primary)
-                  .width(60)
-                  .height(60)
-                  .backgroundColor(getThemeColors().bgSoft)
-                  .borderRadius(8)
-                  .textAlign(TextAlign.Center)
-                  .onClick(() => {
-                    this.onSticker(sticker.url, sticker.body);
-                    this.onClose();
-                  });
+          Row() {
+            ForEach(this.stickerPacks, (pack: StickerPack, index: number) => {
+              Text(pack.name)
+                .fontSize(12)
+                .fontColor(this.selectedPack === index ? getThemeColors().primary : getThemeColors().textSecondary)
+                .padding({ left: 8, right: 8, top: 4, bottom: 4 })
+                .backgroundColor(this.selectedPack === index ? getThemeColors().bgSoft : 'transparent')
+                .borderRadius(12)
+                .margin({ right: 6 })
+                .onClick(() => {
+                  this.selectedPack = index;
+                });
+            });
+          }
+          .width('100%')
+          .padding({ left: 12, right: 12, bottom: 8 });
 
-                Text(sticker.body)
-                  .fontSize(10)
-                  .fontColor(getThemeColors().textSecondary)
-                  .margin({ top: 4 });
+          Grid() {
+            ForEach(this.getCurrentStickers(), (sticker: StickerItem) => {
+              GridItem() {
+                Column() {
+                  Text(sticker.body.charAt(0))
+                    .fontSize(24)
+                    .fontWeight(FontWeight.Bold)
+                    .fontColor(getThemeColors().primary)
+                    .width(60)
+                    .height(60)
+                    .backgroundColor(getThemeColors().bgSoft)
+                    .borderRadius(8)
+                    .textAlign(TextAlign.Center)
+                    .onClick(() => {
+                      this.onSticker(sticker.url, sticker.body);
+                      this.onClose();
+                    });
+
+                  Text(sticker.body)
+                    .fontSize(10)
+                    .fontColor(getThemeColors().textSecondary)
+                    .margin({ top: 4 });
+                }
+                .width(80)
+                .alignItems(HorizontalAlign.Center);
               }
-              .width(80)
-              .alignItems(HorizontalAlign.Center);
-            }
-          });
+            });
+          }
+          .columnsTemplate('1fr 1fr 1fr 1fr')
+          .columnsGap(8)
+          .rowsGap(8)
+          .width('100%')
+          .height(200)
+          .padding({ left: 8, right: 8, top: 8, bottom: 8 })
+          .scrollBar(BarState.Off);
         }
-        .columnsTemplate('1fr 1fr 1fr 1fr')
-        .columnsGap(8)
-        .rowsGap(8)
         .width('100%')
-        .height(200)
-        .padding({ left: 8, right: 8, top: 8, bottom: 8 })
-        .scrollBar(BarState.Off);
+        .backgroundColor(getThemeColors().surface)
+        .borderRadius(16)
+        .shadow({
+          radius: 20,
+          color: 'rgba(0, 0, 0, 0.15)',
+          offsetX: 0,
+          offsetY: 4
+        })
+        .position({ x: 0, y: '100%' })
+        .translate({ x: 0, y: -300 });
       }
-      .width('100%')
-      .backgroundColor(getThemeColors().surface)
-      .borderRadius(16)
-      .shadow({
-        radius: 20,
-        color: 'rgba(0, 0, 0, 0.15)',
-        offsetX: 0,
-        offsetY: 4
-      })
-      .position({ x: 0, y: '100%' })
-      .translate({ x: 0, y: -300 });
     }
     .width('100%')
     .height('100%');

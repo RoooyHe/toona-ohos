@@ -3,14 +3,13 @@ import { PushManager } from '../services/PushManager';
 import { AuthManager } from '../services/AuthManager';
 import { getThemeColors } from '../utils/ThemeManager';
 import { AppLogger } from '../utils/AppLogger';
+import { PushRule } from '../models/types/PushTypes';
 
 const logger = AppLogger.getLogger('NotificationSettingsPage');
 
 @Builder
 export function NotificationSettingsPageBuilder(name: string, param: Object) {
-  NotificationSettingsPage({
-    pathStack: ((param as Record<string, Object>)['pathStack'] as NavPathStack) || new NavPathStack()
-  })
+  NotificationSettingsPage()
 }
 
 @Component
@@ -23,7 +22,7 @@ struct NotificationSettingsPage {
   @State isLoading: boolean = true;
   private pushManager: PushManager = PushManager.getInstance();
   private authManager: AuthManager = AuthManager.getInstance();
-  @Prop pathStack: NavPathStack;
+  pathStack: NavPathStack = new NavPathStack();
   private logger = AppLogger.getLogger('NotificationSettingsPage');
 
   aboutToAppear() {
@@ -43,11 +42,11 @@ struct NotificationSettingsPage {
       }
 
       // Load muted rooms
-      if (pushRules?.room) {
-        this.mutedRooms = Object.keys(pushRules.room).filter(ruleId => {
-          const rule = pushRules.room![ruleId];
-          return rule?.enabled === false;
-        });
+      if (pushRules?.global?.room) {
+        const roomRules: PushRule[] = pushRules.global.room;
+        this.mutedRooms = roomRules.filter((r: PushRule): boolean => {
+          return r.enabled === false;
+        }).map((r: PushRule): string => r.rule_id);
       }
     } catch (error) {
       this.logger.error('Failed to load notification settings:', error);
@@ -235,6 +234,9 @@ struct NotificationSettingsPage {
       .height('100%')
       .backgroundColor(getThemeColors().bg);
     }
+    .onReady((ctx: NavDestinationContext) => {
+      this.pathStack = ctx.pathStack;
+    })
     .hideTitleBar(true);
   }
 }

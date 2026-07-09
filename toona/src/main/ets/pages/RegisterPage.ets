@@ -35,7 +35,6 @@ export function RegisterPageBuilder(name: string, param: Object) {
   RegisterPage()
 }
 
-@Entry
 @Component
 struct RegisterPage {
   @State homeserver: string = '';
@@ -45,7 +44,7 @@ struct RegisterPage {
   @State isLoading: boolean = false;
   @State errorMessage: string = '';
   private authManager: AuthManager = AuthManager.getInstance();
-  private pathStack: NavPathStack | null = null;
+  pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
     this.homeserver = this.authManager.getHomeserver() || '';
@@ -138,7 +137,9 @@ struct RegisterPage {
 
     ToastUtils.show('注册成功', 2000);
 
-    this.pathStack?.replacePath(new NavPathInfo('MainPage', undefined));
+    this.pathStack.clear();
+    const param: Record<string, Object> = {};
+    this.pathStack.pushPathByName('MainPage', param);
   }
 
   build() {
@@ -150,7 +151,7 @@ struct RegisterPage {
             .backgroundColor('transparent')
             .fontColor(getThemeColors().primary)
             .onClick(() => {
-              this.pathStack?.pop();
+              this.pathStack.pop();
             });
 
           Blank();

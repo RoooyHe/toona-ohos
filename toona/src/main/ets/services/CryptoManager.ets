@@ -1,4 +1,5 @@
 import { AppLogger } from '../utils/AppLogger';
+import { MatrixHttpClient, MatrixConfig } from '../network/MatrixHttpClient';
 import {
   QueryKeysRequest,
   QueryKeysResponse,
@@ -14,7 +15,8 @@ import {
   KeyBackupVersion,
   KeyBackupSessionData,
   SignatureRequest,
-  SignatureResponse
+  SignatureResponse,
+  DeviceKeyInfo
 } from '../models/MatrixTypes';
 
 export class CryptoManager {
@@ -53,7 +55,8 @@ export class CryptoManager {
       request.device_keys![userIds[i]] = [];
     }
     try {
-      return await this.ensureHttpClient().queryKeys(request);
+      const result: Record<string, Object> = await this.ensureHttpClient().queryKeys(request as Object as Record<string, Object>);
+      return result as QueryKeysResponse;
     } catch (error) {
       this.logger.error('Failed to query device keys:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -62,11 +65,13 @@ export class CryptoManager {
   }
 
   async uploadDeviceKeys(deviceKeys: Record<string, string | object>): Promise<UploadKeysResponse> {
+    const deviceKeyInfo: DeviceKeyInfo = deviceKeys as Object as DeviceKeyInfo;
     const request: UploadKeysRequest = {
-      device_keys: deviceKeys as never
+      device_keys: deviceKeyInfo
     };
     try {
-      return await this.ensureHttpClient().uploadKeys(request);
+      const result: Record<string, Object> = await this.ensureHttpClient().uploadKeys(request as Object as Record<string, Object>);
+      return result as Object as UploadKeysResponse;
     } catch (error) {
       this.logger.error('Failed to upload device keys:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -79,7 +84,8 @@ export class CryptoManager {
       one_time_keys: oneTimeKeys
     };
     try {
-      return await this.ensureHttpClient().uploadKeys(request);
+      const result: Record<string, Object> = await this.ensureHttpClient().uploadKeys(request as Object as Record<string, Object>);
+      return result as UploadKeysResponse;
     } catch (error) {
       this.logger.error('Failed to upload one-time keys:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -92,7 +98,8 @@ export class CryptoManager {
       fallback_keys: fallbackKeys
     };
     try {
-      return await this.ensureHttpClient().uploadKeys(request);
+      const result: Record<string, Object> = await this.ensureHttpClient().uploadKeys(request as Object as Record<string, Object>);
+      return result as UploadKeysResponse;
     } catch (error) {
       this.logger.error('Failed to upload fallback keys:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -106,7 +113,8 @@ export class CryptoManager {
       timeout: timeout
     };
     try {
-      return await this.ensureHttpClient().claimKeys(request);
+      const result: Record<string, Object> = await this.ensureHttpClient().claimKeys(request as Object as Record<string, Object>);
+      return result as ClaimKeysResponse;
     } catch (error) {
       this.logger.error('Failed to claim keys:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -123,7 +131,8 @@ export class CryptoManager {
       request.session_ids = sessionIds;
     }
     try {
-      return await this.ensureHttpClient().queryRoomKeys(request);
+      const result: Record<string, Object> = await this.ensureHttpClient().queryRoomKeys(request as Object as Record<string, Object>);
+      return result as QueryRoomKeysResponse;
     } catch (error) {
       this.logger.error('Failed to query room keys:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -136,7 +145,8 @@ export class CryptoManager {
       rooms: roomsData
     };
     try {
-      return await this.ensureHttpClient().uploadRoomKeys(request);
+      const result: Record<string, Object> = await this.ensureHttpClient().uploadRoomKeys(request as Object as Record<string, Object>);
+      return result as UploadRoomKeysResponse;
     } catch (error) {
       this.logger.error('Failed to upload room keys:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -144,18 +154,19 @@ export class CryptoManager {
     }
   }
 
-  async getRoomKeyBackup(roomId: string, sessionId: string): Promise<KeyBackupSessionData | null> {
+  async getRoomKeyBackup(version?: string): Promise<KeyBackupSessionData | null> {
     try {
-      return await this.ensureHttpClient().getRoomKeys(roomId, sessionId);
+      const result: Record<string, Object> = await this.ensureHttpClient().getRoomKeys(version);
+      return result as KeyBackupSessionData;
     } catch (error) {
       this.logger.error('Failed to get room key backup:', error);
       return null;
     }
   }
 
-  async putRoomKeyBackup(roomId: string, sessionId: string, data: KeyBackupSessionData): Promise<void> {
+  async putRoomKeyBackup(version: string, data: KeyBackupSessionData): Promise<void> {
     try {
-      await this.ensureHttpClient().putRoomKeys(roomId, sessionId, data);
+      await this.ensureHttpClient().putRoomKeys(version, data as Object as Record<string, Object>);
     } catch (error) {
       this.logger.error('Failed to put room key backup:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -165,7 +176,8 @@ export class CryptoManager {
 
   async getKeyBackupVersion(): Promise<KeyBackupVersion | null> {
     try {
-      return await this.ensureHttpClient().getKeyBackupVersion();
+      const result: Record<string, Object> = await this.ensureHttpClient().getKeyBackupVersion();
+      return result as Object as KeyBackupVersion;
     } catch (error) {
       this.logger.error('Failed to get key backup version:', error);
       return null;
@@ -174,8 +186,8 @@ export class CryptoManager {
 
   async createKeyBackupVersion(authData: Record<string, string | object>): Promise<string> {
     try {
-      const response = await this.ensureHttpClient().createKeyBackupVersion(authData);
-      return response.version;
+      const response: Record<string, Object> = await this.ensureHttpClient().createKeyBackupVersion(authData as Object as Record<string, Object>);
+      return response['version'] as string;
     } catch (error) {
       this.logger.error('Failed to create key backup version:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -185,7 +197,7 @@ export class CryptoManager {
 
   async updateKeyBackupVersion(version: string, authData: Record<string, string | object>): Promise<void> {
     try {
-      await this.ensureHttpClient().putKeyBackupVersion(version, authData);
+      await this.ensureHttpClient().putKeyBackupVersion(version, authData as Object as Record<string, Object>);
     } catch (error) {
       this.logger.error('Failed to update key backup version:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -205,7 +217,8 @@ export class CryptoManager {
 
   async uploadSignatures(request: SignatureRequest): Promise<SignatureResponse> {
     try {
-      return await this.ensureHttpClient().uploadSignatures(request);
+      const result: Record<string, Object> = await this.ensureHttpClient().uploadSignatures(request as Object as Record<string, Object>);
+      return result as SignatureResponse;
     } catch (error) {
       this.logger.error('Failed to upload signatures:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);

@@ -18,9 +18,7 @@ interface RoomInvite {
 
 @Builder
 export function InviteManagementPageBuilder(name: string, param: Object) {
-  InviteManagementPage({
-    pathStack: ((param as Record<string, Object>)['pathStack'] as NavPathStack) || new NavPathStack()
-  })
+  InviteManagementPage()
 }
 
 @Component
@@ -31,7 +29,7 @@ struct InviteManagementPage {
   private roomManager: RoomManager = RoomManager.getInstance();
   private authManager: AuthManager = AuthManager.getInstance();
   private mediaManager: MediaManager = MediaManager.getInstance();
-  @Prop pathStack: NavPathStack;
+  pathStack: NavPathStack = new NavPathStack();
   private logger = AppLogger.getLogger('InviteManagementPage');
 
   aboutToAppear() {
@@ -236,6 +234,9 @@ struct InviteManagementPage {
       .height('100%')
       .backgroundColor(getThemeColors().bg);
     }
+    .onReady((ctx: NavDestinationContext) => {
+      this.pathStack = ctx.pathStack;
+    })
     .hideTitleBar(true);
   }
 }

@@ -24,151 +24,138 @@ export struct FilePreview {
   @State downloadProgress: number = 0;
 
   build() {
-    if (!this.isVisible) {
-      return;
-    }
-
     Stack() {
-      // Background overlay
-      Column()
-        .width('100%')
-        .height('100%')
-        .backgroundColor('rgba(0, 0, 0, 0.5)')
-        .onClick(() => {
-          this.onClose();
-        });
+      if (this.isVisible) {
+        Column()
+          .width('100%')
+          .height('100%')
+          .backgroundColor('rgba(0, 0, 0, 0.5)')
+          .onClick(() => {
+            this.onClose();
+          });
 
-      // File preview card
-      Column() {
-        // Header
-        Row() {
-          Text('File Preview')
-            .fontSize(18)
-            .fontWeight(FontWeight.Bold)
-            .fontColor(getThemeColors().text)
-            .layoutWeight(1);
-
-          Button('✕')
-            .fontSize(16)
-            .backgroundColor('transparent')
-            .fontColor(getThemeColors().textSecondary)
-            .width(32)
-            .height(32)
-            .onClick(() => {
-              this.onClose();
-            });
-        }
-        .width('100%')
-        .padding({ left: 20, right: 20, top: 20, bottom: 10 });
-
-        // File icon and info
         Column() {
-          // File type icon
-          Text(this.getFileIcon())
-            .fontSize(48)
-            .margin({ bottom: 16 });
+          Row() {
+            Text('File Preview')
+              .fontSize(18)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(getThemeColors().text)
+              .layoutWeight(1);
 
-          // File name
-          Text(this.fileName || 'Unknown file')
-            .fontSize(16)
-            .fontWeight(FontWeight.Medium)
-            .fontColor(getThemeColors().text)
-            .textAlign(TextAlign.Center)
-            .maxLines(2)
-            .textOverflow({ overflow: TextOverflow.Ellipsis });
-
-          // File size
-          Text(this.formatFileSize(this.fileSize))
-            .fontSize(14)
-            .fontColor(getThemeColors().textSecondary)
-            .margin({ top: 8 });
-
-          // MIME type
-          if (this.mimeType) {
-            Text(this.mimeType)
-              .fontSize(12)
-              .fontColor(getThemeColors().textMute2)
-              .margin({ top: 4 });
+            Button('✕')
+              .fontSize(16)
+              .backgroundColor('transparent')
+              .fontColor(getThemeColors().textSecondary)
+              .width(32)
+              .height(32)
+              .onClick(() => {
+                this.onClose();
+              });
           }
-        }
-        .width('100%')
-        .padding(20)
-        .justifyContent(FlexAlign.Center)
-        .alignItems(HorizontalAlign.Center);
+          .width('100%')
+          .padding({ left: 20, right: 20, top: 20, bottom: 10 });
 
-        // Sender info
-        Row() {
-          Text('From: ')
-            .fontSize(12)
-            .fontColor(getThemeColors().textSecondary);
-          Text(this.sender || 'Unknown')
-            .fontSize(12)
-            .fontColor(getThemeColors().text);
-          Blank();
-          Text(this.formatTime(this.timestamp))
-            .fontSize(12)
-            .fontColor(getThemeColors().textMute2);
-        }
-        .width('100%')
-        .padding({ left: 20, right: 20, bottom: 20 });
-
-        // Download progress
-        if (this.isDownloading) {
           Column() {
-            Progress({ value: this.downloadProgress, total: 100 })
-              .width('100%')
-              .height(4)
-              .color(getThemeColors().primary);
-            Text(`Downloading... ${this.downloadProgress}%`)
-              .fontSize(12)
+            Text(this.getFileIcon())
+              .fontSize(48)
+              .margin({ bottom: 16 });
+
+            Text(this.fileName || 'Unknown file')
+              .fontSize(16)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(getThemeColors().text)
+              .textAlign(TextAlign.Center)
+              .maxLines(2)
+              .textOverflow({ overflow: TextOverflow.Ellipsis });
+
+            Text(this.formatFileSize(this.fileSize))
+              .fontSize(14)
               .fontColor(getThemeColors().textSecondary)
               .margin({ top: 8 });
+
+            if (this.mimeType) {
+              Text(this.mimeType)
+                .fontSize(12)
+                .fontColor(getThemeColors().textMute2)
+                .margin({ top: 4 });
+            }
+          }
+          .width('100%')
+          .padding(20)
+          .justifyContent(FlexAlign.Center)
+          .alignItems(HorizontalAlign.Center);
+
+          Row() {
+            Text('From: ')
+              .fontSize(12)
+              .fontColor(getThemeColors().textSecondary);
+            Text(this.sender || 'Unknown')
+              .fontSize(12)
+              .fontColor(getThemeColors().text);
+            Blank();
+            Text(this.formatTime(this.timestamp))
+              .fontSize(12)
+              .fontColor(getThemeColors().textMute2);
+          }
+          .width('100%')
+          .padding({ left: 20, right: 20, bottom: 20 });
+
+          if (this.isDownloading) {
+            Column() {
+              Progress({ value: this.downloadProgress, total: 100 })
+                .width('100%')
+                .height(4)
+                .color(getThemeColors().primary);
+              Text(`Downloading... ${this.downloadProgress}%`)
+                .fontSize(12)
+                .fontColor(getThemeColors().textSecondary)
+                .margin({ top: 8 });
+            }
+            .width('100%')
+            .padding({ left: 20, right: 20, bottom: 20 });
+          }
+
+          Row() {
+            Button('Download')
+              .fontSize(16)
+              .backgroundColor(getThemeColors().primary)
+              .fontColor(getThemeColors().onPrimary)
+              .borderRadius(6)
+              .height(44)
+              .layoutWeight(1)
+              .enabled(!this.isDownloading)
+              .onClick(() => {
+                this.downloadFile();
+              });
+
+            Button('Open')
+              .fontSize(16)
+              .backgroundColor(getThemeColors().bg)
+              .fontColor(getThemeColors().text)
+              .borderWidth(1)
+              .borderColor(getThemeColors().dividerStrong)
+              .borderRadius(6)
+              .height(44)
+              .layoutWeight(1)
+              .margin({ left: 12 })
+              .enabled(!this.isDownloading)
+              .onClick(() => {
+                this.openFile();
+              });
           }
           .width('100%')
           .padding({ left: 20, right: 20, bottom: 20 });
         }
-
-        // Action buttons
-        Row() {
-          Button('Download')
-            .fontSize(16)
-            .backgroundColor(getThemeColors().primary)
-            .fontColor(getThemeColors().onPrimary)
-            .borderRadius(6)
-            .height(44)
-            .layoutWeight(1)
-            .enabled(!this.isDownloading)
-            .onClick(() => {
-              this.downloadFile();
-            });
-
-          Button('Open')
-            .fontSize(16)
-            .backgroundColor(getThemeColors().bg)
-            .fontColor(getThemeColors().text)
-            .borderWidth(1)
-            .borderColor(getThemeColors().dividerStrong)
-            .borderRadius(6)
-            .height(44)
-            .layoutWeight(1)
-            .margin({ left: 12 })
-            .enabled(!this.isDownloading)
-            .onClick(() => {
-              this.openFile();
-            });
-        }
-        .width('100%')
-        .padding({ left: 20, right: 20, bottom: 20 });
+        .width('90%')
+        .backgroundColor(getThemeColors().surface)
+        .borderRadius(16)
+        .shadow({
+          radius: 20,
+          color: 'rgba(0, 0, 0, 0.15)',
+          offsetX: 0,
+          offsetY: 4
+        });
       }
-      .width('90%')
-      .backgroundColor(getThemeColors().surface)
-      .borderRadius(16)
-      .shadow({
-        radius: 20,
-        color: 'rgba(0, 0, 0, 0.15)',
-        offsetX: 0,
-        offsetY: 4
-      });
     }
     .width('100%')
     .height('100%');

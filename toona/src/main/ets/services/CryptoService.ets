@@ -30,6 +30,53 @@ import { VerificationService } from './VerificationService';
 
 const logger = AppLogger.getLogger('CryptoService');
 
+interface ToDeviceEventInternal {
+  type: string;
+  sender: string;
+  content: Record<string, string | object>;
+}
+
+export interface EncryptedMatrixEvent {
+  event_id: string;
+  room_id: string;
+  sender: string;
+  type: string;
+  content: Record<string, string | object>;
+  origin_server_ts: number;
+}
+
+interface DecryptedErrorContent {
+  body: string;
+  msgtype: string;
+}
+
+interface KeyRequestBody {
+  algorithm: string;
+  room_id: string;
+  session_id: string;
+  sender_key: string;
+}
+
+interface KeyRequestContent {
+  action: string;
+  requesting_user_id: string;
+  requesting_device_id: string;
+  request_id: string;
+  body: KeyRequestBody;
+}
+
+interface KeyRequestEvent {
+  type: string;
+  content: KeyRequestContent;
+}
+
+interface DeviceIdentityUpload {
+  userId: string;
+  deviceId: string;
+  ed25519Key: string;
+  curve25519Key: string;
+}
+
 /**
  * CryptoService handles all E2EE operations for the Matrix client.
  * 
@@ -245,7 +292,13 @@ export class CryptoService {
     }
 
     try {
-      await this.cryptoManager.uploadDeviceKeys(this.deviceIdentity as unknown as Record<string, string | object>);
+      const identityObj: DeviceIdentityUpload = {
+        userId: this.deviceIdentity.userId,
+        deviceId: this.deviceIdentity.deviceId,
+        ed25519Key: this.deviceIdentity.ed25519Key,
+        curve25519Key: this.deviceIdentity.curve25519Key
+      };
+      await this.cryptoManager.uploadDeviceKeys(identityObj as Object as Record<string, string | object>);
       logger.info('Device keys uploaded');
     } catch (error) {
       logger.error('Failed to upload device keys:', error);
@@ -274,51 +327,48 @@ export class CryptoService {
   /**
    * Process a to-device event
    */
-  async processToDeviceEvent(event: {
-    type: string;
-    sender: string;
-    content: Record<string, string | object>;
-  }): Promise<void> {
+  async processToDeviceEvent(event: ToDeviceEventInternal): Promise<void> {
     if (!this.initialized) {
       logger.warn('CryptoService not initialized, queuing event');
       return;
     }
 
     try {
+      const content: Record<string, string | object> = event.content;
       switch (event.type) {
         case 'm.room_key':
-          await this.handleRoomKeyEvent(event as unknown as RoomKeyEvent);
+          await this.handleRoomKeyEvent(this.contentToRoomKeyEvent(content));
           break;
         case 'm.room_key_request':
-          await this.handleRoomKeyRequest(event);
+          await this.handleRoomKeyRequest(content);
           break;
         case 'm.forwarded_room_key':
-          await this.handleForwardedRoomKeyEvent(event as unknown as RoomKeyEvent);
+          await this.handleForwardedRoomKeyEvent(this.contentToRoomKeyEvent(content));
           break;
         case 'm.room_key_request.cancellation':
-          await this.handleRoomKeyRequestCancellation(event);
+          await this.handleRoomKeyRequestCancellation(content);
           break;
         // Verification events
         case KEY_VERIFICATION_REQUEST:
-          await this.handleVerificationRequest(event as unknown as VerificationRequestEvent);
+          await this.handleVerificationRequest(this.contentToVerificationRequestEvent(content));
           break;
         case KEY_VERIFICATION_READY:
-          await this.handleVerificationReady(event as unknown as VerificationReadyEvent);
+          await this.handleVerificationReady(this.contentToVerificationReadyEvent(content));
           break;
         case KEY_VERIFICATION_START:
-          await this.handleVerificationStart(event as unknown as VerificationStartEvent);
+          await this.handleVerificationStart(this.contentToVerificationStartEvent(content));
           break;
         case KEY_VERIFICATION_KEY:
-          await this.handleVerificationKey(event as unknown as VerificationKeyEvent);
+          await this.handleVerificationKey(this.contentToVerificationKeyEvent(content));
           break;
         case KEY_VERIFICATION_MAC:
-          await this.handleVerificationMac(event as unknown as VerificationMacEvent);
+          await this.handleVerificationMac(this.contentToVerificationMacEvent(content));
           break;
         case KEY_VERIFICATION_CANCEL:
-          await this.handleVerificationCancel(event as unknown as VerificationCancelEvent);
+          await this.handleVerificationCancel(this.contentToVerificationCancelEvent(content));
           break;
         case KEY_VERIFICATION_DONE:
-          await this.handleVerificationDone(event);
+          await this.handleVerificationDone(content);
           break;
         default:
           logger.info(`Unhandled to-device event type: ${event.type}`);
@@ -326,6 +376,76 @@ export class CryptoService {
     } catch (error) {
       logger.error(`Failed to process to-device event ${event.type}:`, error);
     }
+  }
+
+  private contentToRoomKeyEvent(content: Record<string, string | object>): RoomKeyEvent {
+    const evt: RoomKeyEvent = {
+      type: content['type'] as string,
+      algorithm: content['algorithm'] as string,
+      room_id: content['room_id'] as string,
+      session_id: content['session_id'] as string,
+      session_key: content['session_key'] as string,
+      sender_key: content['sender_key'] as string
+    };
+    return evt;
+  }
+
+  private contentToVerificationRequestEvent(content: Record<string, string | object>): VerificationRequestEvent {
+    const methods: string[] = content['methods'] as string[];
+    const evt: VerificationRequestEvent = {
+      from_device: content['from_device'] as string,
+      methods: methods,
+      timestamp: Number(content['timestamp']),
+      transaction_id: content['transaction_id'] as string
+    };
+    return evt;
+  }
+
+  private contentToVerificationReadyEvent(content: Record<string, string | object>): VerificationReadyEvent {
+    const methods: string[] = content['methods'] as string[];
+    const evt: VerificationReadyEvent = {
+      methods: methods,
+      transaction_id: content['transaction_id'] as string
+    };
+    return evt;
+  }
+
+  private contentToVerificationStartEvent(content: Record<string, string | object>): VerificationStartEvent {
+    const evt: VerificationStartEvent = {
+      method: content['method'] as string,
+      short_authentication_string: content['short_authentication_string'] as string[],
+      transaction_id: content['transaction_id'] as string,
+      key_agreement_protocols: content['key_agreement_protocols'] as string[],
+      hashes: content['hashes'] as string[],
+      authentication_codes: content['authentication_codes'] as string[]
+    };
+    return evt;
+  }
+
+  private contentToVerificationKeyEvent(content: Record<string, string | object>): VerificationKeyEvent {
+    const evt: VerificationKeyEvent = {
+      key: content['key'] as string,
+      transaction_id: content['transaction_id'] as string
+    };
+    return evt;
+  }
+
+  private contentToVerificationMacEvent(content: Record<string, string | object>): VerificationMacEvent {
+    const evt: VerificationMacEvent = {
+      keys: content['keys'] as string,
+      mac: content['mac'] as Record<string, string>,
+      transaction_id: content['transaction_id'] as string
+    };
+    return evt;
+  }
+
+  private contentToVerificationCancelEvent(content: Record<string, string | object>): VerificationCancelEvent {
+    const evt: VerificationCancelEvent = {
+      code: content['code'] as string,
+      reason: content['reason'] as string,
+      transaction_id: content['transaction_id'] as string
+    };
+    return evt;
   }
 
   /**
@@ -373,8 +493,7 @@ export class CryptoService {
   /**
    * Handle m.room_key_request to-device event
    */
-  private async handleRoomKeyRequest(event: { content: Record<string, string | object> }): Promise<void> {
-    const content = event.content;
+  private async handleRoomKeyRequest(content: Record<string, string | object>): Promise<void> {
     const requestingUserId = content['requesting_user_id'] as string;
     const requestingDevice = content['requesting_device_id'] as string;
     const roomId = content['room_id'] as string;
@@ -468,8 +587,7 @@ export class CryptoService {
   /**
    * Handle m.room_key_request.cancellation to-device event
    */
-  private async handleRoomKeyRequestCancellation(event: { content: Record<string, string | object> }): Promise<void> {
-    const content = event.content;
+  private async handleRoomKeyRequestCancellation(content: Record<string, string | object>): Promise<void> {
     const requestId = content['request_id'] as string;
     logger.info(`Received key request cancellation for request ${requestId}`);
     // No action needed - we were going to share the key anyway
@@ -540,8 +658,7 @@ export class CryptoService {
   /**
    * Handle m.keyverification.done to-device event
    */
-  private async handleVerificationDone(event: { content: Record<string, string | object> }): Promise<void> {
-    const content = event.content;
+  private async handleVerificationDone(content: Record<string, string | object>): Promise<void> {
     const transactionId = content['transaction_id'] as string;
     logger.info(`Verification ${transactionId} completed`);
 
@@ -569,79 +686,70 @@ export class CryptoService {
   /**
    * Decrypt an encrypted event
    */
-  async decryptEvent(event: {
-    event_id: string;
-    room_id: string;
-    sender: string;
-    type: string;
-    content: Record<string, string | object>;
-    origin_server_ts: number;
-  }): Promise<DecryptedEvent> {
+  async decryptEvent(event: EncryptedMatrixEvent): Promise<DecryptedEvent> {
     if (!this.initialized) {
       return this.createDecryptionError(event, 'CryptoService not initialized');
     }
 
-    const content = event.content as unknown as EncryptedEventContent;
+    const contentAlgo: string = (event.content['algorithm'] as string) || '';
+    const contentCiphertext: string = (event.content['ciphertext'] as string) || '';
+    const contentSessionId: string = (event.content['session_id'] as string) || '';
+    const contentSenderId: string = (event.content['sender_key'] as string) || '';
+    const contentDeviceId: string = (event.content['device_id'] as string) || '';
 
-    // Check algorithm
-    if (content.algorithm !== MEGOLM_ALGORITHM) {
-      return this.createDecryptionError(event, `Unsupported algorithm: ${content.algorithm}`);
+    if (contentAlgo !== MEGOLM_ALGORITHM) {
+      return this.createDecryptionError(event, `Unsupported algorithm: ${contentAlgo}`);
     }
 
-    // Validate required fields
-    if (!content.session_id || !content.ciphertext) {
+    if (!contentSessionId || !contentCiphertext) {
       return this.createDecryptionError(event, 'Missing required fields');
     }
 
-    // Look up session
-    const cacheKey = `${event.room_id}:${content.session_id}`;
-    let session = this.inboundGroupSessions.get(cacheKey);
+    const cacheKey = `${event.room_id}:${contentSessionId}`;
+    let session: MegolmSession | undefined = this.inboundGroupSessions.get(cacheKey);
 
     if (!session) {
-      // Try loading from database
       const entity = await this.cryptoDao.getInboundGroupSession(cacheKey);
       if (entity) {
-        session = OlmWrapper.unpickleSession(entity.session_data, '');
-        if (session) {
-          this.inboundGroupSessions.set(cacheKey, session);
+        const loaded = OlmWrapper.unpickleSession(entity.session_data, '');
+        if (loaded) {
+          this.inboundGroupSessions.set(cacheKey, loaded);
+          session = loaded;
         }
       }
     }
 
     if (!session) {
-      // Queue the event for later decryption
-      const pending = this.pendingRoomKeys.get(event.room_id) || [];
-      pending.push({
+      const pendingEvent: RoomKeyEvent = {
         type: 'm.room_key',
-        algorithm: content.algorithm,
+        algorithm: contentAlgo,
         room_id: event.room_id,
-        session_id: content.session_id,
+        session_id: contentSessionId,
         session_key: '',
-        sender_key: content.sender_key
-      });
+        sender_key: contentSenderId
+      };
+      const pending = this.pendingRoomKeys.get(event.room_id) || [];
+      pending.push(pendingEvent);
       this.pendingRoomKeys.set(event.room_id, pending);
 
       return this.createDecryptionError(event, 'No session available for decryption');
     }
 
-    // Decrypt the message
-    const decryptedJson = OlmWrapper.decryptGroupMessage(session, content.ciphertext);
+    const decryptedJson = OlmWrapper.decryptGroupMessage(session, contentCiphertext);
     if (!decryptedJson) {
       return this.createDecryptionError(event, 'Decryption failed');
     }
 
-    // Parse the decrypted message
     const parsed = OlmWrapper.parseDecryptedMessage(decryptedJson);
     if (!parsed) {
       return this.createDecryptionError(event, 'Failed to parse decrypted message');
     }
 
-    // Update session in database
     const entity = new InboundGroupSessionEntity();
     entity.sessionId = cacheKey;
     entity.room_id = event.room_id;
-    entity.sender_key = content.sender_key || '';
-    entity.megolm_session_id = content.session_id;
+    entity.sender_key = contentSenderId;
+    entity.megolm_session_id = contentSessionId;
     entity.session_data = OlmWrapper.pickleSession(session, '');
     entity.forwarding_chain = '[]';
     entity.created_at = Date.now();
@@ -650,37 +758,34 @@ export class CryptoService {
     // Notify listeners about the decrypted message
     this.notifyDecrypted(event.room_id, event.event_id);
 
-    // Return decrypted event
-    return {
+    const parsedType: string = (parsed as Record<string, string | object>)['type'] as string || 'm.room.message';
+    const parsedContent: Record<string, string | object> = (parsed as Record<string, string | object>)['content'] as Record<string, string | object> || parsed;
+    const decryptedResult: DecryptedEvent = {
       eventId: event.event_id,
       roomId: event.room_id,
       sender: event.sender,
-      type: parsed['type'] as string || 'm.room.message',
-      content: parsed['content'] as Record<string, string | object> || parsed,
+      type: parsedType,
+      content: parsedContent,
       timestamp: event.origin_server_ts
     };
+    return decryptedResult;
   }
 
-  private createDecryptionError(event: {
-    event_id: string;
-    room_id: string;
-    sender: string;
-    type: string;
-    content: Record<string, string | object>;
-    origin_server_ts: number;
-  }, error: string): DecryptedEvent {
-    return {
+  private createDecryptionError(event: EncryptedMatrixEvent, error: string): DecryptedEvent {
+    const errorContent: DecryptedErrorContent = {
+      body: `[Unable to decrypt: ${error}]`,
+      msgtype: 'm.text'
+    };
+    const result: DecryptedEvent = {
       eventId: event.event_id,
       roomId: event.room_id,
       sender: event.sender,
       type: event.type,
-      content: {
-        body: `[Unable to decrypt: ${error}]`,
-        msgtype: 'm.text'
-      },
+      content: errorContent as Object as Record<string, string | object>,
       timestamp: event.origin_server_ts,
       decryptionError: error
     };
+    return result;
   }
 
   /**
@@ -691,20 +796,22 @@ export class CryptoService {
       logger.info(`Requesting keys for room ${roomId}, session ${sessionId}`);
 
       // Create key request event
-      const keyRequest = {
+      const keyRequestBody: KeyRequestBody = {
+        algorithm: MEGOLM_ALGORITHM,
+        room_id: roomId,
+        session_id: sessionId,
+        sender_key: ''
+      };
+      const keyRequestContent: KeyRequestContent = {
+        action: 'request',
+        requesting_user_id: this.authManager.getSession()?.userId || '',
+        requesting_device_id: this.deviceId,
+        request_id: `key_request_${Date.now()}`,
+        body: keyRequestBody
+      };
+      const keyRequest: KeyRequestEvent = {
         type: 'm.room_key_request',
-        content: {
-          action: 'request',
-          requesting_user_id: this.authManager.getSession()?.userId || '',
-          requesting_device_id: this.deviceId,
-          request_id: `key_request_${Date.now()}`,
-          body: {
-            algorithm: MEGOLM_ALGORITHM,
-            room_id: roomId,
-            session_id: sessionId,
-            sender_key: ''
-          }
-        }
+        content: keyRequestContent
       };
 
       logger.info(`Would send key request: ${JSON.stringify(keyRequest)}`);

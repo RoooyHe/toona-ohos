@@ -555,8 +555,10 @@ export struct MessageBubble {
 
     this.selectedFileUrl = url || '';
     this.selectedFileName = body;
-    this.selectedFileSize = (info?.['size'] as number) || 0;
-    this.selectedMimeType = (info?.['mimetype'] as string) || 'application/octet-stream';
+    const rawSize: string | object | undefined = info?.['size'];
+    this.selectedFileSize = rawSize !== undefined ? (rawSize as Object as number) : 0;
+    const rawMime: string | object | undefined = info?.['mimetype'];
+    this.selectedMimeType = rawMime !== undefined ? (rawMime as Object as string) : 'application/octet-stream';
     this.showFilePreview = true;
   }
 }

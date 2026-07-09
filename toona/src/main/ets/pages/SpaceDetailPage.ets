@@ -71,8 +71,7 @@ struct SpaceRoomItem {
       }
       const param: Record<string, Object> = {
         "roomId": this.room.id,
-        "roomName": this.room.getDisplayName(),
-        "pathStack": stack
+        "roomName": this.room.getDisplayName()
       };
       stack.pushPathByName('RoomDetailPage', param);
     });
@@ -87,7 +86,7 @@ struct SpaceDetailPage {
   @State childRooms: Room[] = [];
   @State isLoading: boolean = true;
   private roomManager: RoomManager = RoomManager.getInstance();
-  @State navCtx: NavDestinationContext | null = null;
+  pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
     this.loadSpaceDetails();
@@ -165,7 +164,7 @@ logger.error('Failed to load space details:', error);
             List() {
               ForEach(this.childRooms, (room: Room) => {
                 ListItem() {
-                  SpaceRoomItem({ room: room, pathStack: this.navCtx?.pathStack });
+                  SpaceRoomItem({ room: room, pathStack: this.pathStack });
                 }
               });
             }
@@ -181,7 +180,7 @@ logger.error('Failed to load space details:', error);
       .height('100%');
     }
     .onReady((ctx: NavDestinationContext) => {
-      this.navCtx = ctx;
+      this.pathStack = ctx.pathStack;
     })
     .hideTitleBar(true)
   }

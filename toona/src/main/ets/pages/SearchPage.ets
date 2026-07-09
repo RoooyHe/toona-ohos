@@ -7,9 +7,7 @@ const logger = AppLogger.getLogger('SearchPage');
 
 @Builder
 export function SearchPageBuilder(name: string, param: Object) {
-  SearchPage({
-    pathStack: ((param as Record<string, Object>)['pathStack'] as NavPathStack) || new NavPathStack()
-  })
+  SearchPage()
 }
 
 @Component
@@ -18,7 +16,7 @@ struct SearchPage {
   @State searchResults: Room[] = [];
   @State isSearching: boolean = false;
   private roomManager: RoomManager = RoomManager.getInstance();
-  @Prop pathStack: NavPathStack = new NavPathStack();
+  pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
   }
@@ -48,8 +46,7 @@ logger.error('Search failed:', error);
   navigateToRoom(room: Room) {
     const param: Record<string, Object> = {
       "roomId": room.id,
-      "roomName": room.getDisplayName(),
-      "pathStack": this.pathStack
+      "roomName": room.getDisplayName()
     };
     this.pathStack.pushPathByName('RoomDetailPage', param);
   }
@@ -193,6 +190,9 @@ logger.error('Search failed:', error);
       .height('100%')
       .backgroundColor(getThemeColors().bg);
     }
+    .onReady((ctx: NavDestinationContext) => {
+      this.pathStack = ctx.pathStack;
+    })
     .hideTitleBar(true);
   }
 }

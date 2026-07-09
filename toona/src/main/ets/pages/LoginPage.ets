@@ -3,7 +3,6 @@ import { AuthManager } from '../services/AuthManager';
 import { SPHelper } from '@wondertek/wdkitlib';
 import { UserAuthManager } from '../services/UserAuthManager';
 import { getThemeColors } from '../utils/ThemeManager';
-import { ConfigurationConstant } from '@kit.AbilityKit';
 import http from '@ohos.net.http';
 import { AppLogger } from '../utils/AppLogger';
 
@@ -16,7 +15,11 @@ function extractHomeServerUrl(jsonString: string): string | null {
   return null;
 }
 
-@Entry
+@Builder
+export function LoginPageBuilder(name: string, param: Object) {
+  LoginPage()
+}
+
 @Component
 struct LoginPage {
   @StorageLink('colorMode') colorMode: number = 0;
@@ -33,8 +36,6 @@ struct LoginPage {
   pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
-    AppStorage.setOrCreate('colorMode', ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT);
-    this.colorMode = ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT;
     this.loadSavedCredentials();
   }
 
@@ -215,7 +216,7 @@ struct LoginPage {
   }
 
   build() {
-    Navigation(this.pathStack) {
+    NavDestination() {
       Stack() {
         Column() {
           Column() {
@@ -381,7 +382,9 @@ struct LoginPage {
       .width('100%')
       .height('100%');
     }
+    .onReady((ctx: NavDestinationContext) => {
+      this.pathStack = ctx.pathStack;
+    })
     .hideTitleBar(true)
-    .mode(NavigationMode.Stack)
   }
 }

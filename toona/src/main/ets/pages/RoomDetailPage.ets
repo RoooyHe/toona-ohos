@@ -46,6 +46,18 @@ interface ReplyQuoteData {
   body: string;
 }
 
+interface StickerInfo {
+  w: number;
+  h: number;
+  mimetype: string;
+}
+
+interface StickerContent {
+  url: string;
+  body: string;
+  info: StickerInfo;
+}
+
 interface InReplyTo {
   event_id: string;
 }
@@ -63,8 +75,7 @@ interface RelatesTo {
 export function RoomDetailPageBuilder(name: string, param: Object) {
   RoomDetailPage({
     roomId: ((param as Record<string, Object>)['roomId'] as string) || '',
-    roomName: ((param as Record<string, Object>)['roomName'] as string) || '聊天室',
-    pathStack: ((param as Record<string, Object>)['pathStack'] as NavPathStack) || new NavPathStack()
+    roomName: ((param as Record<string, Object>)['roomName'] as string) || '聊天室'
   })
 }
 
@@ -701,11 +712,11 @@ struct RoomDetailPage {
     this.replyQuote = null;
   }
 
-  copyMessage(message: Message) {
+  copyMessage(message: Message): void {
     try {
-      const pasteboard = pasteboard.getSystemPasteboard();
-      const pasteData = pasteboard.createData(message.getMessageBody());
-      pasteboard.setData(pasteData);
+      const systemPasteboard: pasteboard.SystemPasteboard = pasteboard.getSystemPasteboard();
+      const pasteData: pasteboard.PasteData = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, message.getMessageBody());
+      systemPasteboard.setData(pasteData);
       ToastUtils.show('消息已复制');
     } catch (error) {
       logger.error('Failed to copy message:', error);
@@ -1049,7 +1060,6 @@ struct RoomDetailPage {
               });
           }
           .width('100%')
-          .justifyContent(FlexAlign.Center);
         }
 
         ForEach(this.messages, (message: Message, index: number) => {
@@ -1266,6 +1276,9 @@ struct RoomDetailPage {
       .width('100%')
       .height('100%');
     }
+    .onReady((ctx: NavDestinationContext) => {
+      this.pathStack = ctx.pathStack;
+    })
     .hideTitleBar(true)
     .onBackPressed(() => {
       return QuickDialogManager.dismissLastShowingDialog()
@@ -1291,15 +1304,8 @@ struct RoomDetailPage {
     try {
       // In a real implementation, this would send a sticker via the sticker API
       // PUT /_matrix/client/v3/rooms/{roomId}/send/m.sticker/{txnId}
-      const content = {
-        url: stickerUrl,
-        body: stickerBody,
-        info: {
-          w: 256,
-          h: 256,
-          mimetype: 'image/png'
-        }
-      };
+      const info: StickerInfo = { w: 256, h: 256, mimetype: 'image/png' };
+      const content: StickerContent = { url: stickerUrl, body: stickerBody, info: info };
       ToastUtils.show(`Sticker: ${stickerBody}`);
     } catch (error) {
       logger.error('Failed to send sticker:', error);
@@ -1351,13 +1357,10 @@ struct RoomDetailPage {
   }
 
   navigateToRoomSettings() {
-    if (this.pathStack) {
-      const param: Record<string, Object> = {
-        "roomId": this.roomId,
-        "roomName": this.roomName,
-        "pathStack": this.pathStack
-      };
-      this.pathStack.pushPathByName('RoomSettingsPage', param);
-    }
+    const param: Record<string, Object> = {
+      "roomId": this.roomId,
+      "roomName": this.roomName
+    };
+    this.pathStack.pushPathByName('RoomSettingsPage', param);
   }
 }

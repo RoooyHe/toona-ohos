@@ -25,6 +25,17 @@ import { AuthManager } from './AuthManager';
 
 const logger = AppLogger.getLogger('VerificationService');
 
+interface QrVerificationResult {
+  transactionId: string;
+  qrData: string;
+}
+
+interface QrCodePayload {
+  type: string;
+  key: string;
+  transaction_id: string;
+}
+
 /**
  * VerificationService handles Matrix key verification (SAS and QR code).
  *
@@ -135,7 +146,7 @@ export class VerificationService {
   /**
    * Start QR code verification (show QR code)
    */
-  async startQrVerification(userId: string, deviceId: string): Promise<{ transactionId: string; qrData: string }> {
+  async startQrVerification(userId: string, deviceId: string): Promise<QrVerificationResult> {
     const session = this.authManager.getSession();
     if (!session) {
       throw new Error('No active session');
@@ -164,13 +175,15 @@ export class VerificationService {
     this.notifyUpdate(verificationSession);
 
     // Generate QR code data (simplified)
-    const qrData = JSON.stringify({
+    const qrPayload: QrCodePayload = {
       type: 'm.login.ecdh-v1.curve25519-aes-sha2',
       key: sharedSecret,
       transaction_id: transactionId
-    });
+    };
+    const qrData: string = JSON.stringify(qrPayload);
 
-    return { transactionId, qrData };
+    const result: QrVerificationResult = { transactionId: transactionId, qrData: qrData };
+    return result;
   }
 
   /**

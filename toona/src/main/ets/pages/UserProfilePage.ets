@@ -11,8 +11,7 @@ const logger = AppLogger.getLogger('UserProfilePage');
 @Builder
 export function UserProfilePageBuilder(name: string, param: Object) {
   UserProfilePage({
-    userId: ((param as Record<string, Object>)['userId'] as string) || '',
-    pathStack: ((param as Record<string, Object>)['pathStack'] as NavPathStack) || new NavPathStack()
+    userId: ((param as Record<string, Object>)['userId'] as string) || ''
   })
 }
 
@@ -27,7 +26,7 @@ struct UserProfilePage {
   private userManager: UserManager = UserManager.getInstance();
   private presenceManager: PresenceManager = PresenceManager.getInstance();
   private mediaManager: MediaManager = MediaManager.getInstance();
-  @Prop pathStack: NavPathStack;
+  pathStack: NavPathStack = new NavPathStack();
   private logger = AppLogger.getLogger('UserProfilePage');
 
   aboutToAppear() {
@@ -38,8 +37,8 @@ struct UserProfilePage {
     this.isLoading = true;
     try {
       const profile = await this.userManager.getUserProfile(this.userId);
-      this.displayName = profile.displayname || '';
-      this.avatarUrl = profile.avatar_url || '';
+      this.displayName = profile.displayName || '';
+      this.avatarUrl = profile.avatarUrl || '';
 
       const presenceResponse = await this.presenceManager.getPresence(this.userId);
       this.presence = presenceResponse.presence as PresenceState;
@@ -238,6 +237,9 @@ struct UserProfilePage {
       .height('100%')
       .backgroundColor(getThemeColors().bg);
     }
+    .onReady((ctx: NavDestinationContext) => {
+      this.pathStack = ctx.pathStack;
+    })
     .hideTitleBar(true);
   }
 }

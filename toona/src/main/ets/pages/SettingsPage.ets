@@ -35,9 +35,7 @@ import { AppLogger } from '../utils/AppLogger';
 
 @Builder
 export function SettingsPageBuilder(name: string, param: Object) {
-  SettingsPage({
-    pathStack: ((param as Record<string, Object>)['pathStack'] as NavPathStack) || new NavPathStack()
-  })
+  SettingsPage()
 }
 
 @Component
@@ -76,7 +74,7 @@ export struct SettingsPage {
   private cryptoService: CryptoService = CryptoService.getInstance();
   private verificationService: VerificationService = VerificationService.getInstance();
   private logger = AppLogger.getLogger(SettingsPage);
-  @Prop pathStack: NavPathStack;
+  pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
     const session = this.authManager.getSession();
@@ -626,6 +624,9 @@ export struct SettingsPage {
     }
     .width('100%')
     .height('100%')
+    .onReady((ctx: NavDestinationContext) => {
+      this.pathStack = ctx.pathStack;
+    })
     .hideTitleBar(true);
   }
 
@@ -756,20 +757,12 @@ export struct SettingsPage {
   }
 
   navigateToInviteManagement() {
-    if (this.pathStack) {
-      const param: Record<string, Object> = {
-        "pathStack": this.pathStack
-      };
-      this.pathStack.pushPathByName('InviteManagementPage', param);
-    }
+    const param: Record<string, Object> = {};
+    this.pathStack.pushPathByName('InviteManagementPage', param);
   }
 
   navigateToNotificationSettings() {
-    if (this.pathStack) {
-      const param: Record<string, Object> = {
-        "pathStack": this.pathStack
-      };
-      this.pathStack.pushPathByName('NotificationSettingsPage', param);
-    }
+    const param: Record<string, Object> = {};
+    this.pathStack.pushPathByName('NotificationSettingsPage', param);
   }
 }

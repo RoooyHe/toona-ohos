@@ -1,6 +1,16 @@
 {
   "routerMap": [
     {
+      "name": "AppNavigation",
+      "pageSourceFile": "src/main/ets/pages/AppNavigation.ets",
+      "buildFunction": "AppNavigationBuilder"
+    },
+    {
+      "name": "LoginPage",
+      "pageSourceFile": "src/main/ets/pages/LoginPage.ets",
+      "buildFunction": "LoginPageBuilder"
+    },
+    {
       "name": "JoinRoomPage",
       "pageSourceFile": "src/main/ets/pages/JoinRoomPage.ets",
       "buildFunction": "JoinRoomPageBuilder",

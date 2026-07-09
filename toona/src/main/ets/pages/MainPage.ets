@@ -155,9 +155,7 @@ ToastUtils.show('退出登录失败', 3000);
       return;
     }
     this.isNavigating = true;
-    const param: Record<string, Object> = {
-      "pathStack": this.pathStack
-    };
+    const param: Record<string, Object> = {};
     this.pathStack.pushPathByName('MessageSearchPage', param);
     const self = this;
     setTimeout(() => { self.isNavigating = false; }, 500);
@@ -168,23 +166,18 @@ ToastUtils.show('退出登录失败', 3000);
       return;
     }
     this.isNavigating = true;
-    const param: Record<string, Object> = {
-      "pathStack": this.pathStack
-    };
+    const param: Record<string, Object> = {};
     this.pathStack.pushPathByName('JoinRoomPage', param);
     const self = this;
     setTimeout(() => { self.isNavigating = false; }, 500);
   }
 
-  // ✅ 新增：动态跳转到加入/创建空间页
   navigateToJoinSpace() {
     if (this.isNavigating) {
       return;
     }
     this.isNavigating = true;
-    const param: Record<string, Object> = {
-      "pathStack": this.pathStack
-    };
+    const param: Record<string, Object> = {};
     this.pathStack.pushPathByName('JoinSpacePage', param);
     const self = this;
     setTimeout(() => { self.isNavigating = false; }, 500);
@@ -195,12 +188,8 @@ ToastUtils.show('退出登录失败', 3000);
       return;
     }
     this.isNavigating = true;
-    if (this.pathStack) {
-      const param: Record<string, Object> = {
-        "pathStack": this.pathStack
-      };
-      this.pathStack.pushPathByName('SettingsPage', param);
-    }
+    const param: Record<string, Object> = {};
+    this.pathStack.pushPathByName('SettingsPage', param);
     const self = this;
     setTimeout(() => { self.isNavigating = false; }, 500);
   }
@@ -472,8 +461,7 @@ ToastUtils.show('退出登录失败', 3000);
             } else {
               const param: Record<string, Object> = {
                 "roomId": room.id,
-                "roomName": room.getDisplayName(),
-                "pathStack": this.pathStack
+                "roomName": room.getDisplayName()
               };
               this.pathStack.pushPathByName('RoomDetailPage', param);
             }

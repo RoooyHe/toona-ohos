@@ -117,9 +117,7 @@ interface PublicRoomsResponse {
 
 @Builder
 export function JoinSpacePageBuilder(name: string, param: Object) {
-  JoinSpacePage({
-    pathStack: ((param as Record<string, Object>)['pathStack'] as NavPathStack) || new NavPathStack()
-  })
+  JoinSpacePage()
 }
 
 @Component
@@ -133,7 +131,7 @@ struct JoinSpacePage {
   private roomManager: RoomManager = RoomManager.getInstance();
   private authManager: AuthManager = AuthManager.getInstance();
   private httpClient: MatrixHttpClient | null = null;
-  @Prop pathStack: NavPathStack;
+  pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
     this.httpClient = this.authManager.getHttpClient();
@@ -214,11 +212,12 @@ this.pathStack.pop();
   async doCreateSpace(spaceName: string): Promise<void> {
     await this.roomManager.createSpace(spaceName.trim());
     ToastUtils.show('创建成功');
-    this.pathStack?.pop();
+    this.pathStack.pop();
   }
 
   build() {
-    Stack() {
+    NavDestination() {
+      Stack() {
       Column() {
         Row() {
           Text('加入空间')
@@ -385,5 +384,10 @@ this.pathStack.pop();
     }
     .width('100%')
     .height('100%');
+    }
+    .onReady((ctx: NavDestinationContext) => {
+      this.pathStack = ctx.pathStack;
+    })
+    .hideTitleBar(true);
   }
 }

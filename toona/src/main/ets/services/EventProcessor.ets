@@ -2,7 +2,7 @@ import { Event, PresEvent } from '../models/MatrixTypes';
 import { User, Room, Message } from '../models/DataModels';
 import { LocalDatabase } from '../database/LocalDatabase';
 import { AppLogger } from '../utils/AppLogger';
-import { CryptoService } from './CryptoService';
+import { CryptoService, EncryptedMatrixEvent } from './CryptoService';
 import { OlmWrapper } from '../crypto/OlmWrapper';
 
 export interface SyncListener {
@@ -400,44 +400,15 @@ export class EventProcessor {
    * This is a synchronous operation for performance
    */
   private attemptDecryptionFromCache(event: Event, cryptoService: CryptoService): ProcessedMessageEvent | null {
-    const content = event.content as Record<string, string | object>;
-    const sessionId = content['session_id'] as string;
-    const ciphertext = content['ciphertext'] as string;
+    const content: Record<string, string | object> = event.content as Record<string, string | object>;
+    const sessionId: string = content['session_id'] as string;
+    const ciphertext: string = content['ciphertext'] as string;
 
     if (!sessionId || !ciphertext) {
       return null;
     }
 
-    // Use CryptoService to decrypt - this accesses the session cache
-    // We'll create a mock event structure for the decryptEvent method
-    const mockEvent = {
-      event_id: event.event_id || '',
-      room_id: event.room_id || '',
-      sender: event.sender || '',
-      type: event.type,
-      content: event.content as Record<string, string | object>,
-      origin_server_ts: event.origin_server_ts || 0
-    };
-
-    // Try to get the session from the session cache via CryptoService
-    // Note: We're using a synchronous approach here by directly accessing the cache
-    // In a production implementation, you might want to use async/await
-    try {
-      // Create a promise and immediately resolve it for synchronous behavior
-      // This is a workaround for the async API
-      let result: ProcessedMessageEvent | null = null;
-
-      // Try to access the session cache directly
-      // This is a temporary solution - in production, use proper async handling
-      const cacheKey = `${event.room_id}:${sessionId}`;
-
-      // We need to access the session cache - let's use a callback pattern
-      // For now, we'll return null and let the async decryption handle it
-      return null;
-    } catch (error) {
-      this.logger.error(`Decryption attempt failed for event ${event.event_id}:`, error);
-      return null;
-    }
+    return null;
   }
 
   /**
@@ -452,14 +423,15 @@ export class EventProcessor {
     }
 
     try {
-      const decrypted = await cryptoService.decryptEvent({
+      const decryptEventObj: EncryptedMatrixEvent = {
         event_id: event.event_id || '',
         room_id: event.room_id || '',
         sender: event.sender || '',
         type: event.type,
         content: event.content as Record<string, string | object>,
         origin_server_ts: event.origin_server_ts || 0
-      });
+      };
+      const decrypted = await cryptoService.decryptEvent(decryptEventObj);
 
       // If decryption was successful (no error), return as a message event
       if (!decrypted.decryptionError) {

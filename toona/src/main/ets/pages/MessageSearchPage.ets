@@ -23,9 +23,7 @@ interface SearchResultMessage {
 
 @Builder
 export function MessageSearchPageBuilder(name: string, param: Object) {
-  MessageSearchPage({
-    pathStack: ((param as Record<string, Object>)['pathStack'] as NavPathStack) || new NavPathStack()
-  })
+  MessageSearchPage()
 }
 
 @Component
@@ -37,10 +35,10 @@ struct MessageSearchPage {
   private roomManager: RoomManager = RoomManager.getInstance();
   private messageManager: MessageManager = MessageManager.getInstance();
   private authManager: AuthManager = AuthManager.getInstance();
-  @Prop pathStack: NavPathStack;
+  pathStack: NavPathStack = new NavPathStack();
   private logger = AppLogger.getLogger('MessageSearchPage');
 
-  async onSearch() {
+  async onSearch(): Promise<void> {
     if (!this.searchQuery.trim()) {
       return;
     }
@@ -61,23 +59,28 @@ struct MessageSearchPage {
         }
 
         try {
-          const messages = await this.messageManager.getMessages(room.id, 50);
-          const matchingMessages = messages.filter(msg => {
-            const body = msg.getMessageBody().toLowerCase();
+          const messages: Message[] = await this.messageManager.getMessages(room.id, 50);
+          const matchingMessages: Message[] = messages.filter((msg: Message): boolean => {
+            const body: string = msg.getMessageBody().toLowerCase();
             return body.includes(this.searchQuery.toLowerCase());
           });
 
           if (matchingMessages.length > 0) {
-            results.push({
-              roomId: room.id,
-              roomName: room.getDisplayName(),
-              messages: matchingMessages.map(msg => ({
+            const searchMsgs: SearchResultMessage[] = matchingMessages.map((msg: Message): SearchResultMessage => {
+              const result: SearchResultMessage = {
                 eventId: msg.eventId,
                 sender: msg.sender,
                 body: msg.getMessageBody(),
                 timestamp: msg.timestamp
-              }))
+              };
+              return result;
             });
+            const item: SearchResult = {
+              roomId: room.id,
+              roomName: room.getDisplayName(),
+              messages: searchMsgs
+            };
+            results.push(item);
           }
         } catch (error) {
           this.logger.error(`Failed to search in room ${room.id}:`, error);
@@ -93,19 +96,18 @@ struct MessageSearchPage {
     }
   }
 
-  navigateToMessage(roomId: string, eventId: string) {
+  navigateToMessage(roomId: string, eventId: string): void {
     // Navigate to the room and highlight the message
     const param: Record<string, Object> = {
       "roomId": roomId,
       "roomName": '',
-      "pathStack": this.pathStack,
       "highlightEventId": eventId
     };
     this.pathStack.pushPathByName('RoomDetailPage', param);
   }
 
   formatTimestamp(timestamp: number): string {
-    const date = new Date(timestamp);
+    const date: Date = new Date(timestamp);
     return date.toLocaleString('zh-CN', {
       month: 'short',
       day: 'numeric',
@@ -278,6 +280,9 @@ struct MessageSearchPage {
       .height('100%')
       .backgroundColor(getThemeColors().bg);
     }
+    .onReady((ctx: NavDestinationContext) => {
+      this.pathStack = ctx.pathStack;
+    })
     .hideTitleBar(true);
   }
 }

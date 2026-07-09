@@ -10,8 +10,7 @@ const logger = AppLogger.getLogger('RoomSettingsPage');
 export function RoomSettingsPageBuilder(name: string, param: Object) {
   RoomSettingsPage({
     roomId: ((param as Record<string, Object>)['roomId'] as string) || '',
-    roomName: ((param as Record<string, Object>)['roomName'] as string) || '',
-    pathStack: ((param as Record<string, Object>)['pathStack'] as NavPathStack) || new NavPathStack()
+    roomName: ((param as Record<string, Object>)['roomName'] as string) || ''
   })
 }
 
@@ -29,7 +28,7 @@ struct RoomSettingsPage {
   @State isLoading: boolean = true;
   private roomManager: RoomManager = RoomManager.getInstance();
   private authManager: AuthManager = AuthManager.getInstance();
-  @Prop pathStack: NavPathStack;
+  pathStack: NavPathStack = new NavPathStack();
   private logger = AppLogger.getLogger('RoomSettingsPage');
 
   aboutToAppear() {
@@ -301,6 +300,9 @@ struct RoomSettingsPage {
       .height('100%')
       .backgroundColor(getThemeColors().bg);
     }
+    .onReady((ctx: NavDestinationContext) => {
+      this.pathStack = ctx.pathStack;
+    })
     .hideTitleBar(true);
   }
 }
