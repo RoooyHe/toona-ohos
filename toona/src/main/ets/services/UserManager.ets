@@ -1,6 +1,6 @@
-import { MatrixConfig, MatrixHttpClient } from '../network/MatrixHttpClient';
+import { UserHttpClient } from '../network/clients/UserHttpClient';
 import { AppLogger } from '../utils/AppLogger';
-import { AuthManager } from './AuthManager';
+import { AuthManager, IAuthManager } from './AuthManager';
 
 interface GeneratedTypeLiteralInterface_1 {
   displayName: string | null;
@@ -8,39 +8,22 @@ interface GeneratedTypeLiteralInterface_1 {
 }
 
 export class UserManager {
-  private static instance: UserManager;
-  private httpClient: MatrixHttpClient | null = null;
+  private userClient: UserHttpClient;
   private logger = AppLogger.getLogger(UserManager);
+  private authManager: IAuthManager;
 
-  private constructor() {
-  }
-
-  static getInstance(): UserManager {
-    if (!UserManager.instance) {
-      UserManager.instance = new UserManager();
-    }
-    return UserManager.instance;
-  }
-
-  setHomeserver(homeserverUrl: string): void {
-    MatrixConfig.getInstance().setHomeserver(homeserverUrl);
-    this.httpClient = MatrixConfig.getInstance().getHttpClient();
-  }
-
-  private ensureHttpClient(): MatrixHttpClient {
-    if (!this.httpClient) {
-      this.httpClient = MatrixConfig.getInstance().getHttpClient();
-    }
-    return this.httpClient;
+  constructor(authManager: IAuthManager, userClient: UserHttpClient) {
+    this.authManager = authManager;
+    this.userClient = userClient;
   }
 
   async getDisplayName(userId?: string): Promise<string | null> {
-    const targetUserId: string = userId ?? AuthManager.getInstance().getUserId();
+    const targetUserId: string = userId ?? this.authManager.getUserId();
     if (!targetUserId) {
       throw new Error('Not logged in');
     }
     try {
-      return await this.ensureHttpClient().getDisplayName(targetUserId);
+      return await this.userClient.getDisplayName(targetUserId);
     } catch (error) {
       this.logger.error('Failed to get display name:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -49,12 +32,12 @@ export class UserManager {
   }
 
   async setDisplayName(displayName: string): Promise<void> {
-    const userId: string = AuthManager.getInstance().getUserId();
+    const userId: string = this.authManager.getUserId();
     if (!userId) {
       throw new Error('Not logged in');
     }
     try {
-      await this.ensureHttpClient().setDisplayName(userId, displayName);
+      await this.userClient.setDisplayName(userId, displayName);
     } catch (error) {
       this.logger.error('Failed to set display name:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -63,12 +46,12 @@ export class UserManager {
   }
 
   async getAvatarUrl(userId?: string): Promise<string | null> {
-    const targetUserId: string = userId ?? AuthManager.getInstance().getUserId();
+    const targetUserId: string = userId ?? this.authManager.getUserId();
     if (!targetUserId) {
       throw new Error('Not logged in');
     }
     try {
-      return await this.ensureHttpClient().getAvatarUrl(targetUserId);
+      return await this.userClient.getAvatarUrl(targetUserId);
     } catch (error) {
       this.logger.error('Failed to get avatar URL:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -77,12 +60,12 @@ export class UserManager {
   }
 
   async setAvatarUrl(avatarUrl: string): Promise<void> {
-    const userId: string = AuthManager.getInstance().getUserId();
+    const userId: string = this.authManager.getUserId();
     if (!userId) {
       throw new Error('Not logged in');
     }
     try {
-      await this.ensureHttpClient().setAvatarUrl(userId, avatarUrl);
+      await this.userClient.setAvatarUrl(userId, avatarUrl);
     } catch (error) {
       this.logger.error('Failed to set avatar URL:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -91,12 +74,12 @@ export class UserManager {
   }
 
   async getUserProfile(userId?: string): Promise<GeneratedTypeLiteralInterface_1> {
-    const GeneratedDestructArray_1 = await Promise.all([
+    const results: Array<string | null> = await Promise.all([
       this.getDisplayName(userId),
       this.getAvatarUrl(userId)
     ]);
-    const displayName = GeneratedDestructArray_1[0];
-    const avatarUrl = GeneratedDestructArray_1[1];
+    const displayName = results[0];
+    const avatarUrl = results[1];
     return {
       displayName: displayName,
       avatarUrl: avatarUrl

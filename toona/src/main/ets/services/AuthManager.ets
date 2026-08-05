@@ -6,7 +6,8 @@ import { Session } from '../models/DataModels';
 import { SPHelper, RandomUtil } from '@wondertek/wdkitlib';
 import { Context } from '@kit.AbilityKit';
 
-import { MatrixConfig, MatrixHttpClient } from '../network/MatrixHttpClient';
+import { ConnectionConfig } from '../network/ConnectionConfig';
+import { BaseHttpClient } from '../network/clients/BaseHttpClient';
 import { AppLogger } from '../utils/AppLogger';
 
 enum TokenValidationResult {
@@ -15,20 +16,31 @@ enum TokenValidationResult {
   NETWORK_ERROR = 'network_error'
 }
 
-export class AuthManager {
-  private static instance: AuthManager;
+export interface IAuthManager {
+  init(context: Context): Promise<void>;
+  setHomeserver(homeserverUrl: string): Promise<void>;
+  getHomeserver(): string;
+  checkHomeserverVersion(): Promise<boolean>;
+  login(userId: string, password: string, deviceName?: string): Promise<Session>;
+  register(username: string, password: string, deviceName?: string): Promise<Session>;
+  logout(): Promise<void>;
+  restoreSession(): Promise<Session | null>;
+  getSession(): Session | null;
+  getUserId(): string;
+  isLoggedIn(): boolean;
+  updateNextBatch(nextBatch: string): Promise<void>;
+}
+
+export class AuthManager implements IAuthManager {
   private static logger = AppLogger.getLogger(AuthManager);
-  private httpClient: MatrixHttpClient | null = null;
+  private config: ConnectionConfig;
+  private httpClient: BaseHttpClient;
   private session: Session | null = null;
   private isInitialized: boolean = false;
 
-  private constructor() {}
-
-  static getInstance(): AuthManager {
-    if (!AuthManager.instance) {
-      AuthManager.instance = new AuthManager();
-    }
-    return AuthManager.instance;
+  constructor(config: ConnectionConfig, httpClient: BaseHttpClient) {
+    this.config = config;
+    this.httpClient = httpClient;
   }
 
   async init(context: Context): Promise<void> {
@@ -39,19 +51,14 @@ export class AuthManager {
   }
 
   async setHomeserver(homeserverUrl: string): Promise<void> {
-    MatrixConfig.getInstance().setHomeserver(homeserverUrl);
-    this.httpClient = MatrixConfig.getInstance().getHttpClient();
+    this.config.setHomeserver(homeserverUrl);
   }
 
   getHomeserver(): string {
-    return MatrixConfig.getInstance().getHomeserver();
+    return this.config.getHomeserver();
   }
 
   async checkHomeserverVersion(): Promise<boolean> {
-    if (!this.httpClient) {
-      throw new Error('Homeserver not set');
-    }
-
     try {
       const response = await this.httpClient.getWithoutVersionPrefix<VersionsResponse>('/versions');
       if (response.versions) {
@@ -67,10 +74,6 @@ export class AuthManager {
   }
 
   async login(userId: string, password: string, deviceName?: string): Promise<Session> {
-    if (!this.httpClient) {
-      throw new Error('Homeserver not set');
-    }
-
     const deviceId: string = this.generateDeviceId();
     const displayName: string = deviceName || 'Toona鸿蒙客户端';
     const identifier: Record<string, string | object> = {
@@ -88,13 +91,13 @@ export class AuthManager {
     try {
       const response = await this.httpClient.post<LoginResponse>('/login', loginBody);
 
-      const homeServer = MatrixConfig.getInstance().getHomeserver();
+      const homeServer = this.config.getHomeserver();
       AuthManager.logger.info('AuthManager: Login success, homeServer: ' + homeServer);
       this.session =
         Session.fromLoginResponse(response.user_id, response.access_token, homeServer, response.device_id);
       this.session.isGuest = false;
 
-      this.httpClient.setAccessToken(response.access_token);
+      this.config.setAccessToken(response.access_token);
 
       await this.saveSession();
       AuthManager.logger.info('AuthManager: Session saved with homeServer: ' + this.session.homeServer);
@@ -108,10 +111,6 @@ export class AuthManager {
   }
 
   async register(username: string, password: string, deviceName?: string): Promise<Session> {
-    if (!this.httpClient) {
-      throw new Error('Homeserver not set');
-    }
-
     const deviceId: string = this.generateDeviceId();
     const displayName: string = deviceName || 'Toona鸿蒙客户端';
     const registerBody: Record<string, string | object> = {
@@ -124,12 +123,12 @@ export class AuthManager {
     try {
       const response = await this.httpClient.post<RegisterResponse>('/register', registerBody);
 
-      const homeServer = MatrixConfig.getInstance().getHomeserver();
+      const homeServer = this.config.getHomeserver();
       this.session =
         Session.fromLoginResponse(response.user_id, response.access_token, homeServer, response.device_id);
       this.session.isGuest = false;
 
-      this.httpClient.setAccessToken(response.access_token);
+      this.config.setAccessToken(response.access_token);
 
       await this.saveSession();
 
@@ -142,7 +141,7 @@ export class AuthManager {
   }
 
   async logout(): Promise<void> {
-    if (!this.httpClient || !this.session) {
+    if (!this.session) {
       return;
     }
 
@@ -170,10 +169,9 @@ export class AuthManager {
       this.session = Session.fromJSON(sessionData);
       AuthManager.logger.info('AuthManager: Session parsed, userId: ' + this.session.userId + ', homeServer: ' + this.session.homeServer);
 
-      MatrixConfig.getInstance().setHomeserver(this.session.homeServer);
+      this.config.setHomeserver(this.session.homeServer);
       AuthManager.logger.info('AuthManager: setHomeserver called with: ' + this.session.homeServer);
-      this.httpClient = MatrixConfig.getInstance().getHttpClient();
-      this.httpClient.setAccessToken(this.session.accessToken);
+      this.config.setAccessToken(this.session.accessToken);
       AuthManager.logger.info('AuthManager: HTTP client configured with token');
 
       AuthManager.logger.info('AuthManager: Validating token...');
@@ -208,10 +206,6 @@ export class AuthManager {
   }
 
   async validateToken(): Promise<TokenValidationResult> {
-    if (!this.httpClient) {
-      return TokenValidationResult.INVALID;
-    }
-
     try {
       const response = await this.httpClient.get<WhoAmIResponse>('/account/whoami');
       if (response.user_id === this.session?.userId) {
@@ -247,8 +241,8 @@ export class AuthManager {
 
   private async clearSession(): Promise<void> {
     this.session = null;
-    this.httpClient?.setAccessToken(null);
-    MatrixConfig.getInstance().clear();
+    this.config.setAccessToken(null);
+    this.config.clear();
     try {
       await SPHelper.default.delete('matrix_session');
     } catch (error) {
@@ -258,13 +252,6 @@ export class AuthManager {
 
   getSession(): Session | null {
     return this.session;
-  }
-
-  getHttpClient(): MatrixHttpClient {
-    if (!this.httpClient) {
-      throw new Error('HttpClient not initialized');
-    }
-    return this.httpClient;
   }
 
   getUserId(): string {
@@ -289,7 +276,6 @@ export class AuthManager {
 
   reset(): void {
     this.session = null;
-    this.httpClient = null;
     this.isInitialized = false;
   }
 }

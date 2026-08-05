@@ -1,40 +1,20 @@
 import { AppLogger } from '../utils/AppLogger';
 import { OpenIdRequest, OpenIdResponse } from '../models/MatrixTypes';
-import { MatrixHttpClient } from '../network/MatrixHttpClient';
-import { MatrixConfig } from '../network/MatrixConfig';
+import { OpenIdHttpClient } from '../network/clients/OpenIdHttpClient';
 
 export class OpenIdManager {
-  private static instance: OpenIdManager;
-  private httpClient: MatrixHttpClient | null = null;
+  private openIdClient: OpenIdHttpClient;
   private logger = AppLogger.getLogger(OpenIdManager);
 
-  private constructor() {
-  }
-
-  static getInstance(): OpenIdManager {
-    if (!OpenIdManager.instance) {
-      OpenIdManager.instance = new OpenIdManager();
-    }
-    return OpenIdManager.instance;
-  }
-
-  setHomeserver(homeserverUrl: string): void {
-    MatrixConfig.getInstance().setHomeserver(homeserverUrl);
-    this.httpClient = MatrixConfig.getInstance().getHttpClient();
-  }
-
-  private ensureHttpClient(): MatrixHttpClient {
-    if (!this.httpClient) {
-      throw new Error('OpenIdManager not initialized. Call setHomeserver first.');
-    }
-    return this.httpClient;
+  constructor(openIdClient: OpenIdHttpClient) {
+    this.openIdClient = openIdClient;
   }
 
   async requestToken(userId: string, request?: OpenIdRequest): Promise<OpenIdResponse> {
     try {
-      return await this.ensureHttpClient().requestOpenIdToken(userId, request);
+      return await this.openIdClient.requestOpenIdToken(userId, request);
     } catch (error) {
-this.logger.error('Failed to request OpenID token:', error);
+      this.logger.error('Failed to request OpenID token:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to request OpenID token: ${errMsg}`);
     }

@@ -1,11 +1,4 @@
 import { ToastUtils } from '../utils/ToastUtils';
-import { AuthManager } from '../services/AuthManager';
-import { UserManager } from '../services/UserManager';
-import { PresenceManager } from '../services/PresenceManager';
-import { DeviceManager } from '../services/DeviceManager';
-import { RoomTagManager } from '../services/RoomTagManager';
-import { RoomManager } from '../services/RoomManager';
-import { MediaManager } from '../services/MediaManager';
 import { ServiceCollaborationManager } from '../services/ServiceCollaborationManager';
 import { DeviceSecurityManager } from '../services/DeviceSecurityManager';
 import { ScanManager } from '../services/ScanManager';
@@ -32,6 +25,7 @@ import { CollaborationSettings } from './components/settings/CollaborationSettin
 import { AboutSection } from './components/settings/AboutSection';
 import { LogoutButton } from './components/settings/LogoutButton';
 import { AppLogger } from '../utils/AppLogger';
+import { ServiceRegistry } from '../services/ServiceRegistry';
 
 @Builder
 export function SettingsPageBuilder(name: string, param: Object) {
@@ -49,7 +43,9 @@ export struct SettingsPage {
   @State favoriteRooms: Room[] = [];
   @State lowPriorityRooms: Room[] = [];
   @State allRooms: Room[] = [];
-  @State isLoading: boolean = true;
+  @State isLoadingProfile: boolean = true;
+  @State isLoadingDevices: boolean = true;
+  @State isLoadingRoomTags: boolean = true;
   @State isEditingName: boolean = false;
   @State editName: string = '';
   @State showPresenceMenu: boolean = false;
@@ -59,31 +55,27 @@ export struct SettingsPage {
   @State colorModeType: ColorModeType = 'light';
   @State isE2EEEnabled: boolean = false;
   @State deviceId: string = '';
-  private authManager: AuthManager = AuthManager.getInstance();
-  private userManager: UserManager = UserManager.getInstance();
-  private presenceManager: PresenceManager = PresenceManager.getInstance();
-  private deviceManager: DeviceManager = DeviceManager.getInstance();
-  private roomTagManager: RoomTagManager = RoomTagManager.getInstance();
-  private roomManager: RoomManager = RoomManager.getInstance();
-  private mediaManager: MediaManager = MediaManager.getInstance();
-  private themeManager: ThemeManager = ThemeManager.getInstance();
   private collaborationManager: ServiceCollaborationManager = ServiceCollaborationManager.getInstance();
   private deviceSecurityManager: DeviceSecurityManager = DeviceSecurityManager.getInstance();
   private scanManager: ScanManager = ScanManager.getInstance();
   private userAuthManager: UserAuthManager = UserAuthManager.getInstance();
-  private cryptoService: CryptoService = CryptoService.getInstance();
-  private verificationService: VerificationService = VerificationService.getInstance();
+  private cryptoService: CryptoService = ServiceRegistry.getCurrent().getCryptoService();
+  private verificationService: VerificationService = ServiceRegistry.getCurrent().getVerificationService();
+  private themeManager: ThemeManager = ThemeManager.getInstance();
   private logger = AppLogger.getLogger(SettingsPage);
   pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
-    const session = this.authManager.getSession();
+    const session = ServiceRegistry.getCurrent().getAuthManager().getSession();
     if (session) {
       this.userId = session.userId;
+      this.displayName = session.userId;
     }
     this.colorModeType = this.themeManager.getColorModeType();
-    this.loadUserData();
     this.loadEncryptionStatus();
+    this.loadProfile();
+    this.loadDevices();
+    this.loadRoomTags();
   }
 
   setColorMode(mode: ColorModeType) {
@@ -97,38 +89,55 @@ export struct SettingsPage {
     ToastUtils.show(`已切换至${messages[mode]}`);
   }
 
-  async loadUserData() {
-    this.isLoading = true;
+  async loadProfile() {
+    this.isLoadingProfile = true;
     try {
-      const profile = await this.userManager.getUserProfile();
+      const registry = ServiceRegistry.getCurrent();
+      const profilePromise = registry.getUserManager().getUserProfile();
+      const presencePromise = registry.getPresenceManager().getPresence(this.userId);
+      const profile = await profilePromise;
       this.displayName = profile.displayName || '';
       this.avatarUrl = profile.avatarUrl || '';
       this.editName = this.displayName;
-
-      const presenceResponse = await this.presenceManager.getPresence(this.userId);
+      const presenceResponse = await presencePromise;
       this.presence = presenceResponse.presence as PresenceState;
       this.statusMsg = presenceResponse.status_msg || '';
+    } catch (error) {
+      this.logger.error('Failed to load profile: %{public}s', error.message);
+    } finally {
+      this.isLoadingProfile = false;
+    }
+  }
 
-      try {
-        const devicesResponse = await this.deviceManager.getDevices();
-        this.devices = devicesResponse.devices || [];
-      } catch (e) {
-        this.logger.error('Failed to load devices: %{public}s', e.message);
-        this.devices = [];
-      }
+  async loadDevices() {
+    this.isLoadingDevices = true;
+    try {
+      const devicesResponse = await ServiceRegistry.getCurrent().getDeviceManager().getDevices();
+      this.devices = devicesResponse.devices || [];
+    } catch (e) {
+      this.logger.error('Failed to load devices: %{public}s', e.message);
+      this.devices = [];
+    } finally {
+      this.isLoadingDevices = false;
+    }
+  }
 
-      this.allRooms = await this.roomManager.getRooms();
+  async loadRoomTags() {
+    this.isLoadingRoomTags = true;
+    const registry = ServiceRegistry.getCurrent();
+    const roomTagManager = registry.getRoomTagManager();
+    try {
+      this.allRooms = await registry.getRoomManager().getRooms();
       this.favoriteRooms = [];
       this.lowPriorityRooms = [];
-
       for (let i = 0; i < this.allRooms.length; i++) {
         const room = this.allRooms[i];
         try {
-          const isFav = await this.roomTagManager.isFavorite(room.id);
+          const isFav = await roomTagManager.isFavorite(room.id);
           if (isFav) {
             this.favoriteRooms.push(room);
           }
-          const isLow = await this.roomTagManager.isLowPriority(room.id);
+          const isLow = await roomTagManager.isLowPriority(room.id);
           if (isLow) {
             this.lowPriorityRooms.push(room);
           }
@@ -137,9 +146,9 @@ export struct SettingsPage {
         }
       }
     } catch (error) {
-      this.logger.error('Failed to load user data: %{public}s', error.message);
+      this.logger.error('Failed to load room tags: %{public}s', error.message);
     } finally {
-      this.isLoading = false;
+      this.isLoadingRoomTags = false;
     }
   }
 
@@ -148,7 +157,7 @@ export struct SettingsPage {
       return;
     }
     try {
-      await this.userManager.setDisplayName(this.editName.trim());
+      await ServiceRegistry.getCurrent().getUserManager().setDisplayName(this.editName.trim());
       this.displayName = this.editName.trim();
       this.isEditingName = false;
       ToastUtils.show('显示名称已更新');
@@ -160,7 +169,7 @@ export struct SettingsPage {
 
   async setPresence(state: PresenceState) {
     try {
-      await this.presenceManager.setPresence(this.userId, state, this.statusMsg);
+      await ServiceRegistry.getCurrent().getPresenceManager().setPresence(this.userId, state, this.statusMsg);
       this.presence = state;
       this.showPresenceMenu = false;
       ToastUtils.show('状态已更新');
@@ -172,7 +181,7 @@ export struct SettingsPage {
 
   async setStatusMessage() {
     try {
-      await this.presenceManager.setPresence(this.userId, this.presence, this.statusMsg);
+      await ServiceRegistry.getCurrent().getPresenceManager().setPresence(this.userId, this.presence, this.statusMsg);
       ToastUtils.show('状态消息已更新');
     } catch (error) {
       this.logger.error('Failed to set status message: %{public}s', error.message);
@@ -195,9 +204,9 @@ export struct SettingsPage {
         fileIo.readSync(file.fd, buffer);
         fileIo.closeSync(file);
         const fileName = 'avatar_' + Date.now() + '.jpg';
-        const mxcUri = await this.mediaManager.uploadImage(buffer.buffer as ArrayBuffer, fileName);
-        await this.userManager.setAvatarUrl(mxcUri);
-        this.avatarUrl = this.mediaManager.getHttpUrl(mxcUri);
+        const mxcUri = await ServiceRegistry.getCurrent().getMediaManager().uploadImage(buffer.buffer as ArrayBuffer, fileName);
+        await ServiceRegistry.getCurrent().getUserManager().setAvatarUrl(mxcUri);
+        this.avatarUrl = ServiceRegistry.getCurrent().getMediaManager().getHttpUrl(mxcUri);
         ToastUtils.show('头像已更新');
       }
     } catch (error) {
@@ -207,16 +216,17 @@ export struct SettingsPage {
   }
 
   async toggleFavorite(room: Room) {
+    const roomTagManager = ServiceRegistry.getCurrent().getRoomTagManager();
     try {
-      const isFav = await this.roomTagManager.isFavorite(room.id);
+      const isFav = await roomTagManager.isFavorite(room.id);
       if (isFav) {
-        await this.roomTagManager.removeFavorite(room.id);
+        await roomTagManager.removeFavorite(room.id);
         const index = this.favoriteRooms.findIndex(r => r.id === room.id);
         if (index >= 0) {
           this.favoriteRooms.splice(index, 1);
         }
       } else {
-        await this.roomTagManager.addFavorite(room.id);
+        await roomTagManager.addFavorite(room.id);
         this.favoriteRooms.push(room);
       }
       ToastUtils.show(isFav ? '已取消收藏' : '已添加收藏');
@@ -227,16 +237,17 @@ export struct SettingsPage {
   }
 
   async toggleLowPriority(room: Room) {
+    const roomTagManager = ServiceRegistry.getCurrent().getRoomTagManager();
     try {
-      const isLow = await this.roomTagManager.isLowPriority(room.id);
+      const isLow = await roomTagManager.isLowPriority(room.id);
       if (isLow) {
-        await this.roomTagManager.removeLowPriority(room.id);
+        await roomTagManager.removeLowPriority(room.id);
         const index = this.lowPriorityRooms.findIndex(r => r.id === room.id);
         if (index >= 0) {
           this.lowPriorityRooms.splice(index, 1);
         }
       } else {
-        await this.roomTagManager.addLowPriority(room.id);
+        await roomTagManager.addLowPriority(room.id);
         this.lowPriorityRooms.push(room);
       }
       ToastUtils.show(isLow ? '已取消低优先级' : '已设为低优先级');
@@ -248,7 +259,7 @@ export struct SettingsPage {
 
   async deleteDevice(deviceId: string) {
     try {
-      await this.deviceManager.deleteDevice(deviceId);
+      await ServiceRegistry.getCurrent().getDeviceManager().deleteDevice(deviceId);
       const index = this.devices.findIndex(d => d.device_id === deviceId);
       if (index >= 0) {
         this.devices.splice(index, 1);
@@ -266,18 +277,36 @@ export struct SettingsPage {
         Column() {
           SettingsHeader();
 
-          if (this.isLoading) {
+          if (this.isLoadingProfile) {
             Column() {
-              LoadingProgress()
-                .width(40)
-                .height(40);
-              Text('加载中...')
-                .fontSize(14)
-                .fontColor(getThemeColors().textMute2)
-                .margin({ top: 10 });
+              Row() {
+                Column() {
+                  Row()
+                    .width(60)
+                    .height(60)
+                    .borderRadius(30)
+                    .backgroundColor(getThemeColors().inputBg);
+                  Column()
+                    .width(120)
+                    .height(16)
+                    .borderRadius(4)
+                    .backgroundColor(getThemeColors().inputBg)
+                    .margin({ top: 12 });
+                  Column()
+                    .width(80)
+                    .height(12)
+                    .borderRadius(4)
+                    .backgroundColor(getThemeColors().inputBg)
+                    .margin({ top: 8 });
+                }
+                .alignItems(HorizontalAlign.Center);
+              }
+              .width('100%')
+              .justifyContent(FlexAlign.Center)
+              .padding({ top: 30, bottom: 20 });
             }
             .width('100%')
-            .padding({ top: 100 });
+            .backgroundColor(getThemeColors().surface);
           } else {
             UserProfileCard({
               displayName: this.displayName,
@@ -303,14 +332,37 @@ export struct SettingsPage {
                 this.editName = name;
               }
             });
+          }
 
-            ThemeSettings({
-              colorModeType: this.colorModeType,
-              onSetColorMode: (mode: ColorModeType) => {
-                this.setColorMode(mode);
+          ThemeSettings({
+            colorModeType: this.colorModeType,
+            onSetColorMode: (mode: ColorModeType) => {
+              this.setColorMode(mode);
+            }
+          });
+
+          if (this.isLoadingProfile) {
+            Column() {
+              Row() {
+                Column()
+                  .width(80)
+                  .height(14)
+                  .borderRadius(4)
+                  .backgroundColor(getThemeColors().inputBg);
+                Blank();
+                Column()
+                  .width(40)
+                  .height(14)
+                  .borderRadius(4)
+                  .backgroundColor(getThemeColors().inputBg);
               }
-            });
-
+              .width('100%')
+              .padding({ left: 20, right: 20, top: 15, bottom: 15 });
+            }
+            .width('100%')
+            .margin({ top: 10 })
+            .backgroundColor(getThemeColors().surface);
+          } else {
             PresenceSettings({
               presence: this.presence,
               statusMsg: this.statusMsg,
@@ -328,7 +380,36 @@ export struct SettingsPage {
                 this.setStatusMessage();
               }
             });
+          }
 
+          if (this.isLoadingRoomTags) {
+            Column() {
+              Row() {
+                Column()
+                  .width(100)
+                  .height(14)
+                  .borderRadius(4)
+                  .backgroundColor(getThemeColors().inputBg);
+              }
+              .width('100%')
+              .padding({ left: 20, right: 20, top: 15, bottom: 15 });
+              Row() {
+                LoadingProgress()
+                  .width(20)
+                  .height(20)
+                  .color(getThemeColors().textSecondary);
+                Text('加载房间标签...')
+                  .fontSize(12)
+                  .fontColor(getThemeColors().textSecondary)
+                  .margin({ left: 8 });
+              }
+              .width('100%')
+              .padding({ left: 20, right: 20, bottom: 15 });
+            }
+            .width('100%')
+            .margin({ top: 10 })
+            .backgroundColor(getThemeColors().surface);
+          } else {
             RoomTagsSettings({
               favoriteRooms: this.favoriteRooms,
               lowPriorityRooms: this.lowPriorityRooms,
@@ -344,47 +425,193 @@ export struct SettingsPage {
                 this.showRoomTagsMenu = !this.showRoomTagsMenu;
               }
             });
+          }
 
+          if (this.isLoadingDevices) {
+            Column() {
+              Row() {
+                Column()
+                  .width(100)
+                  .height(14)
+                  .borderRadius(4)
+                  .backgroundColor(getThemeColors().inputBg);
+              }
+              .width('100%')
+              .padding({ left: 20, right: 20, top: 15, bottom: 15 });
+              Row() {
+                LoadingProgress()
+                  .width(20)
+                  .height(20)
+                  .color(getThemeColors().textSecondary);
+                Text('加载设备列表...')
+                  .fontSize(12)
+                  .fontColor(getThemeColors().textSecondary)
+                  .margin({ left: 8 });
+              }
+              .width('100%')
+              .padding({ left: 20, right: 20, bottom: 15 });
+            }
+            .width('100%')
+            .margin({ top: 10 })
+            .backgroundColor(getThemeColors().surface);
+          } else {
             DeviceManagement({
               devices: this.devices,
-              currentDeviceId: this.authManager.getSession()?.deviceId || '',
+              currentDeviceId: ServiceRegistry.getCurrent().getAuthManager().getSession()?.deviceId || '',
               onDeleteDevice: (deviceId: string) => {
                 this.deleteDevice(deviceId);
               }
             });
+          }
 
-            SecuritySettings({
-              onCheckDeviceSecurity: () => {
-                this.onCheckDeviceSecurity();
-              }
+          SecuritySettings({
+            onCheckDeviceSecurity: () => {
+              this.onCheckDeviceSecurity();
+            }
+          });
+
+          Column() {
+            Row() {
+              Text('加密设置')
+                .fontSize(16)
+                .fontWeight(FontWeight.Medium)
+                .fontColor(getThemeColors().text);
+            }
+            .width('100%')
+            .padding({
+              left: 20,
+              right: 20,
+              top: 15,
+              bottom: 10
             });
 
-            // Encryption Settings Section
             Column() {
               Row() {
-                Text('加密设置')
-                  .fontSize(16)
-                  .fontWeight(FontWeight.Medium)
+                Text('端到端加密')
+                  .fontSize(14)
                   .fontColor(getThemeColors().text);
+                Blank();
+                Toggle({ type: ToggleType.Switch, isOn: this.isE2EEEnabled })
+                  .selectedColor(getThemeColors().primary)
+                  .onChange((isOn: boolean) => {
+                    this.toggleE2EE(isOn);
+                  });
               }
               .width('100%')
               .padding({
                 left: 20,
                 right: 20,
-                top: 15,
-                bottom: 10
+                top: 12,
+                bottom: 12
               });
 
-              Column() {
+              if (this.isE2EEEnabled) {
+                Divider().color(getThemeColors().divider);
+
                 Row() {
-                  Text('端到端加密')
+                  Text('设备ID')
+                    .fontSize(14)
+                    .fontColor(getThemeColors().textSecondary);
+                  Blank();
+                  Text(this.deviceId || '未初始化')
+                    .fontSize(14)
+                    .fontColor(getThemeColors().textMute2);
+                }
+                .width('100%')
+                .padding({
+                  left: 20,
+                  right: 20,
+                  top: 12,
+                  bottom: 12
+                });
+
+                Divider().color(getThemeColors().divider);
+
+                Row() {
+                  Text('加密状态')
+                    .fontSize(14)
+                    .fontColor(getThemeColors().textSecondary);
+                  Blank();
+                  Row() {
+                    Circle()
+                      .width(8)
+                      .height(8)
+                      .fill(this.isE2EEEnabled ? getThemeColors().success : getThemeColors().textMute);
+                    Text(this.isE2EEEnabled ? '已启用' : '未启用')
+                      .fontSize(14)
+                      .fontColor(getThemeColors().textMute2)
+                      .margin({ left: 6 });
+                  }
+                }
+                .width('100%')
+                .padding({
+                  left: 20,
+                  right: 20,
+                  top: 12,
+                  bottom: 12
+                });
+              }
+            }
+            .width('100%')
+            .backgroundColor(getThemeColors().surface);
+          }
+          .width('100%')
+          .margin({ top: 10 });
+
+          Column() {
+            Row() {
+              Text('设备验证')
+                .fontSize(16)
+                .fontWeight(FontWeight.Medium)
+                .fontColor(getThemeColors().text);
+            }
+            .width('100%')
+            .padding({
+              left: 20,
+              right: 20,
+              top: 15,
+              bottom: 10
+            });
+
+            Column() {
+              Row() {
+                Text('验证状态')
+                  .fontSize(14)
+                  .fontColor(getThemeColors().textSecondary);
+                Blank();
+                Text(this.isE2EEEnabled ? '设备已验证' : '未验证')
+                  .fontSize(14)
+                  .fontColor(this.isE2EEEnabled ? getThemeColors().success : getThemeColors().textMute2);
+              }
+              .width('100%')
+              .padding({
+                left: 20,
+                right: 20,
+                top: 12,
+                bottom: 12
+              });
+
+              if (this.isE2EEEnabled) {
+                Divider().color(getThemeColors().divider);
+
+                Row() {
+                  Text('验证其他设备')
                     .fontSize(14)
                     .fontColor(getThemeColors().text);
                   Blank();
-                  Toggle({ type: ToggleType.Switch, isOn: this.isE2EEEnabled })
-                    .selectedColor(getThemeColors().primary)
-                    .onChange((isOn: boolean) => {
-                      this.toggleE2EE(isOn);
+                  Button('开始验证')
+                    .fontSize(12)
+                    .backgroundColor(getThemeColors().primary)
+                    .fontColor(getThemeColors().onPrimary)
+                    .borderRadius(6)
+                    .padding({
+                      left: 12,
+                      right: 12,
+                      top: 6,
+                      bottom: 6
+                    })
+                    .onClick(() => {
+                      this.startDeviceVerification();
                     });
                 }
                 .width('100%')
@@ -394,231 +621,110 @@ export struct SettingsPage {
                   top: 12,
                   bottom: 12
                 });
-
-                if (this.isE2EEEnabled) {
-                  Divider().color(getThemeColors().divider);
-
-                  Row() {
-                    Text('设备ID')
-                      .fontSize(14)
-                      .fontColor(getThemeColors().textSecondary);
-                    Blank();
-                    Text(this.deviceId || '未初始化')
-                      .fontSize(14)
-                      .fontColor(getThemeColors().textMute2);
-                  }
-                  .width('100%')
-                  .padding({
-                    left: 20,
-                    right: 20,
-                    top: 12,
-                    bottom: 12
-                  });
-
-                  Divider().color(getThemeColors().divider);
-
-                  Row() {
-                    Text('加密状态')
-                      .fontSize(14)
-                      .fontColor(getThemeColors().textSecondary);
-                    Blank();
-                    Row() {
-                      Circle()
-                        .width(8)
-                        .height(8)
-                        .fill(this.isE2EEEnabled ? getThemeColors().success : getThemeColors().textMute);
-                      Text(this.isE2EEEnabled ? '已启用' : '未启用')
-                        .fontSize(14)
-                        .fontColor(getThemeColors().textMute2)
-                        .margin({ left: 6 });
-                    }
-                  }
-                  .width('100%')
-                  .padding({
-                    left: 20,
-                    right: 20,
-                    top: 12,
-                    bottom: 12
-                  });
-                }
               }
-              .width('100%')
-              .backgroundColor(getThemeColors().surface);
             }
             .width('100%')
-            .margin({ top: 10 });
+            .backgroundColor(getThemeColors().surface);
+          }
+          .width('100%')
+          .margin({ top: 10 });
 
-            // Verification Settings Section
-            Column() {
-              Row() {
-                Text('设备验证')
-                  .fontSize(16)
-                  .fontWeight(FontWeight.Medium)
-                  .fontColor(getThemeColors().text);
-              }
-              .width('100%')
-              .padding({
-                left: 20,
-                right: 20,
-                top: 15,
-                bottom: 10
-              });
+          BiometricSettings({
+            onToggleBiometric: (enable: boolean) => {
+              this.onToggleBiometric(enable);
+            },
+            onVerifyBiometric: () => {
+              this.onVerifyBiometric();
+            }
+          });
 
-              Column() {
-                Row() {
-                  Text('验证状态')
-                    .fontSize(14)
-                    .fontColor(getThemeColors().textSecondary);
-                  Blank();
-                  Text(this.isE2EEEnabled ? '设备已验证' : '未验证')
-                    .fontSize(14)
-                    .fontColor(this.isE2EEEnabled ? getThemeColors().success : getThemeColors().textMute2);
-                }
-                .width('100%')
+          CollaborationSettings({
+            onFindCollaborativeDevices: () => {
+              this.onFindCollaborativeDevices();
+            }
+          });
+
+          Column() {
+            Row() {
+              Text('Invites')
+                .fontSize(16)
+                .fontWeight(FontWeight.Medium)
+                .fontColor(getThemeColors().text);
+              Blank();
+              Button('View')
+                .fontSize(12)
+                .backgroundColor(getThemeColors().primary)
+                .fontColor(getThemeColors().onPrimary)
+                .borderRadius(6)
                 .padding({
-                  left: 20,
-                  right: 20,
-                  top: 12,
-                  bottom: 12
+                  left: 12,
+                  right: 12,
+                  top: 6,
+                  bottom: 6
+                })
+                .onClick(() => {
+                  this.navigateToInviteManagement();
                 });
-
-                if (this.isE2EEEnabled) {
-                  Divider().color(getThemeColors().divider);
-
-                  Row() {
-                    Text('验证其他设备')
-                      .fontSize(14)
-                      .fontColor(getThemeColors().text);
-                    Blank();
-                    Button('开始验证')
-                      .fontSize(12)
-                      .backgroundColor(getThemeColors().primary)
-                      .fontColor(getThemeColors().onPrimary)
-                      .borderRadius(6)
-                      .padding({
-                        left: 12,
-                        right: 12,
-                        top: 6,
-                        bottom: 6
-                      })
-                      .onClick(() => {
-                        this.startDeviceVerification();
-                      });
-                  }
-                  .width('100%')
-                  .padding({
-                    left: 20,
-                    right: 20,
-                    top: 12,
-                    bottom: 12
-                  });
-                }
-              }
-              .width('100%')
-              .backgroundColor(getThemeColors().surface);
             }
             .width('100%')
-            .margin({ top: 10 });
-
-            BiometricSettings({
-              onToggleBiometric: (enable: boolean) => {
-                this.onToggleBiometric(enable);
-              },
-              onVerifyBiometric: () => {
-                this.onVerifyBiometric();
-              }
-            });
-
-            CollaborationSettings({
-              onFindCollaborativeDevices: () => {
-                this.onFindCollaborativeDevices();
-              }
-            });
-
-            // Invite Management Section
-            Column() {
-              Row() {
-                Text('Invites')
-                  .fontSize(16)
-                  .fontWeight(FontWeight.Medium)
-                  .fontColor(getThemeColors().text);
-                Blank();
-                Button('View')
-                  .fontSize(12)
-                  .backgroundColor(getThemeColors().primary)
-                  .fontColor(getThemeColors().onPrimary)
-                  .borderRadius(6)
-                  .padding({
-                    left: 12,
-                    right: 12,
-                    top: 6,
-                    bottom: 6
-                  })
-                  .onClick(() => {
-                    this.navigateToInviteManagement();
-                  });
-              }
-              .width('100%')
-              .padding({
-                left: 20,
-                right: 20,
-                top: 15,
-                bottom: 15
-              });
-            }
-            .width('100%')
-            .margin({ top: 10 })
-            .backgroundColor(getThemeColors().surface);
-
-            QRScannerSettings({
-              onScanQRCode: () => {
-                this.onScanQRCode();
-              }
-            });
-
-            // Notification Settings Section
-            Column() {
-              Row() {
-                Text('Notification Settings')
-                  .fontSize(16)
-                  .fontWeight(FontWeight.Medium)
-                  .fontColor(getThemeColors().text);
-                Blank();
-                Button('Configure')
-                  .fontSize(12)
-                  .backgroundColor(getThemeColors().primary)
-                  .fontColor(getThemeColors().onPrimary)
-                  .borderRadius(6)
-                  .padding({
-                    left: 12,
-                    right: 12,
-                    top: 6,
-                    bottom: 6
-                  })
-                  .onClick(() => {
-                    this.navigateToNotificationSettings();
-                  });
-              }
-              .width('100%')
-              .padding({
-                left: 20,
-                right: 20,
-                top: 15,
-                bottom: 15
-              });
-            }
-            .width('100%')
-            .margin({ top: 10 })
-            .backgroundColor(getThemeColors().surface);
-
-            AboutSection();
-
-            LogoutButton({
-              onLogout: () => {
-                this.handleLogout();
-              }
+            .padding({
+              left: 20,
+              right: 20,
+              top: 15,
+              bottom: 15
             });
           }
+          .width('100%')
+          .margin({ top: 10 })
+          .backgroundColor(getThemeColors().surface);
+
+          QRScannerSettings({
+            onScanQRCode: () => {
+              this.onScanQRCode();
+            }
+          });
+
+          Column() {
+            Row() {
+              Text('Notification Settings')
+                .fontSize(16)
+                .fontWeight(FontWeight.Medium)
+                .fontColor(getThemeColors().text);
+              Blank();
+              Button('Configure')
+                .fontSize(12)
+                .backgroundColor(getThemeColors().primary)
+                .fontColor(getThemeColors().onPrimary)
+                .borderRadius(6)
+                .padding({
+                  left: 12,
+                  right: 12,
+                  top: 6,
+                  bottom: 6
+                })
+                .onClick(() => {
+                  this.navigateToNotificationSettings();
+                });
+            }
+            .width('100%')
+            .padding({
+              left: 20,
+              right: 20,
+              top: 15,
+              bottom: 15
+            });
+          }
+          .width('100%')
+          .margin({ top: 10 })
+          .backgroundColor(getThemeColors().surface);
+
+          AboutSection();
+
+          LogoutButton({
+            onLogout: () => {
+              this.handleLogout();
+            }
+          });
         }
       }
     }
@@ -676,7 +782,7 @@ export struct SettingsPage {
 
   async handleLogout() {
     try {
-      await this.authManager.logout();
+      await ServiceRegistry.getCurrent().getAuthManager().logout();
       this.pathStack.clear();
     } catch (error) {
       this.logger.error('Logout failed: %{public}s', error.message);

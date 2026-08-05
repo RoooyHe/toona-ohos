@@ -5,18 +5,38 @@ import { AppLogger } from '../utils/AppLogger';
 import { CryptoService, EncryptedMatrixEvent } from './CryptoService';
 import { OlmWrapper } from '../crypto/OlmWrapper';
 
-export interface SyncListener {
-  onSyncSuccess(): void;
+export interface IEventProcessor {
+  processPresenceEvents(events: PresEvent[]): Promise<void>;
 
-  onSyncError(error: Error): void;
+  processAccountDataEvents(events: Event[]): Promise<void>;
 
-  onRoomUpdated(room: Room): void;
+  processToDeviceEvents(events: Event[]): Promise<void>;
 
-  onRoomInvited(room: Room): void;
+  processRoomEvent(event: Event): Event | ProcessedMessageEvent | ProcessedMemberEvent | ProcessedRoomEvent | ProcessedRedactionEvent | ProcessedEncryptedEvent | ProcessedStickerEvent;
 
-  onRoomLeft(roomId: string): void;
+  processEncryptedEventAsync(event: Event): Promise<ProcessedMessageEvent | null>;
 
-  onNewMessages(roomId: string, messages: Message[]): void;
+  getMembershipEventContent(event: Event): Record<string, string | object>;
+
+  getMessageBody(event: Event): string;
+
+  getMessageType(event: Event): string;
+
+  isTextMessage(event: Event): boolean;
+
+  isEmoteMessage(event: Event): boolean;
+
+  isNoticeMessage(event: Event): boolean;
+
+  isImageMessage(event: Event): boolean;
+
+  isAudioMessage(event: Event): boolean;
+
+  isVideoMessage(event: Event): boolean;
+
+  isFileMessage(event: Event): boolean;
+
+  isLocationMessage(event: Event): boolean;
 }
 
 interface ProcessedMessageEvent {
@@ -84,90 +104,14 @@ interface ProcessedStickerEvent {
   timestamp: number | undefined;
 }
 
-type SyncSuccessCallback = () => void;
-type SyncErrorCallback = (error: Error) => void;
-type RoomUpdatedCallback = (room: Room) => void;
-type RoomInvitedCallback = (room: Room) => void;
-type RoomLeftCallback = (roomId: string) => void;
-type NewMessagesCallback = (roomId: string, messages: Message[]) => void;
-
-interface GeneratedTypeLiteralInterface_1 {
-  onSyncSuccess?: SyncSuccessCallback;
-  onSyncError?: SyncErrorCallback;
-  onRoomUpdated?: RoomUpdatedCallback;
-  onRoomInvited?: RoomInvitedCallback;
-  onRoomLeft?: RoomLeftCallback;
-  onNewMessages?: NewMessagesCallback;
-}
-
-export class SimpleSyncListener implements SyncListener {
-  private onSyncSuccessCb?: SyncSuccessCallback;
-  private onSyncErrorCb?: SyncErrorCallback;
-  private onRoomUpdatedCb?: RoomUpdatedCallback;
-  private onRoomInvitedCb?: RoomInvitedCallback;
-  private onRoomLeftCb?: RoomLeftCallback;
-  private onNewMessagesCb?: NewMessagesCallback;
-
-  constructor(config: GeneratedTypeLiteralInterface_1) {
-    this.onSyncSuccessCb = config.onSyncSuccess;
-    this.onSyncErrorCb = config.onSyncError;
-    this.onRoomUpdatedCb = config.onRoomUpdated;
-    this.onRoomInvitedCb = config.onRoomInvited;
-    this.onRoomLeftCb = config.onRoomLeft;
-    this.onNewMessagesCb = config.onNewMessages;
-  }
-
-  onSyncSuccess(): void {
-    if (this.onSyncSuccessCb) {
-      this.onSyncSuccessCb();
-    }
-  }
-
-  onSyncError(error: Error): void {
-    if (this.onSyncErrorCb) {
-      this.onSyncErrorCb(error);
-    }
-  }
-
-  onRoomUpdated(room: Room): void {
-    if (this.onRoomUpdatedCb) {
-      this.onRoomUpdatedCb(room);
-    }
-  }
-
-  onRoomInvited(room: Room): void {
-    if (this.onRoomInvitedCb) {
-      this.onRoomInvitedCb(room);
-    }
-  }
-
-  onRoomLeft(roomId: string): void {
-    if (this.onRoomLeftCb) {
-      this.onRoomLeftCb(roomId);
-    }
-  }
-
-  onNewMessages(roomId: string, messages: Message[]): void {
-    if (this.onNewMessagesCb) {
-      this.onNewMessagesCb(roomId, messages);
-    }
-  }
-}
-
-export class EventProcessor {
-  private static instance: EventProcessor;
+export class EventProcessor implements IEventProcessor {
   private localDatabase: LocalDatabase;
   private logger = AppLogger.getLogger(EventProcessor);
+  private cryptoService: CryptoService;
 
-  private constructor() {
-    this.localDatabase = LocalDatabase.getInstance();
-  }
-
-  static getInstance(): EventProcessor {
-    if (!EventProcessor.instance) {
-      EventProcessor.instance = new EventProcessor();
-    }
-    return EventProcessor.instance;
+  constructor(localDatabase: LocalDatabase, cryptoService: CryptoService) {
+    this.localDatabase = localDatabase;
+    this.cryptoService = cryptoService;
   }
 
   async processPresenceEvents(events: PresEvent[]): Promise<void> {
@@ -203,13 +147,11 @@ export class EventProcessor {
   }
 
   async processToDeviceEvents(events: Event[]): Promise<void> {
-    const cryptoService = CryptoService.getInstance();
-
     for (const event of events) {
       this.logger.info(`To-device event: ${event.type}`);
 
       // Route crypto-related events to CryptoService
-      if (cryptoService.isInitialized()) {
+      if (this.cryptoService.isInitialized()) {
         const cryptoEventTypes = [
           'm.room_key',
           'm.room_key_request',
@@ -220,7 +162,7 @@ export class EventProcessor {
 
         if (cryptoEventTypes.includes(event.type)) {
           try {
-            await cryptoService.processToDeviceEvent({
+            await this.cryptoService.processToDeviceEvent({
               type: event.type,
               sender: event.sender || '',
               content: event.content as Record<string, string | object>
@@ -354,16 +296,14 @@ export class EventProcessor {
    * Returns either the decrypted message event or the encrypted event as-is
    */
   private processEncryptedEvent(event: Event): ProcessedEncryptedEvent | ProcessedMessageEvent {
-    const cryptoService = CryptoService.getInstance();
-
     // If crypto is not initialized, return encrypted event as-is
-    if (!cryptoService.isInitialized()) {
+    if (!this.cryptoService.isInitialized()) {
       return this.createEncryptedEventResult(event);
     }
 
     // Attempt to decrypt the event synchronously using the session cache
     try {
-      const decryptedResult = this.attemptDecryptionFromCache(event, cryptoService);
+      const decryptedResult = this.attemptDecryptionFromCache(event, this.cryptoService);
       if (decryptedResult) {
         return decryptedResult;
       }
@@ -416,9 +356,7 @@ export class EventProcessor {
    * This is called after the sync loop completes
    */
   async processEncryptedEventAsync(event: Event): Promise<ProcessedMessageEvent | null> {
-    const cryptoService = CryptoService.getInstance();
-
-    if (!cryptoService.isInitialized()) {
+    if (!this.cryptoService.isInitialized()) {
       return null;
     }
 
@@ -431,7 +369,7 @@ export class EventProcessor {
         content: event.content as Record<string, string | object>,
         origin_server_ts: event.origin_server_ts || 0
       };
-      const decrypted = await cryptoService.decryptEvent(decryptEventObj);
+      const decrypted = await this.cryptoService.decryptEvent(decryptEventObj);
 
       // If decryption was successful (no error), return as a message event
       if (!decrypted.decryptionError) {

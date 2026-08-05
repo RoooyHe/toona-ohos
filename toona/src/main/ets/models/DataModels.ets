@@ -6,6 +6,7 @@ import {
   RoomSummary,
   UnreadNotifications
 } from '../models/MatrixTypes';
+import { RoomStateParser } from '../utils/RoomStateParser';
 
 interface StateEventList {
   events: Event[];
@@ -119,47 +120,7 @@ export class Room implements MatrixRoom {
     }
 
     const stateEvents: Event[] = state.state?.events || [];
-    for (let i = 0; i < stateEvents.length; i++) {
-      const event: Event = stateEvents[i];
-      const content: Record<string, string | object> = event.content as Record<string, string | object>;
-      switch (event.type) {
-        case 'm.room.name':
-          const nameVal: string | object | undefined = content['name'];
-          if (nameVal !== undefined) {
-            room.name = String(nameVal);
-            room.displayName = String(nameVal);
-          }
-          break;
-        case 'm.room.topic':
-          const topicVal: string | object | undefined = content['topic'];
-          if (topicVal !== undefined) {
-            room.topic = String(topicVal);
-          }
-          break;
-        case 'm.room.avatar':
-          const avatarVal: string | object | undefined = content['url'];
-          if (avatarVal !== undefined) {
-            room.avatarUrl = String(avatarVal);
-          }
-          break;
-        case 'm.room.canonical_alias':
-          const aliasVal: string | object | undefined = content['alias'];
-          if (aliasVal !== undefined) {
-            room.name = String(aliasVal);
-          }
-          break;
-        case 'm.room.create':
-          const isDirectVal: string | object | undefined = content['is_direct'];
-          if (isDirectVal !== undefined) {
-            room.isDirect = isDirectVal === 'true';
-          }
-          const typeVal: string | object | undefined = content['type'];
-          if (typeVal === 'm.space') {
-            room.isSpace = true;
-          }
-          break;
-      }
-    }
+    RoomStateParser.applyStateEvents(room, stateEvents);
 
     if (state.timeline?.events && state.timeline.events.length > 0) {
       const timelineEvents: Event[] = state.timeline.events;

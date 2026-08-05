@@ -1,13 +1,13 @@
 import { ToastUtils } from '../utils/ToastUtils';
-import { AuthManager } from '../services/AuthManager';
-import { UserManager } from '../services/UserManager';
-import { SyncManager } from '../services/SyncManager';
-import { RoomManager } from '../services/RoomManager';
 import { Room, Message } from '../models/DataModels';
 import { RoomListPage } from './RoomListPage';
 import { getThemeColors } from '../utils/ThemeManager';
 import { SpacePage } from './SpacePage';
 import { AppLogger } from '../utils/AppLogger';
+import { ServiceRegistry } from '../services/ServiceRegistry';
+import { ISyncManager } from '../services/SyncManager';
+import { IRoomManager } from '../services/RoomManager';
+import { RoomTagManager } from '../services/RoomTagManager';
 
 const logger = AppLogger.getLogger('MainPage');
 
@@ -39,14 +39,14 @@ struct MainPage {
   @State unreadCountRoom: number = 0;
   @State unreadCountInvite: number = 0;
   @State syncStatus: string = 'synced';
-  private authManager: AuthManager = AuthManager.getInstance();
-  private syncManager: SyncManager = SyncManager.getInstance();
-  private roomManager: RoomManager = RoomManager.getInstance();
 
   // ⚠️ 严禁使用 @State 修饰 NavPathStack 系统对象，否则会引起底层指针丢失导致闪退
   pathStack: NavPathStack = new NavPathStack();
 
   private isNavigating: boolean = false;
+  private syncManager: ISyncManager = ServiceRegistry.getCurrent().getSyncManager();
+  private roomManager: IRoomManager = ServiceRegistry.getCurrent().getRoomManager();
+  private roomTagManager: RoomTagManager = ServiceRegistry.getCurrent().getRoomTagManager();
 
   aboutToAppear() {
       this.syncStatus = 'syncing';
@@ -71,7 +71,7 @@ struct MainPage {
     try {
       await this.syncManager.init(getContext());
       await this.syncManager.start();
-      const session = this.authManager.getSession();
+      const session = ServiceRegistry.getCurrent().getAuthManager().getSession();
       if (session) {
         const userId = session.userId;
         const colonIndex = userId.indexOf(':');
@@ -121,7 +121,7 @@ ToastUtils.show('同步初始化失败', 3000);
 
   async loadUserProfile() {
     try {
-      const userManager: UserManager = UserManager.getInstance();
+      const userManager = ServiceRegistry.getCurrent().getUserManager();
       const profile = await userManager.getUserProfile();
       this.userDisplayName = profile.displayName || '';
       this.userAvatarUrl = profile.avatarUrl || '';
@@ -142,7 +142,7 @@ ToastUtils.show('用户信息加载失败', 2000);
 
   async handleLogout() {
     try {
-      await this.authManager.logout();
+      await ServiceRegistry.getCurrent().getAuthManager().logout();
       this.pathStack?.clear();
     } catch (error) {
       logger.error('Logout failed:', error);
@@ -450,7 +450,10 @@ ToastUtils.show('退出登录失败', 3000);
 
       if (this.currentIndex === 0) {
         RoomListPage({
-          filterType: this.currentFilter, // （别忘了去 RoomListPage.ets 里把 filterType 改为 @Prop）
+          filterType: this.currentFilter,
+          syncManager: this.syncManager,
+          roomManager: this.roomManager,
+          roomTagManager: this.roomTagManager,
           onNavigateToRoom: (room: Room) => {
             if (room.isSpace === true) {
               const param: Record<string, Object> = {
@@ -468,7 +471,7 @@ ToastUtils.show('退出登录失败', 3000);
           }
         });
       } else {
-        SpacePage({ pathStack: this.pathStack });
+        SpacePage({ pathStack: this.pathStack, roomManager: this.roomManager });
       }
     }
     .width('100%')

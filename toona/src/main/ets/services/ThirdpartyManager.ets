@@ -4,39 +4,19 @@ import {
   ThirdpartyUserResponse,
   ThirdpartyLocationResponse
 } from '../models/MatrixTypes';
-import { MatrixHttpClient } from '../network/MatrixHttpClient';
-import { MatrixConfig } from '../network/MatrixConfig';
+import { BaseHttpClient } from '../network/clients/BaseHttpClient';
 
 export class ThirdpartyManager {
-  private static instance: ThirdpartyManager;
   private logger = AppLogger.getLogger(ThirdpartyManager);
-  private httpClient: MatrixHttpClient | null = null;
+  private httpClient: BaseHttpClient;
 
-  private constructor() {
-  }
-
-  static getInstance(): ThirdpartyManager {
-    if (!ThirdpartyManager.instance) {
-      ThirdpartyManager.instance = new ThirdpartyManager();
-    }
-    return ThirdpartyManager.instance;
-  }
-
-  setHomeserver(homeserverUrl: string): void {
-    MatrixConfig.getInstance().setHomeserver(homeserverUrl);
-    this.httpClient = MatrixConfig.getInstance().getHttpClient();
-  }
-
-  private ensureHttpClient(): MatrixHttpClient {
-    if (!this.httpClient) {
-      throw new Error('ThirdpartyManager not initialized. Call setHomeserver first.');
-    }
-    return this.httpClient;
+  constructor(httpClient: BaseHttpClient) {
+    this.httpClient = httpClient;
   }
 
   async getProtocols(): Promise<ThirdpartyProtocolsResponse> {
     try {
-      return await this.ensureHttpClient().getThirdpartyProtocols();
+      return await this.httpClient.get<ThirdpartyProtocolsResponse>('/thirdparty/protocols');
     } catch (error) {
       this.logger.error('Failed to get thirdparty protocols:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -46,7 +26,8 @@ export class ThirdpartyManager {
 
   async getProtocol(protocol: string): Promise<ThirdpartyProtocolsResponse> {
     try {
-      return await this.ensureHttpClient().getThirdpartyProtocol(protocol);
+      const encodedProtocol = encodeURIComponent(protocol);
+      return await this.httpClient.get<ThirdpartyProtocolsResponse>(`/thirdparty/protocol/${encodedProtocol}`);
     } catch (error) {
       this.logger.error('Failed to get thirdparty protocol:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -59,7 +40,11 @@ export class ThirdpartyManager {
     params: Record<string, string | string[]>
   ): Promise<ThirdpartyUserResponse> {
     try {
-      return await this.ensureHttpClient().thirdpartyUserSearch(protocol, params);
+      const encodedProtocol = encodeURIComponent(protocol);
+      return await this.httpClient.get<ThirdpartyUserResponse>(
+        `/thirdparty/user/${encodedProtocol}`,
+        params as Record<string, string | number>
+      );
     } catch (error) {
       this.logger.error('Failed to search thirdparty user:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -69,7 +54,7 @@ export class ThirdpartyManager {
 
   async discoverUser(params: Record<string, string | string[]>): Promise<ThirdpartyUserResponse> {
     try {
-      return await this.ensureHttpClient().thirdpartyUserDiscovery(params);
+      return await this.httpClient.post<ThirdpartyUserResponse>('/thirdparty/user/', params);
     } catch (error) {
       this.logger.error('Failed to discover thirdparty user:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -82,7 +67,11 @@ export class ThirdpartyManager {
     params: Record<string, string | string[]>
   ): Promise<ThirdpartyLocationResponse> {
     try {
-      return await this.ensureHttpClient().thirdpartyLocationSearch(protocol, params);
+      const encodedProtocol = encodeURIComponent(protocol);
+      return await this.httpClient.get<ThirdpartyLocationResponse>(
+        `/thirdparty/location/${encodedProtocol}`,
+        params as Record<string, string | number>
+      );
     } catch (error) {
       this.logger.error('Failed to search thirdparty location:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -92,7 +81,7 @@ export class ThirdpartyManager {
 
   async discoverLocation(params: Record<string, string | string[]>): Promise<ThirdpartyLocationResponse> {
     try {
-      return await this.ensureHttpClient().thirdpartyLocationDiscovery(params);
+      return await this.httpClient.post<ThirdpartyLocationResponse>('/thirdparty/location/', params);
     } catch (error) {
       this.logger.error('Failed to discover thirdparty location:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);

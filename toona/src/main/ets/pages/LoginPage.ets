@@ -1,10 +1,10 @@
 import { ToastUtils } from '../utils/ToastUtils';
-import { AuthManager } from '../services/AuthManager';
 import { SPHelper } from '@wondertek/wdkitlib';
 import { UserAuthManager } from '../services/UserAuthManager';
 import { getThemeColors } from '../utils/ThemeManager';
 import http from '@ohos.net.http';
 import { AppLogger } from '../utils/AppLogger';
+import { ServiceRegistry } from '../services/ServiceRegistry';
 
 function extractHomeServerUrl(jsonString: string): string | null {
   const regex = /"m\.homeserver"\s*:\s*\{\s*"base_url"\s*:\s*"([^"]+)"/;
@@ -30,7 +30,6 @@ struct LoginPage {
   @State errorMessage: string = '';
   @State rememberMe: boolean = true;
   @State isDiscovering: boolean = false;
-  private authManager: AuthManager = AuthManager.getInstance();
   private userAuthManager: UserAuthManager = UserAuthManager.getInstance();
   private logger = AppLogger.getLogger(LoginPage);
   pathStack: NavPathStack = new NavPathStack();
@@ -125,9 +124,9 @@ struct LoginPage {
         serverUrl = serverUrl.replace(/\/$/, '');
       }
 
-      await this.authManager.setHomeserver(serverUrl);
+      await ServiceRegistry.getCurrent().getAuthManager().setHomeserver(serverUrl);
 
-      const isValidServer = await this.authManager.checkHomeserverVersion();
+      const isValidServer = await ServiceRegistry.getCurrent().getAuthManager().checkHomeserverVersion();
       if (!isValidServer) {
         this.errorMessage = '无法连接到服务器';
         this.isLoading = false;
@@ -135,7 +134,7 @@ struct LoginPage {
         return;
       }
 
-      const session = await this.authManager.login(this.userId, this.password);
+      const session = await ServiceRegistry.getCurrent().getAuthManager().login(this.userId, this.password);
 
       await this.saveCredentials();
 

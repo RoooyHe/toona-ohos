@@ -181,4 +181,29 @@ export class RoomHttpClient extends BaseHttpClient {
     }
     return await this.post<PublicRoomsResponse>('/publicRooms', body);
   }
+
+  async putTyping(roomId: string, userId: string, typing: boolean, timeout?: number): Promise<void> {
+    const encodedRoomId = encodeURIComponent(roomId);
+    const encodedUserId = encodeURIComponent(userId);
+    const body: Record<string, string | object> = { 'typing': typing ? 'true' : 'false' };
+    if (timeout !== undefined) {
+      body['timeout'] = String(timeout);
+    }
+    await this.put<void>(
+      `/rooms/${encodedRoomId}/typing/${encodedUserId}`,
+      body
+    );
+  }
+
+  async getTypingUsers(roomId: string, userId: string): Promise<string[]> {
+    const encodedRoomId = encodeURIComponent(roomId);
+    const encodedUserId = encodeURIComponent(userId);
+    interface TypingUsersResponse {
+      user_ids: string[];
+    }
+    const response = await this.get<TypingUsersResponse>(
+      `/rooms/${encodedRoomId}/typing/${encodedUserId}`
+    );
+    return response.user_ids || [];
+  }
 }

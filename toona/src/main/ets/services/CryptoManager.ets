@@ -1,5 +1,5 @@
 import { AppLogger } from '../utils/AppLogger';
-import { MatrixHttpClient, MatrixConfig } from '../network/MatrixHttpClient';
+import { DeviceHttpClient } from '../network/clients/DeviceHttpClient';
 import {
   QueryKeysRequest,
   QueryKeysResponse,
@@ -20,30 +20,11 @@ import {
 } from '../models/MatrixTypes';
 
 export class CryptoManager {
-  private static instance: CryptoManager;
-  private httpClient: MatrixHttpClient | null = null;
+  private deviceClient: DeviceHttpClient;
   private logger = AppLogger.getLogger(CryptoManager);
 
-  private constructor() {
-  }
-
-  static getInstance(): CryptoManager {
-    if (!CryptoManager.instance) {
-      CryptoManager.instance = new CryptoManager();
-    }
-    return CryptoManager.instance;
-  }
-
-  setHomeserver(homeserverUrl: string): void {
-    MatrixConfig.getInstance().setHomeserver(homeserverUrl);
-    this.httpClient = MatrixConfig.getInstance().getHttpClient();
-  }
-
-  private ensureHttpClient(): MatrixHttpClient {
-    if (!this.httpClient) {
-      throw new Error('CryptoManager not initialized. Call setHomeserver first.');
-    }
-    return this.httpClient;
+  constructor(deviceClient: DeviceHttpClient) {
+    this.deviceClient = deviceClient;
   }
 
   async queryDeviceKeys(userIds: string[], timeout?: number): Promise<QueryKeysResponse> {
@@ -55,7 +36,7 @@ export class CryptoManager {
       request.device_keys![userIds[i]] = [];
     }
     try {
-      const result: Record<string, Object> = await this.ensureHttpClient().queryKeys(request as Object as Record<string, Object>);
+      const result: Record<string, Object> = await this.deviceClient.queryKeys(request as Object as Record<string, Object>);
       return result as QueryKeysResponse;
     } catch (error) {
       this.logger.error('Failed to query device keys:', error);
@@ -70,7 +51,7 @@ export class CryptoManager {
       device_keys: deviceKeyInfo
     };
     try {
-      const result: Record<string, Object> = await this.ensureHttpClient().uploadKeys(request as Object as Record<string, Object>);
+      const result: Record<string, Object> = await this.deviceClient.uploadKeys(request as Object as Record<string, Object>);
       return result as Object as UploadKeysResponse;
     } catch (error) {
       this.logger.error('Failed to upload device keys:', error);
@@ -84,7 +65,7 @@ export class CryptoManager {
       one_time_keys: oneTimeKeys
     };
     try {
-      const result: Record<string, Object> = await this.ensureHttpClient().uploadKeys(request as Object as Record<string, Object>);
+      const result: Record<string, Object> = await this.deviceClient.uploadKeys(request as Object as Record<string, Object>);
       return result as UploadKeysResponse;
     } catch (error) {
       this.logger.error('Failed to upload one-time keys:', error);
@@ -98,7 +79,7 @@ export class CryptoManager {
       fallback_keys: fallbackKeys
     };
     try {
-      const result: Record<string, Object> = await this.ensureHttpClient().uploadKeys(request as Object as Record<string, Object>);
+      const result: Record<string, Object> = await this.deviceClient.uploadKeys(request as Object as Record<string, Object>);
       return result as UploadKeysResponse;
     } catch (error) {
       this.logger.error('Failed to upload fallback keys:', error);
@@ -113,7 +94,7 @@ export class CryptoManager {
       timeout: timeout
     };
     try {
-      const result: Record<string, Object> = await this.ensureHttpClient().claimKeys(request as Object as Record<string, Object>);
+      const result: Record<string, Object> = await this.deviceClient.claimKeys(request as Object as Record<string, Object>);
       return result as ClaimKeysResponse;
     } catch (error) {
       this.logger.error('Failed to claim keys:', error);
@@ -131,7 +112,7 @@ export class CryptoManager {
       request.session_ids = sessionIds;
     }
     try {
-      const result: Record<string, Object> = await this.ensureHttpClient().queryRoomKeys(request as Object as Record<string, Object>);
+      const result: Record<string, Object> = await this.deviceClient.queryRoomKeys(request as Object as Record<string, Object>);
       return result as QueryRoomKeysResponse;
     } catch (error) {
       this.logger.error('Failed to query room keys:', error);
@@ -145,7 +126,7 @@ export class CryptoManager {
       rooms: roomsData
     };
     try {
-      const result: Record<string, Object> = await this.ensureHttpClient().uploadRoomKeys(request as Object as Record<string, Object>);
+      const result: Record<string, Object> = await this.deviceClient.uploadRoomKeys(request as Object as Record<string, Object>);
       return result as UploadRoomKeysResponse;
     } catch (error) {
       this.logger.error('Failed to upload room keys:', error);
@@ -156,7 +137,7 @@ export class CryptoManager {
 
   async getRoomKeyBackup(version?: string): Promise<KeyBackupSessionData | null> {
     try {
-      const result: Record<string, Object> = await this.ensureHttpClient().getRoomKeys(version);
+      const result: Record<string, Object> = await this.deviceClient.getRoomKeys(version);
       return result as KeyBackupSessionData;
     } catch (error) {
       this.logger.error('Failed to get room key backup:', error);
@@ -166,7 +147,7 @@ export class CryptoManager {
 
   async putRoomKeyBackup(version: string, data: KeyBackupSessionData): Promise<void> {
     try {
-      await this.ensureHttpClient().putRoomKeys(version, data as Object as Record<string, Object>);
+      await this.deviceClient.putRoomKeys(version, data as Object as Record<string, Object>);
     } catch (error) {
       this.logger.error('Failed to put room key backup:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -176,7 +157,7 @@ export class CryptoManager {
 
   async getKeyBackupVersion(): Promise<KeyBackupVersion | null> {
     try {
-      const result: Record<string, Object> = await this.ensureHttpClient().getKeyBackupVersion();
+      const result: Record<string, Object> = await this.deviceClient.getKeyBackupVersion();
       return result as Object as KeyBackupVersion;
     } catch (error) {
       this.logger.error('Failed to get key backup version:', error);
@@ -186,7 +167,7 @@ export class CryptoManager {
 
   async createKeyBackupVersion(authData: Record<string, string | object>): Promise<string> {
     try {
-      const response: Record<string, Object> = await this.ensureHttpClient().createKeyBackupVersion(authData as Object as Record<string, Object>);
+      const response: Record<string, Object> = await this.deviceClient.createKeyBackupVersion(authData as Object as Record<string, Object>);
       return response['version'] as string;
     } catch (error) {
       this.logger.error('Failed to create key backup version:', error);
@@ -197,7 +178,7 @@ export class CryptoManager {
 
   async updateKeyBackupVersion(version: string, authData: Record<string, string | object>): Promise<void> {
     try {
-      await this.ensureHttpClient().putKeyBackupVersion(version, authData as Object as Record<string, Object>);
+      await this.deviceClient.putKeyBackupVersion(version, authData as Object as Record<string, Object>);
     } catch (error) {
       this.logger.error('Failed to update key backup version:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -207,7 +188,7 @@ export class CryptoManager {
 
   async deleteKeyBackupVersion(version: string): Promise<void> {
     try {
-      await this.ensureHttpClient().deleteKeyBackupVersion(version);
+      await this.deviceClient.deleteKeyBackupVersion(version);
     } catch (error) {
       this.logger.error('Failed to delete key backup version:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -217,7 +198,7 @@ export class CryptoManager {
 
   async uploadSignatures(request: SignatureRequest): Promise<SignatureResponse> {
     try {
-      const result: Record<string, Object> = await this.ensureHttpClient().uploadSignatures(request as Object as Record<string, Object>);
+      const result: Record<string, Object> = await this.deviceClient.uploadSignatures(request as Object as Record<string, Object>);
       return result as SignatureResponse;
     } catch (error) {
       this.logger.error('Failed to upload signatures:', error);

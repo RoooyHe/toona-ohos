@@ -17,7 +17,7 @@ export struct QrCodeVerificationDialog {
   onCancel: () => void = () => {};
   onConfirm: () => void = () => {};
 
-  private verificationService: VerificationService = VerificationService.getInstance();
+  verificationService: VerificationService | null = null;
   @State qrData: string = '';
   @State phase: VerificationPhase = VerificationPhase.REQUEST;
 
@@ -26,7 +26,7 @@ export struct QrCodeVerificationDialog {
   }
 
   loadSession() {
-    if (!this.sessionId) {
+    if (!this.sessionId || !this.verificationService) {
       return;
     }
 

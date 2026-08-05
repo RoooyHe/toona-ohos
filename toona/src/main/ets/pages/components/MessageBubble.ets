@@ -1,8 +1,8 @@
 import { ToastUtils } from '../../utils/ToastUtils';
 import { Message, MessageStatus } from '../../models/DataModels';
-import { MediaManager } from '../../services/MediaManager';
 import { getThemeColors } from '../../utils/ThemeManager';
 import { VerificationService } from '../../services/VerificationService';
+import { MediaManager } from '../../services/MediaManager';
 import { VerificationState } from '../../crypto/types/CryptoTypes';
 import { ImageViewer } from './ImageViewer';
 import { FilePreview } from './FilePreview';
@@ -53,8 +53,8 @@ export struct MessageBubble {
   isOutgoing: boolean = false;
   onLongPress: (message: Message) => void = () => {
   };
-  private mediaManager: MediaManager = MediaManager.getInstance();
-  private verificationService: VerificationService = VerificationService.getInstance();
+  verificationService: VerificationService | null = null;
+  mediaManager: MediaManager | null = null;
   @State deviceTrustLevel: VerificationState = VerificationState.UNVERIFIED;
   @State showImageViewer: boolean = false;
   @State showFilePreview: boolean = false;
@@ -117,7 +117,7 @@ export struct MessageBubble {
       }
 
       const mxcUrl = this.message.content['url'] as string;
-      const httpUrl = this.mediaManager.getHttpUrl(mxcUrl);
+      const httpUrl = this.mediaManager!.getHttpUrl(mxcUrl);
 
       this.isPlaying = true;
       this.playProgress = 0;
@@ -282,7 +282,7 @@ export struct MessageBubble {
 
       if (this.message.isImageMessage()) {
         // 1. 图片消息气泡
-        Image(this.mediaManager.getThumbnailUrl(this.message.content['url'] as string, 200, 200, 'scale'))
+        Image(this.mediaManager!.getThumbnailUrl(this.message.content['url'] as string, 200, 200, 'scale'))
           .width(200)
           .height(200)
           .borderRadius(18)
@@ -519,6 +519,7 @@ export struct MessageBubble {
         imageUrl: this.selectedImageUrl,
         sender: this.message.sender,
         timestamp: this.message.timestamp,
+        mediaManager: this.mediaManager!,
         onClose: () => {
           this.showImageViewer = false;
         }

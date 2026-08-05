@@ -5,38 +5,19 @@ import {
   PresenceState,
   PresenceListResponse
 } from '../models/MatrixTypes';
-import { MatrixConfig, MatrixHttpClient } from '../network/MatrixHttpClient';
+import { PresenceHttpClient } from '../network/clients/PresenceHttpClient';
 
 export class PresenceManager {
-  private static instance: PresenceManager;
-  private httpClient: MatrixHttpClient | null = null;
+  private presenceClient: PresenceHttpClient;
   private logger = AppLogger.getLogger(PresenceManager);
 
-  private constructor() {
-  }
-
-  static getInstance(): PresenceManager {
-    if (!PresenceManager.instance) {
-      PresenceManager.instance = new PresenceManager();
-    }
-    return PresenceManager.instance;
-  }
-
-  setHomeserver(homeserverUrl: string): void {
-    MatrixConfig.getInstance().setHomeserver(homeserverUrl);
-    this.httpClient = MatrixConfig.getInstance().getHttpClient();
-  }
-
-  private ensureHttpClient(): MatrixHttpClient {
-    if (!this.httpClient) {
-      this.httpClient = MatrixConfig.getInstance().getHttpClient();
-    }
-    return this.httpClient;
+  constructor(presenceClient: PresenceHttpClient) {
+    this.presenceClient = presenceClient;
   }
 
   async getPresence(userId: string): Promise<GetPresenceResponse> {
     try {
-      return await this.ensureHttpClient().getPresence(userId);
+      return await this.presenceClient.getPresence(userId);
     } catch (error) {
       this.logger.error('Failed to get presence:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -50,7 +31,7 @@ export class PresenceManager {
       if (statusMsg !== undefined) {
         request.status_msg = statusMsg;
       }
-      await this.ensureHttpClient().setPresence(userId, request);
+      await this.presenceClient.setPresence(userId, request);
     } catch (error) {
       this.logger.error('Failed to set presence:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -72,7 +53,7 @@ export class PresenceManager {
 
   async getPresenceList(userIds: string[]): Promise<PresenceListResponse> {
     try {
-      return await this.ensureHttpClient().getPresenceList(userIds);
+      return await this.presenceClient.getPresenceList(userIds);
     } catch (error) {
       this.logger.error('Failed to get presence list:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);

@@ -1,9 +1,9 @@
-import { RoomManager } from '../services/RoomManager';
-import { RoomTagManager } from '../services/RoomTagManager';
 import { Room, Message } from '../models/DataModels';
-import { SyncManager } from '../services/SyncManager';
 import { getThemeColors } from '../utils/ThemeManager';
 import { AppLogger } from '../utils/AppLogger';
+import { ISyncManager } from '../services/SyncManager';
+import { IRoomManager } from '../services/RoomManager';
+import { RoomTagManager } from '../services/RoomTagManager';
 
 enum FilterType {
   ALL = 'all',
@@ -28,48 +28,51 @@ struct RoomListPage {
   @State isRefreshing: boolean = false;
   @State searchQuery: string = '';
   @State favoriteRoomIds: string[] = [];
-  private roomManager: RoomManager = RoomManager.getInstance();
-  private roomTagManager: RoomTagManager = RoomTagManager.getInstance();
-  private syncManager: SyncManager = SyncManager.getInstance();
   private logger = AppLogger.getLogger(RoomListPage);
   onNavigateToRoom: (room: Room) => void = () => {};
+  syncManager: ISyncManager | null = null;
+  roomManager: IRoomManager | null = null;
+  roomTagManager: RoomTagManager | null = null;
 
   aboutToAppear() {
     this.loadRooms();
     this.loadFavoriteRooms();
     const self = this;
 
-    this.syncManager.setSyncSuccessCallback(() => {
+    this.syncManager?.setSyncSuccessCallback(() => {
       self.loadRooms();
       self.loadFavoriteRooms();
     });
 
-      this.syncManager.setSyncErrorCallback((error: Error) => {
+    this.syncManager?.setSyncErrorCallback((error: Error) => {
       self.logger.error('Sync error in room list:', error);
     });
 
-    this.syncManager.setRoomUpdatedCallback((room: Room) => {
+    this.syncManager?.setRoomUpdatedCallback((room: Room) => {
       self.updateRoomInList(room);
     });
 
-    this.syncManager.setRoomInvitedCallback(() => {
+    this.syncManager?.setRoomInvitedCallback(() => {
       self.loadRooms();
     });
 
-    this.syncManager.setRoomLeftCallback((roomId: string) => {
+    this.syncManager?.setRoomLeftCallback((roomId: string) => {
       self.removeRoomFromList(roomId);
     });
 
-    this.syncManager.setNewMessagesCallback((roomId: string, messages: Message[]) => {
+    this.syncManager?.setNewMessagesCallback((roomId: string, messages: Message[]) => {
       self.logger.info(`New messages in room: ${roomId} ${messages.length}`);
     });
   }
 
   aboutToDisappear() {
-    this.syncManager.clearAllCallbacks();
+    this.syncManager?.clearAllCallbacks();
   }
 
   async loadFavoriteRooms() {
+    if (!this.roomTagManager || !this.roomManager) {
+      return;
+    }
     try {
       this.favoriteRoomIds = [];
       const rooms = await this.roomManager.getRooms();
@@ -89,6 +92,9 @@ struct RoomListPage {
   }
 
   async loadRooms() {
+    if (!this.roomManager) {
+      return;
+    }
     try {
       this.rooms = await this.roomManager.getRooms();
       this.rooms.sort((a, b) => {

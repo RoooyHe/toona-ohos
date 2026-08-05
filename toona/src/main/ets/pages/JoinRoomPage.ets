@@ -1,11 +1,10 @@
 import { ToastUtils } from '../utils/ToastUtils';
 import { QuickDialogManager, QuickDialogParams, QuickDialogController, QuickDialogDecoratorParams } from 'quickdialog';
 import { RoomManager, CreateRoomOptions } from '../services/RoomManager';
-import { AuthManager } from '../services/AuthManager';
-import { MatrixHttpClient } from '../network/MatrixHttpClient';
 import { ScanManager } from '../services/ScanManager';
 import { getThemeColors } from '../utils/ThemeManager';
 import { AppLogger } from '../utils/AppLogger';
+import { ServiceRegistry } from '../services/ServiceRegistry';
 
 interface CreateRoomDialogData {
   roomName: string;
@@ -140,14 +139,10 @@ struct JoinRoomPage {
   @State roomAddress: string = '';
   @State isJoining: boolean = false;
   private createRoomDialogController: QuickDialogController | undefined = undefined;
-  private roomManager: RoomManager = RoomManager.getInstance();
-  private authManager: AuthManager = AuthManager.getInstance();
-  private httpClient: MatrixHttpClient | null = null;
   private scanManager: ScanManager = ScanManager.getInstance();
   pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
-    this.httpClient = this.authManager.getHttpClient();
   }
 
   async searchUsers() {
@@ -157,12 +152,15 @@ struct JoinRoomPage {
 
     this.isSearching = true;
     try {
-      const response = await this.httpClient?.get<DirectorySearchResponse>(
-        `/user_directory/search?name=${encodeURIComponent(this.searchQuery.trim())}`
-      );
-      if (response && response.results) {
-        this.searchResults = response.results;
-      }
+      const results = await ServiceRegistry.getCurrent().getRoomManager().searchUsers(this.searchQuery.trim());
+      const mapped: DirectoryUser[] = results.map((u: Record<string, string>) => {
+        return {
+          user_id: u['user_id'] || '',
+          display_name: u['display_name'] || u['user_id'] || '',
+          avatar_url: u['avatar_url'] || ''
+        };
+      });
+      this.searchResults = mapped;
     } catch (error) {
       logger.error('Search users failed:', error);
       this.searchResults = [];
@@ -183,7 +181,7 @@ struct JoinRoomPage {
       isDirect: true,
       inviteUsers: [userId]
     };
-    const roomId = await this.roomManager.createRoom(options);
+    const roomId = await ServiceRegistry.getCurrent().getRoomManager().createRoom(options);
     const param: Record<string, Object> = {
       "roomId": roomId,
       "roomName": userId
@@ -229,9 +227,9 @@ struct JoinRoomPage {
   async doJoinRoom(): Promise<void> {
     let roomId = this.roomAddress.trim();
     if (!roomId.startsWith('#') && !roomId.includes(':')) {
-      roomId = `#${roomId}:${this.authManager.getHomeserver()}`;
+      roomId = `#${roomId}:${ServiceRegistry.getCurrent().getAuthManager().getHomeserver()}`;
     }
-    await this.roomManager.joinRoom(roomId);
+    await ServiceRegistry.getCurrent().getRoomManager().joinRoom(roomId);
     ToastUtils.show('加入成功');
     this.pathStack.pop();
   }
@@ -262,7 +260,7 @@ struct JoinRoomPage {
       name: roomName.trim(),
       visibility: isPublic ? 'public' : 'private'
     };
-    await this.roomManager.createRoom(options);
+    await ServiceRegistry.getCurrent().getRoomManager().createRoom(options);
     ToastUtils.show('创建成功');
     this.pathStack.pop();
   }

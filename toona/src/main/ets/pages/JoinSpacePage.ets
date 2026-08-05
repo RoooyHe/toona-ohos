@@ -1,11 +1,9 @@
 import { ToastUtils } from '../utils/ToastUtils';
 import { QuickDialogManager, QuickDialogParams, QuickDialogController, QuickDialogDecoratorParams } from 'quickdialog';
-import { RoomManager } from '../services/RoomManager';
-import { AuthManager } from '../services/AuthManager';
-import { MatrixHttpClient } from '../network/MatrixHttpClient';
 import { getThemeColors } from '../utils/ThemeManager';
 import { common } from '@kit.AbilityKit';
 import { AppLogger } from '../utils/AppLogger';
+import { ServiceRegistry } from '../services/ServiceRegistry';
 
 interface CreateSpaceDialogData {
   spaceName: string;
@@ -128,13 +126,9 @@ struct JoinSpacePage {
   @State spaceAddress: string = '';
   @State isJoining: boolean = false;
   private createSpaceDialogController: QuickDialogController | undefined = undefined;
-  private roomManager: RoomManager = RoomManager.getInstance();
-  private authManager: AuthManager = AuthManager.getInstance();
-  private httpClient: MatrixHttpClient | null = null;
   pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
-    this.httpClient = this.authManager.getHttpClient();
   }
 
   async searchPublicSpaces() {
@@ -145,18 +139,8 @@ struct JoinSpacePage {
 
     this.isSearching = true;
     try {
-      const response = await this.httpClient?.get<PublicRoomsResponse>(
-        '/publicRooms',
-        { "limit": 20 }
-      );
-      if (response && response.chunk) {
-        const query = this.searchQuery.toLowerCase();
-        this.searchResults = response.chunk.filter(space => {
-          const name = space.name?.toLowerCase() || '';
-          const topic = space.topic?.toLowerCase() || '';
-          return name.includes(query) || topic.includes(query);
-        });
-      }
+      const response = await ServiceRegistry.getCurrent().getRoomManager().searchPublicRooms(undefined, this.searchQuery.trim(), 20);
+      this.searchResults = response.chunk || [];
     } catch (error) {
       logger.error('Search spaces failed:', error);
       this.searchResults = [];
@@ -177,9 +161,9 @@ struct JoinSpacePage {
     try {
       let spaceId = spaceIdOrAlias.trim();
       if (!spaceId.startsWith('#') && !spaceId.includes(':')) {
-        spaceId = `#${spaceId}:${this.authManager.getHomeserver()}`;
+        spaceId = `#${spaceId}:${ServiceRegistry.getCurrent().getAuthManager().getHomeserver()}`;
       }
-      await this.roomManager.joinRoom(spaceId);
+      await ServiceRegistry.getCurrent().getRoomManager().joinRoom(spaceId);
       ToastUtils.show('加入成功');
 this.pathStack.pop();
     } catch (error) {
@@ -210,7 +194,7 @@ this.pathStack.pop();
   }
 
   async doCreateSpace(spaceName: string): Promise<void> {
-    await this.roomManager.createSpace(spaceName.trim());
+    await ServiceRegistry.getCurrent().getRoomManager().createSpace(spaceName.trim());
     ToastUtils.show('创建成功');
     this.pathStack.pop();
   }

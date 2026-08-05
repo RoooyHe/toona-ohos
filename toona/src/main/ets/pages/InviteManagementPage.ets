@@ -1,9 +1,7 @@
 import { ToastUtils } from '../utils/ToastUtils';
-import { RoomManager } from '../services/RoomManager';
-import { AuthManager } from '../services/AuthManager';
-import { MediaManager } from '../services/MediaManager';
 import { getThemeColors } from '../utils/ThemeManager';
 import { AppLogger } from '../utils/AppLogger';
+import { ServiceRegistry } from '../services/ServiceRegistry';
 
 const logger = AppLogger.getLogger('InviteManagementPage');
 
@@ -26,9 +24,6 @@ struct InviteManagementPage {
   @State invites: RoomInvite[] = [];
   @State isLoading: boolean = true;
   @State processingInvite: string = '';
-  private roomManager: RoomManager = RoomManager.getInstance();
-  private authManager: AuthManager = AuthManager.getInstance();
-  private mediaManager: MediaManager = MediaManager.getInstance();
   pathStack: NavPathStack = new NavPathStack();
   private logger = AppLogger.getLogger('InviteManagementPage');
 
@@ -53,7 +48,7 @@ struct InviteManagementPage {
   async acceptInvite(invite: RoomInvite) {
     this.processingInvite = invite.roomId;
     try {
-      await this.roomManager.joinRoom(invite.roomId);
+      await ServiceRegistry.getCurrent().getRoomManager().joinRoom(invite.roomId);
       ToastUtils.show('Joined room');
       this.invites = this.invites.filter(i => i.roomId !== invite.roomId);
       this.pathStack.pop();
@@ -68,7 +63,7 @@ struct InviteManagementPage {
   async declineInvite(invite: RoomInvite) {
     this.processingInvite = invite.roomId;
     try {
-      await this.roomManager.leaveRoom(invite.roomId);
+      await ServiceRegistry.getCurrent().getRoomManager().leaveRoom(invite.roomId);
       ToastUtils.show('Invite declined');
       this.invites = this.invites.filter(i => i.roomId !== invite.roomId);
     } catch (error) {
@@ -143,7 +138,7 @@ struct InviteManagementPage {
                     // Room Avatar
                     Stack() {
                       if (invite.avatarUrl) {
-                        Image(this.mediaManager.getHttpUrl(invite.avatarUrl))
+                        Image(ServiceRegistry.getCurrent().getMediaManager().getHttpUrl(invite.avatarUrl))
                           .width(48)
                           .height(48)
                           .borderRadius(24);

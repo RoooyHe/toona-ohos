@@ -1,7 +1,7 @@
 import { AppLogger } from '../utils/AppLogger';
 import { MediaUploadResponse, MediaConfig as MediaConfigResponse, UrlPreviewResponse } from '../models/MatrixTypes';
 import { MxcUtils } from '../utils/MxcUtils';
-import { MatrixConfig, MatrixHttpClient } from '../network/MatrixHttpClient';
+import { MediaHttpClient } from '../network/clients/MediaHttpClient';
 
 interface GeneratedTypeLiteralInterface_1 {
   serverName: string;
@@ -9,40 +9,20 @@ interface GeneratedTypeLiteralInterface_1 {
 }
 
 export class MediaManager {
-  private static instance: MediaManager;
-  private httpClient: MatrixHttpClient | null = null;
+  private mediaClient: MediaHttpClient;
   private logger = AppLogger.getLogger(MediaManager);
 
-  private constructor() {
+  constructor(mediaClient: MediaHttpClient) {
+    this.mediaClient = mediaClient;
   }
 
-  static getInstance(): MediaManager {
-    if (!MediaManager.instance) {
-      MediaManager.instance = new MediaManager();
-    }
-    return MediaManager.instance;
-  }
-
-  setHomeserver(homeserverUrl: string): void {
-    MatrixConfig.getInstance().setHomeserver(homeserverUrl);
-    this.httpClient = MatrixConfig.getInstance().getHttpClient();
-  }
-
-  private ensureHttpClient(): MatrixHttpClient {
-    if (!this.httpClient) {
-      this.httpClient = MatrixConfig.getInstance().getHttpClient();
-    }
-    return this.httpClient;
-  }
-
-  // 核心的底层上传方法 (保持你原有的逻辑不变)
   async uploadMedia(
     data: ArrayBuffer,
     contentType: string,
     fileName?: string
   ): Promise<MediaUploadResponse> {
     try {
-      return await this.ensureHttpClient().uploadMedia(data, contentType, fileName);
+      return await this.mediaClient.uploadMedia(data, contentType, fileName);
     } catch (error) {
       this.logger.error('Failed to upload media:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -50,25 +30,21 @@ export class MediaManager {
     }
   }
 
-  // ✅ 修复 1：复用 uploadMedia 方法，避免直接操作 this.httpClient 导致空指针
   async uploadImage(data: ArrayBuffer, fileName: string): Promise<string> {
     const response = await this.uploadMedia(data, 'image/jpeg', fileName);
     return response.content_uri;
   }
 
-  // ✅ 修复 2：音频同理
   async uploadAudio(data: ArrayBuffer, fileName: string): Promise<string> {
-    const response = await this.uploadMedia(data, 'audio/mp4', fileName); // 录音一般是 m4a/mp4
+    const response = await this.uploadMedia(data, 'audio/mp4', fileName);
     return response.content_uri;
   }
 
-  // ✅ 修复 3：视频同理
   async uploadVideo(data: ArrayBuffer, fileName: string): Promise<string> {
     const response = await this.uploadMedia(data, 'video/mp4', fileName);
     return response.content_uri;
   }
 
-  // ✅ 修复 4：通用文件同理
   async uploadFile(data: ArrayBuffer, fileName: string,
     mimeType: string = 'application/octet-stream'): Promise<string> {
     const response = await this.uploadMedia(data, mimeType, fileName);
@@ -81,7 +57,7 @@ export class MediaManager {
       throw new Error('Invalid mxc:// URI');
     }
     try {
-      return await this.ensureHttpClient().downloadMedia(parsed.serverName, parsed.mediaId);
+      return await this.mediaClient.downloadMedia(parsed.serverName, parsed.mediaId);
     } catch (error) {
       this.logger.error('Failed to download media:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -101,7 +77,7 @@ export class MediaManager {
       throw new Error('Invalid mxc:// URI');
     }
     try {
-      return await this.ensureHttpClient().getThumbnail(
+      return await this.mediaClient.getThumbnail(
         parsed.serverName,
         parsed.mediaId,
         width,
@@ -118,7 +94,7 @@ export class MediaManager {
 
   async getUrlPreview(url: string, ts?: number): Promise<UrlPreviewResponse> {
     try {
-      return await this.ensureHttpClient().getUrlPreview(url, ts);
+      return await this.mediaClient.getUrlPreview(url, ts);
     } catch (error) {
       this.logger.error('Failed to get URL preview:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -128,7 +104,7 @@ export class MediaManager {
 
   async getMediaConfig(): Promise<MediaConfigResponse> {
     try {
-      return await this.ensureHttpClient().getMediaConfig();
+      return await this.mediaClient.getMediaConfig();
     } catch (error) {
       this.logger.error('Failed to get media config:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -137,7 +113,7 @@ export class MediaManager {
   }
 
   getHttpUrl(mxcUri: string): string {
-    const homeserver = MatrixConfig.getInstance().getHomeserver();
+    const homeserver = this.mediaClient.getBaseUrl();
     return MxcUtils.getHttpUri(mxcUri, homeserver);
   }
 
@@ -147,7 +123,7 @@ export class MediaManager {
     height: number,
     method?: 'crop' | 'scale'
   ): string {
-    const homeserver = MatrixConfig.getInstance().getHomeserver();
+    const homeserver = this.mediaClient.getBaseUrl();
     return MxcUtils.getThumbnailHttpUri(mxcUri, homeserver, width, height, method);
   }
 

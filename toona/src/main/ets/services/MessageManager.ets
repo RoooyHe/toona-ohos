@@ -1,6 +1,6 @@
-import { MatrixHttpClient } from '../network/MatrixHttpClient';
+import { MessageHttpClient } from '../network/clients/MessageHttpClient';
 import { SendMessageResult } from '../models/MatrixTypes';
-import { AuthManager } from './AuthManager';
+import { IAuthManager } from './AuthManager';
 import { LocalDatabase } from '../database/LocalDatabase';
 import { Message } from '../models/DataModels';
 import { RandomUtil } from '@wondertek/wdkitlib';
@@ -16,23 +16,19 @@ interface PendingMessage {
 
 export class MessageManager {
   private logger = AppLogger.getLogger(MessageManager);
-  private static instance: MessageManager;
-  private httpClient: MatrixHttpClient;
-  private authManager: AuthManager;
+  private messageClient: MessageHttpClient;
+  private authManager: IAuthManager;
   private localDatabase: LocalDatabase;
   private offlineQueue: PendingMessage[] = [];
 
-  private constructor() {
-    this.authManager = AuthManager.getInstance();
-    this.httpClient = this.authManager.getHttpClient();
-    this.localDatabase = LocalDatabase.getInstance();
-  }
-
-  static getInstance(): MessageManager {
-    if (!MessageManager.instance) {
-      MessageManager.instance = new MessageManager();
-    }
-    return MessageManager.instance;
+  constructor(
+    authManager: IAuthManager,
+    localDatabase: LocalDatabase,
+    messageClient: MessageHttpClient
+  ) {
+    this.authManager = authManager;
+    this.localDatabase = localDatabase;
+    this.messageClient = messageClient;
   }
 
   async sendTextMessage(roomId: string, text: string): Promise<string> {
@@ -67,14 +63,14 @@ export class MessageManager {
     const encodedRoomId = encodeURIComponent(roomId);
 
     try {
-      const response = await this.httpClient.put<SendMessageResult>(
+      const response = await this.messageClient.put<SendMessageResult>(
         `/rooms/${encodedRoomId}/send/${eventType}/${txnId}`,
         content
       );
 
       return response.event_id;
     } catch (error) {
-this.logger.error('Failed to send message:', error);
+      this.logger.error('Failed to send message:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to send message: ${errMsg}`);
     }
@@ -116,14 +112,14 @@ this.logger.error('Failed to send message:', error);
     const encodedRoomId = encodeURIComponent(roomId);
 
     try {
-      const response = await this.httpClient.put<SendMessageResult>(
+      const response = await this.messageClient.put<SendMessageResult>(
         `/rooms/${encodedRoomId}/send/${'m.room.message'}/${txnId}`,
         content
       );
 
       return response.event_id;
     } catch (error) {
-this.logger.error('Failed to edit message:', error);
+      this.logger.error('Failed to edit message:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to edit message: ${errMsg}`);
     }
@@ -137,9 +133,9 @@ this.logger.error('Failed to edit message:', error);
       const redactContent: Record<string, string | object> = {
         "reason": reason !== undefined ? reason : ''
       };
-      await this.httpClient.put<object>(`/rooms/${encodedRoomId}/redact/${encodedEventId}`, redactContent);
+      await this.messageClient.put<object>(`/rooms/${encodedRoomId}/redact/${encodedEventId}`, redactContent);
     } catch (error) {
-this.logger.error('Failed to delete message:', error);
+      this.logger.error('Failed to delete message:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to delete message: ${errMsg}`);
     }
@@ -161,11 +157,11 @@ this.logger.error('Failed to delete message:', error);
   queueOfflineMessage(roomId: string, content: Record<string, string | object>, resolve: (eventId: string) => void,
     reject: (error: Error) => void): void {
     const pending: PendingMessage = {
-      roomId,
-      content,
+      roomId: roomId,
+      content: content,
       txnId: this.generateTransactionId(),
-      resolve,
-      reject
+      resolve: resolve,
+      reject: reject
     };
 
     this.offlineQueue.push(pending);
@@ -176,12 +172,16 @@ this.logger.error('Failed to delete message:', error);
       return;
     }
 
-this.logger.info(`Processing ${this.offlineQueue.length} offline messages`);
+    this.logger.info(`Processing ${this.offlineQueue.length} offline messages`);
 
-    const queue = [...this.offlineQueue];
+    const queue: PendingMessage[] = [];
+    for (let i = 0; i < this.offlineQueue.length; i++) {
+      queue.push(this.offlineQueue[i]);
+    }
     this.offlineQueue = [];
 
-    for (const pending of queue) {
+    for (let i = 0; i < queue.length; i++) {
+      const pending = queue[i];
       try {
         const eventId = await this.sendMessage(
           pending.roomId,

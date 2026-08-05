@@ -9,34 +9,14 @@ import {
   SetReadMarkersRequest,
   ReceiptContent
 } from '../models/MatrixTypes';
-import { MatrixHttpClient } from '../network/MatrixHttpClient';
-import { MatrixConfig } from '../network/MatrixConfig';
+import { RoomHttpClient } from '../network/clients/RoomHttpClient';
 
 export class RoomStateManager {
-  private static instance: RoomStateManager;
-  private httpClient: MatrixHttpClient | null = null;
+  private roomClient: RoomHttpClient;
   private logger = AppLogger.getLogger(RoomStateManager);
 
-  private constructor() {
-  }
-
-  static getInstance(): RoomStateManager {
-    if (!RoomStateManager.instance) {
-      RoomStateManager.instance = new RoomStateManager();
-    }
-    return RoomStateManager.instance;
-  }
-
-  setHomeserver(homeserverUrl: string): void {
-    MatrixConfig.getInstance().setHomeserver(homeserverUrl);
-    this.httpClient = MatrixConfig.getInstance().getHttpClient();
-  }
-
-  private ensureHttpClient(): MatrixHttpClient {
-    if (!this.httpClient) {
-      throw new Error('RoomStateManager not initialized. Call setHomeserver first.');
-    }
-    return this.httpClient;
+  constructor(roomClient: RoomHttpClient) {
+    this.roomClient = roomClient;
   }
 
   async setRoomAvatar(roomId: string, avatarUrl: string, info?: RoomAvatarContentInfo): Promise<void> {
@@ -45,7 +25,7 @@ export class RoomStateManager {
       if (info) {
         avatar.info = info;
       }
-      await this.ensureHttpClient().setRoomAvatar(roomId, avatar);
+      await this.roomClient.setRoomAvatar(roomId, avatar);
     } catch (error) {
       const errMsg: string = error instanceof Error ? error.message : String(error);
       this.logger.error(`Failed to set room avatar: ${errMsg}`);
@@ -55,7 +35,7 @@ export class RoomStateManager {
 
   async getCanonicalAlias(roomId: string): Promise<string | null> {
     try {
-      const result = await this.ensureHttpClient().getCanonicalAlias(roomId);
+      const result = await this.roomClient.getCanonicalAlias(roomId);
       return result?.alias ?? null;
     } catch (error) {
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -66,7 +46,7 @@ export class RoomStateManager {
 
   async setCanonicalAlias(roomId: string, alias: string): Promise<void> {
     try {
-      await this.ensureHttpClient().setCanonicalAlias(roomId, alias);
+      await this.roomClient.setCanonicalAlias(roomId, alias);
     } catch (error) {
       const errMsg: string = error instanceof Error ? error.message : String(error);
       this.logger.error(`Failed to set canonical alias: ${errMsg}`);
@@ -76,10 +56,10 @@ export class RoomStateManager {
 
   async getRoomAliases(roomId: string): Promise<string[]> {
     try {
-      const result = await this.ensureHttpClient().getRoomAliases(roomId);
+      const result = await this.roomClient.getRoomAliases(roomId);
       return result?.aliases ?? [];
     } catch (error) {
-		this.logger.error('Failed to get room aliases:', error);
+      this.logger.error('Failed to get room aliases:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get room aliases: ${errMsg}`);
     }
@@ -87,9 +67,9 @@ export class RoomStateManager {
 
   async setRoomAliases(roomId: string, aliases: string[]): Promise<void> {
     try {
-      await this.ensureHttpClient().setRoomAliases(roomId, aliases);
+      await this.roomClient.setRoomAliases(roomId, aliases);
     } catch (error) {
-		this.logger.error('Failed to set room aliases:', error);
+      this.logger.error('Failed to set room aliases:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to set room aliases: ${errMsg}`);
     }
@@ -97,9 +77,9 @@ export class RoomStateManager {
 
   async getRoomMembers(roomId: string, start?: string, end?: string): Promise<RoomMembersResponse> {
     try {
-      return await this.ensureHttpClient().getRoomMembers(roomId, start, end);
+      return await this.roomClient.getRoomMembers(roomId, start, end);
     } catch (error) {
-		this.logger.error('Failed to get room members:', error);
+      this.logger.error('Failed to get room members:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get room members: ${errMsg}`);
     }
@@ -113,9 +93,9 @@ export class RoomStateManager {
         notifications[unreadNotificationKey] = 'highlighted';
         request.unread_notifications = notifications;
       }
-      await this.ensureHttpClient().setReadMarkers(roomId, request);
+      await this.roomClient.setReadMarkers(roomId, request);
     } catch (error) {
-		this.logger.error('Failed to set read markers:', error);
+      this.logger.error('Failed to set read markers:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to set read markers: ${errMsg}`);
     }
@@ -127,9 +107,9 @@ export class RoomStateManager {
 
   async getReceipt(roomId: string, receiptType: string, eventId: string): Promise<ReceiptContent> {
     try {
-      return await this.ensureHttpClient().getReceipt(roomId, receiptType, eventId);
+      return await this.roomClient.getReceipt(roomId, receiptType, eventId);
     } catch (error) {
-		this.logger.error('Failed to get receipt:', error);
+      this.logger.error('Failed to get receipt:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get receipt: ${errMsg}`);
     }
@@ -137,9 +117,9 @@ export class RoomStateManager {
 
   async createRoomAlias(roomAlias: string, roomId: string, servers: string[]): Promise<void> {
     try {
-      await this.ensureHttpClient().createRoomAlias(roomAlias, roomId, servers);
+      await this.roomClient.createRoomAlias(roomAlias, roomId, servers);
     } catch (error) {
-		this.logger.error('Failed to create room alias:', error);
+      this.logger.error('Failed to create room alias:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to create room alias: ${errMsg}`);
     }
@@ -147,9 +127,9 @@ export class RoomStateManager {
 
   async deleteRoomAlias(roomAlias: string): Promise<void> {
     try {
-      await this.ensureHttpClient().deleteRoomAlias(roomAlias);
+      await this.roomClient.deleteRoomAlias(roomAlias);
     } catch (error) {
-		this.logger.error('Failed to delete room alias:', error);
+      this.logger.error('Failed to delete room alias:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to delete room alias: ${errMsg}`);
     }
@@ -157,9 +137,9 @@ export class RoomStateManager {
 
   async resolveRoomAlias(roomAlias: string): Promise<RoomDirectoryResponse> {
     try {
-      return await this.ensureHttpClient().resolveRoomAlias(roomAlias);
+      return await this.roomClient.resolveRoomAlias(roomAlias);
     } catch (error) {
-		this.logger.error('Failed to resolve room alias:', error);
+      this.logger.error('Failed to resolve room alias:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to resolve room alias: ${errMsg}`);
     }
@@ -167,9 +147,9 @@ export class RoomStateManager {
 
   async getPublicRooms(server?: string, limit?: number, since?: string): Promise<PublicRoomsResponse> {
     try {
-      return await this.ensureHttpClient().getPublicRooms(server, limit, since);
+      return await this.roomClient.getPublicRooms(server, limit, since);
     } catch (error) {
-		this.logger.error('Failed to get public rooms:', error);
+      this.logger.error('Failed to get public rooms:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get public rooms: ${errMsg}`);
     }
@@ -186,9 +166,9 @@ export class RoomStateManager {
       if (query) {
         room.name = query;
       }
-      return await this.ensureHttpClient().postPublicRooms(room);
+      return await this.roomClient.postPublicRooms(room);
     } catch (error) {
-		this.logger.error('Failed to search public rooms:', error);
+      this.logger.error('Failed to search public rooms:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to search public rooms: ${errMsg}`);
     }

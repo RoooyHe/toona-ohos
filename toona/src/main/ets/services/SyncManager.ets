@@ -1,9 +1,10 @@
-import { MatrixHttpClient } from '../network/MatrixHttpClient';
+import { BaseHttpClient } from '../network/clients/BaseHttpClient';
+import { RoomStateParser } from '../utils/RoomStateParser';
 import { SyncRequest, SyncResponse, Event, RoomState } from '../models/MatrixTypes';
-import { AuthManager } from './AuthManager';
+import { IAuthManager } from './AuthManager';
 import { LocalDatabase } from '../database/LocalDatabase';
 import { Room, Message, TagInfo } from '../models/DataModels';
-import { EventProcessor, SyncListener } from './EventProcessor';
+import { EventProcessor } from './EventProcessor';
 import { CryptoService } from './CryptoService';
 import { Context } from '@kit.AbilityKit';
 import { AppLogger } from '../utils/AppLogger';
@@ -11,18 +12,30 @@ import { AppLogger } from '../utils/AppLogger';
 const DEFAULT_TIMEOUT = 30000;
 const INITIAL_SYNC_TIMEOUT = 10000;
 
-export class SyncManager {
-  private static instance: SyncManager;
+export interface ISyncManager {
+  init(context: Context): Promise<void>;
+  start(): Promise<void>;
+  stop(): Promise<void>;
+  setSyncSuccessCallback(callback: () => void): void;
+  setSyncErrorCallback(callback: (error: Error) => void): void;
+  setRoomUpdatedCallback(callback: (room: Room) => void): void;
+  setRoomInvitedCallback(callback: (room: Room) => void): void;
+  setRoomLeftCallback(callback: (roomId: string) => void): void;
+  setNewMessagesCallback(callback: (roomId: string, messages: Message[]) => void): void;
+  clearAllCallbacks(): void;
+}
+
+export class SyncManager implements ISyncManager {
   private logger = AppLogger.getLogger(SyncManager);
-  private httpClient: MatrixHttpClient;
-  private authManager: AuthManager;
+  private httpClient: BaseHttpClient;
+  private authManager: IAuthManager;
   private localDatabase: LocalDatabase;
   private eventProcessor: EventProcessor;
+  private cryptoService: CryptoService;
   private isRunning: boolean = false;
   private isInitialSync: boolean = true;
   private syncTimeout: number = DEFAULT_TIMEOUT;
   private nextBatch: string = '';
-  private listeners: SyncListener[] = [];
   private syncTask: Promise<void> | null = null;
   private syncSuccessCallbacks: Array<() => void> = [];
   private syncErrorCallbacks: Array<(error: Error) => void> = [];
@@ -31,44 +44,28 @@ export class SyncManager {
   private roomLeftCallbacks: Array<(roomId: string) => void> = [];
   private newMessagesCallbacks: Array<(roomId: string, messages: Message[]) => void> = [];
 
-  private constructor() {
-    this.authManager = AuthManager.getInstance();
-    this.httpClient = this.authManager.getHttpClient();
-    this.localDatabase = LocalDatabase.getInstance();
-    this.eventProcessor = EventProcessor.getInstance();
-  }
-
-  static getInstance(): SyncManager {
-    if (!SyncManager.instance) {
-      SyncManager.instance = new SyncManager();
-    }
-    return SyncManager.instance;
+  constructor(
+    authManager: IAuthManager,
+    localDatabase: LocalDatabase,
+    eventProcessor: EventProcessor,
+    cryptoService: CryptoService,
+    httpClient: BaseHttpClient
+  ) {
+    this.authManager = authManager;
+    this.localDatabase = localDatabase;
+    this.eventProcessor = eventProcessor;
+    this.cryptoService = cryptoService;
+    this.httpClient = httpClient;
   }
 
   async init(context: Context): Promise<void> {
     await this.localDatabase.init(context);
 
-    // Initialize CryptoService for E2EE support
     try {
-      const cryptoService = CryptoService.getInstance();
-      await cryptoService.initialize();
+      await this.cryptoService.initialize();
       this.logger.info('CryptoService initialized successfully');
     } catch (error) {
       this.logger.error('Failed to initialize CryptoService:', error);
-      // Continue without E2EE - app will work for unencrypted rooms
-    }
-  }
-
-  addListener(listener: SyncListener): void {
-    if (!this.listeners.includes(listener)) {
-      this.listeners.push(listener);
-    }
-  }
-
-  removeListener(listener: SyncListener): void {
-    const index = this.listeners.indexOf(listener);
-    if (index > -1) {
-      this.listeners.splice(index, 1);
     }
   }
 
@@ -198,39 +195,7 @@ export class SyncManager {
           const room = new Room(roomId);
           room.myMembership = 'invite';
           const inviteState = invitedRoom.invite_state?.events || [];
-          for (let j = 0; j < inviteState.length; j++) {
-            const event = inviteState[j];
-            const content = event.content as Record<string, string | object>;
-            if (event.type === 'm.room.name') {
-              room.name = String(content['name'] || '');
-              room.displayName = String(content['name'] || '');
-            } else if (event.type === 'm.room.canonical_alias') {
-              room.name = String(content['alias'] || '');
-            } else if (event.type === 'm.room.avatar') {
-              room.avatarUrl = String(content['url'] || '');
-            } else if (event.type === 'm.room.create') {
-              const isDirectVal = content['is_direct'];
-              if (isDirectVal !== undefined) {
-                room.isDirect = isDirectVal === 'true';
-              }
-              const typeVal = content['type'];
-              if (typeVal === 'm.space') {
-                room.isSpace = true;
-              }
-            } else if (event.type === 'm.room.member') {
-              const stateKey = event.state_key;
-              if (stateKey && stateKey !== currentUserId) {
-                const displaynameVal = content['displayname'];
-                if (displaynameVal !== undefined) {
-                  room.displayName = String(displaynameVal);
-                }
-                const avatarVal = content['avatar_url'];
-                if (avatarVal !== undefined) {
-                  room.avatarUrl = String(avatarVal);
-                }
-              }
-            }
-          }
+          RoomStateParser.applyStateEvents(room, inviteState, currentUserId);
           await this.localDatabase.saveRoom(room);
           this.notifyRoomInvited(room);
         }
@@ -275,53 +240,7 @@ export class SyncManager {
 
     const stateEvents = roomState.state?.events || [];
     const currentUserId = this.authManager.getSession()?.userId || '';
-    for (let i = 0; i < stateEvents.length; i++) {
-      const event = stateEvents[i];
-      const content = event.content as Record<string, string | object>;
-      if (event.type === 'm.room.name') {
-        const nameVal = content['name'];
-        if (nameVal !== undefined) {
-          room.name = String(nameVal);
-          room.displayName = String(nameVal);
-        }
-      } else if (event.type === 'm.room.topic') {
-        const topicVal = content['topic'];
-        if (topicVal !== undefined) {
-          room.topic = String(topicVal);
-        }
-      } else if (event.type === 'm.room.avatar') {
-        const avatarVal = content['url'];
-        if (avatarVal !== undefined) {
-          room.avatarUrl = String(avatarVal);
-        }
-      } else if (event.type === 'm.room.canonical_alias') {
-        const aliasVal = content['alias'];
-        if (aliasVal !== undefined) {
-          room.name = String(aliasVal);
-        }
-      } else if (event.type === 'm.room.create') {
-        const isDirectVal = content['is_direct'];
-        if (isDirectVal !== undefined) {
-          room.isDirect = isDirectVal === 'true';
-        }
-        const typeVal = content['type'];
-        if (typeVal === 'm.space') {
-          room.isSpace = true;
-        }
-      } else if (event.type === 'm.room.member') {
-        const stateKey = event.state_key;
-        if (stateKey && stateKey !== currentUserId) {
-          const displaynameVal = content['displayname'];
-          if (displaynameVal !== undefined) {
-            room.displayName = String(displaynameVal);
-          }
-          const avatarVal = content['avatar_url'];
-          if (avatarVal !== undefined) {
-            room.avatarUrl = String(avatarVal);
-          }
-        }
-      }
-    }
+    RoomStateParser.applyStateEvents(room, stateEvents, currentUserId);
 
     if (roomState.timeline?.events && roomState.timeline.events.length > 0) {
       const lastEvent = roomState.timeline.events[roomState.timeline.events.length - 1];
@@ -402,13 +321,6 @@ export class SyncManager {
         this.logger.error('Sync callback error:', error);
       }
     }
-    for (const listener of this.listeners) {
-      try {
-        listener.onSyncSuccess();
-      } catch (error) {
-        this.logger.error('Sync listener error:', error);
-      }
-    }
   }
 
   private notifySyncError(error: Error): void {
@@ -418,13 +330,6 @@ export class SyncManager {
         callback(error);
       } catch (err) {
         this.logger.error('Sync callback error:', err);
-      }
-    }
-    for (const listener of this.listeners) {
-      try {
-        listener.onSyncError(error);
-      } catch (err) {
-        this.logger.error('Sync listener error:', err);
       }
     }
   }
@@ -437,13 +342,6 @@ export class SyncManager {
         this.logger.error('Sync callback error:', error);
       }
     }
-    for (const listener of this.listeners) {
-      try {
-        listener.onRoomUpdated(room);
-      } catch (error) {
-        this.logger.error('Sync listener error:', error);
-      }
-    }
   }
 
   private notifyRoomInvited(room: Room): void {
@@ -452,13 +350,6 @@ export class SyncManager {
         callback(room);
       } catch (error) {
         this.logger.error('Sync callback error:', error);
-      }
-    }
-    for (const listener of this.listeners) {
-      try {
-        listener.onRoomInvited(room);
-      } catch (error) {
-        this.logger.error('Sync listener error:', error);
       }
     }
   }
@@ -471,13 +362,6 @@ export class SyncManager {
         this.logger.error('Sync callback error:', error);
       }
     }
-    for (const listener of this.listeners) {
-      try {
-        listener.onRoomLeft(roomId);
-      } catch (error) {
-        this.logger.error('Sync listener error:', error);
-      }
-    }
   }
 
   private notifyNewMessages(roomId: string, messages: Message[]): void {
@@ -486,13 +370,6 @@ export class SyncManager {
         callback(roomId, messages);
       } catch (error) {
         this.logger.error('Sync callback error:', error);
-      }
-    }
-    for (const listener of this.listeners) {
-      try {
-        listener.onNewMessages(roomId, messages);
-      } catch (error) {
-        this.logger.error('Sync listener error:', error);
       }
     }
   }
@@ -505,7 +382,6 @@ export class SyncManager {
     this.isRunning = false;
     this.isInitialSync = true;
     this.nextBatch = '';
-    this.listeners = [];
     this.syncTask = null;
   }
 }

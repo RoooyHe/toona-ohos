@@ -16,7 +16,7 @@ export struct VerificationRequestDialog {
   onAccept: () => void = () => {};
   onDecline: () => void = () => {};
 
-  private verificationService: VerificationService = VerificationService.getInstance();
+  verificationService: VerificationService | null = null;
   @State phase: VerificationPhase = VerificationPhase.REQUEST;
 
   aboutToAppear() {
@@ -24,7 +24,7 @@ export struct VerificationRequestDialog {
   }
 
   loadSession() {
-    if (!this.sessionId) {
+    if (!this.sessionId || !this.verificationService) {
       return;
     }
 
@@ -136,7 +136,7 @@ export struct VerificationRequestDialog {
 
   async acceptVerification() {
     try {
-      await this.verificationService.acceptVerification(this.sessionId);
+      await this.verificationService!.acceptVerification(this.sessionId);
       ToastUtils.show('Verification accepted');
       this.onAccept();
     } catch (error) {

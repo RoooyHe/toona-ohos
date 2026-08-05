@@ -1,7 +1,7 @@
-import { RoomManager } from '../services/RoomManager';
 import { Room } from '../models/DataModels';
 import { getThemeColors } from '../utils/ThemeManager';
 import { AppLogger } from '../utils/AppLogger';
+import { IRoomManager } from '../services/RoomManager';
 
 const logger = AppLogger.getLogger('SpacePage');
 
@@ -123,7 +123,7 @@ export struct SpacePage {
   @State isLoading: boolean = true;
   // 依赖 MainPage 传进来的 pathStack 即可
   pathStack: NavPathStack = new NavPathStack();
-  private roomManager: RoomManager = RoomManager.getInstance();
+  roomManager: IRoomManager | null = null;
   private expandedSpaces: Set<string> = new Set();
 
   aboutToAppear() {
@@ -131,6 +131,9 @@ export struct SpacePage {
   }
 
   async loadSpaces() {
+    if (!this.roomManager) {
+      return;
+    }
     this.isLoading = true;
     try {
       const rooms = await this.roomManager.getRooms();
@@ -198,6 +201,9 @@ logger.error('Failed to load spaces:', error);
   }
 
   async refreshTree() {
+    if (!this.roomManager) {
+      return;
+    }
     const rooms = await this.roomManager.getRooms();
     this.spaceItems = this.buildSpaceTree(rooms);
   }

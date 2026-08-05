@@ -1,5 +1,4 @@
 import { getThemeColors } from '../../utils/ThemeManager';
-import { MediaManager } from '../../services/MediaManager';
 import { ToastUtils } from '../../utils/ToastUtils';
 import { fileIo } from '@kit.CoreFileKit';
 import picker from '@ohos.file.picker';
@@ -19,7 +18,6 @@ export struct FilePreview {
   @Prop timestamp: number = 0;
   onClose: () => void = () => {};
 
-  private mediaManager: MediaManager = MediaManager.getInstance();
   @State isDownloading: boolean = false;
   @State downloadProgress: number = 0;
 

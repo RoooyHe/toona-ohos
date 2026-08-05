@@ -1,10 +1,8 @@
 import { ToastUtils } from '../utils/ToastUtils';
-import { UserManager } from '../services/UserManager';
-import { PresenceManager } from '../services/PresenceManager';
-import { MediaManager } from '../services/MediaManager';
 import { getThemeColors } from '../utils/ThemeManager';
 import { PresenceState } from '../models/MatrixTypes';
 import { AppLogger } from '../utils/AppLogger';
+import { ServiceRegistry } from '../services/ServiceRegistry';
 
 const logger = AppLogger.getLogger('UserProfilePage');
 
@@ -23,9 +21,6 @@ struct UserProfilePage {
   @State presence: PresenceState = 'offline';
   @State statusMsg: string = '';
   @State isLoading: boolean = true;
-  private userManager: UserManager = UserManager.getInstance();
-  private presenceManager: PresenceManager = PresenceManager.getInstance();
-  private mediaManager: MediaManager = MediaManager.getInstance();
   pathStack: NavPathStack = new NavPathStack();
   private logger = AppLogger.getLogger('UserProfilePage');
 
@@ -36,11 +31,13 @@ struct UserProfilePage {
   async loadUserProfile() {
     this.isLoading = true;
     try {
-      const profile = await this.userManager.getUserProfile(this.userId);
+      const registry = ServiceRegistry.getCurrent();
+      const profilePromise = registry.getUserManager().getUserProfile(this.userId);
+      const presencePromise = registry.getPresenceManager().getPresence(this.userId);
+      const profile = await profilePromise;
       this.displayName = profile.displayName || '';
       this.avatarUrl = profile.avatarUrl || '';
-
-      const presenceResponse = await this.presenceManager.getPresence(this.userId);
+      const presenceResponse = await presencePromise;
       this.presence = presenceResponse.presence as PresenceState;
       this.statusMsg = presenceResponse.status_msg || '';
     } catch (error) {
@@ -128,7 +125,7 @@ struct UserProfilePage {
                 // Avatar
                 Stack() {
                   if (this.avatarUrl) {
-                    Image(this.mediaManager.getHttpUrl(this.avatarUrl))
+                    Image(ServiceRegistry.getCurrent().getMediaManager().getHttpUrl(this.avatarUrl))
                       .width(80)
                       .height(80)
                       .borderRadius(40);

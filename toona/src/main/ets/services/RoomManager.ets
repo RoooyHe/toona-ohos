@@ -1,4 +1,5 @@
-import { MatrixHttpClient } from '../network/MatrixHttpClient';
+import { RoomHttpClient } from '../network/clients/RoomHttpClient';
+import { RoomStateParser } from '../utils/RoomStateParser';
 import {
   RoomCreateResponse,
   JoinedRoomsResponse,
@@ -7,9 +8,11 @@ import {
   RoomMessagesResponse,
   InitialStateEvent,
   ParsedRoomState,
-  Event
+  Event,
+  PublicRoomsResponse,
+  PublicRoom
 } from '../models/MatrixTypes';
-import { AuthManager } from './AuthManager';
+import { AuthManager, IAuthManager } from './AuthManager';
 import { LocalDatabase } from '../database/LocalDatabase';
 import { Room, Message } from '../models/DataModels';
 import { AppLogger } from '../utils/AppLogger';
@@ -51,27 +54,56 @@ interface GeneratedTypeLiteralInterface_1 {
   info: GeneratedTypeLiteralInterface_2;
 }
 
-export class RoomManager {
+export interface IRoomManager {
+  getRooms(): Promise<Room[]>;
+  getRoom(roomId: string): Promise<Room | null>;
+  createRoom(options?: CreateRoomOptions): Promise<string>;
+  joinRoom(roomIdOrAlias: string): Promise<void>;
+  leaveRoom(roomId: string): Promise<void>;
+  inviteUser(roomId: string, userId: string): Promise<void>;
+  getRoomMembers(roomId: string): Promise<string[]>;
+  getRoomMessages(roomId: string, limit?: number, from?: string, direction?: 'b' | 'f'): Promise<Message[]>;
+  resolveRoomAlias(roomAlias: string): Promise<string>;
+  setRoomName(roomId: string, name: string): Promise<void>;
+  setRoomTopic(roomId: string, topic: string): Promise<void>;
+  getJoinedRooms(): Promise<string[]>;
+  getRoomState(roomId: string): Promise<ParsedRoomState>;
+  getRoomName(roomId: string): Promise<string | null>;
+  getRoomTopic(roomId: string): Promise<string | null>;
+  forgetRoom(roomId: string): Promise<void>;
+  kickUser(roomId: string, userId: string, reason?: string): Promise<void>;
+  banUser(roomId: string, userId: string, reason?: string): Promise<void>;
+  unbanUser(roomId: string, userId: string): Promise<void>;
+  createSpace(name: string, topic?: string, isDirect?: boolean, inviteUsers?: string[]): Promise<string>;
+  getSpaceChildren(roomId: string): Promise<SpaceChild[]>;
+  addChildToSpace(parentRoomId: string, childRoomId: string, via?: string[]): Promise<void>;
+  removeChildFromSpace(parentRoomId: string, childRoomId: string): Promise<void>;
+  startTyping(roomId: string, timeout?: number): Promise<void>;
+  stopTyping(roomId: string): Promise<void>;
+  getTypingUsers(roomId: string): Promise<string[]>;
+  sendReadReceipt(roomId: string, eventId: string, threadId?: string): Promise<void>;
+  sendPrivateReadReceipt(roomId: string, eventId: string, threadId?: string): Promise<void>;
+  searchPublicRooms(server?: string, query?: string, limit?: number, since?: string): Promise<PublicRoomsResponse>;
+  searchUsers(query: string, limit?: number): Promise<Record<string, string | object>>;
+}
+
+export class RoomManager implements IRoomManager {
   sendMessage(roomId: string, arg1: string,
     imageMessageContent: GeneratedTypeLiteralInterface_1) {
     throw new Error('Method not implemented.');
   }
-  private static instance: RoomManager;
-  private httpClient: MatrixHttpClient;
-  private authManager: AuthManager;
+  private roomClient: RoomHttpClient;
+  private authManager: IAuthManager;
   private localDatabase: LocalDatabase;
 
-  private constructor() {
-    this.authManager = AuthManager.getInstance();
-    this.httpClient = this.authManager.getHttpClient();
-    this.localDatabase = LocalDatabase.getInstance();
-  }
-
-  static getInstance(): RoomManager {
-    if (!RoomManager.instance) {
-      RoomManager.instance = new RoomManager();
-    }
-    return RoomManager.instance;
+  constructor(
+    authManager: IAuthManager,
+    localDatabase: LocalDatabase,
+    roomClient: RoomHttpClient
+  ) {
+    this.authManager = authManager;
+    this.localDatabase = localDatabase;
+    this.roomClient = roomClient;
   }
 
   async getRooms(): Promise<Room[]> {
@@ -112,7 +144,7 @@ export class RoomManager {
     }
 
     try {
-      const response = await this.httpClient.post<RoomCreateResponse>('/createRoom', content);
+      const response = await this.roomClient.post<RoomCreateResponse>('/createRoom', content);
       return response.room_id;
     } catch (error) {
       logger.error('Failed to create room:', error);
@@ -126,7 +158,7 @@ export class RoomManager {
     const emptyContent: Record<string, string | object> = {};
 
     try {
-      await this.httpClient.post<object>(`/rooms/${encodedRoomId}/join`, emptyContent);
+      await this.roomClient.post<object>(`/rooms/${encodedRoomId}/join`, emptyContent);
     } catch (error) {
       logger.error('Failed to join room:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -139,7 +171,7 @@ export class RoomManager {
     const emptyContent: Record<string, string | object> = {};
 
     try {
-      await this.httpClient.post<object>(`/rooms/${encodedRoomId}/leave`, emptyContent);
+      await this.roomClient.post<object>(`/rooms/${encodedRoomId}/leave`, emptyContent);
     } catch (error) {
       logger.error('Failed to leave room:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -154,7 +186,7 @@ export class RoomManager {
     };
 
     try {
-      await this.httpClient.post<object>(`/rooms/${encodedRoomId}/invite`, content);
+      await this.roomClient.post<object>(`/rooms/${encodedRoomId}/invite`, content);
     } catch (error) {
       logger.error('Failed to invite user:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -166,7 +198,7 @@ export class RoomManager {
     const encodedRoomId = encodeURIComponent(roomId);
 
     try {
-      const response = await this.httpClient.get<JoinedMembersResponse>(
+      const response = await this.roomClient.get<JoinedMembersResponse>(
         `/rooms/${encodedRoomId}/joined_members`
       );
       return Object.keys(response.joined);
@@ -196,7 +228,7 @@ export class RoomManager {
     }
 
     try {
-      const response = await this.httpClient.get<RoomMessagesResponse>(
+      const response = await this.roomClient.get<RoomMessagesResponse>(
         `/rooms/${encodedRoomId}/messages`,
         queryParams
       );
@@ -219,7 +251,7 @@ export class RoomManager {
     const encodedAlias = encodeURIComponent(roomAlias);
 
     try {
-      const response = await this.httpClient.get<DirectoryRoomResponse>(
+      const response = await this.roomClient.get<DirectoryRoomResponse>(
         `/directory/room/${encodedAlias}`
       );
       return response.room_id;
@@ -237,7 +269,7 @@ export class RoomManager {
     };
 
     try {
-      await this.httpClient.put<object>(`/rooms/${encodedRoomId}/state/m.room.name`, content);
+      await this.roomClient.put<object>(`/rooms/${encodedRoomId}/state/m.room.name`, content);
     } catch (error) {
       logger.error('Failed to set room name:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -252,7 +284,7 @@ export class RoomManager {
     };
 
     try {
-      await this.httpClient.put<object>(`/rooms/${encodedRoomId}/state/m.room.topic`, content);
+      await this.roomClient.put<object>(`/rooms/${encodedRoomId}/state/m.room.topic`, content);
     } catch (error) {
       logger.error('Failed to set room topic:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -262,7 +294,7 @@ export class RoomManager {
 
   async getJoinedRooms(): Promise<string[]> {
     try {
-      const response = await this.httpClient.get<JoinedRoomsResponse>('/joined_rooms');
+      const response = await this.roomClient.get<JoinedRoomsResponse>('/joined_rooms');
       return response.joined_rooms;
     } catch (error) {
       logger.error('Failed to get joined rooms:', error);
@@ -275,7 +307,7 @@ export class RoomManager {
     const encodedRoomId = encodeURIComponent(roomId);
 
     try {
-      const response = await this.httpClient.get<RoomCreateResponse>(
+      const response = await this.roomClient.get<RoomCreateResponse>(
         `/rooms/${encodedRoomId}/state`
       );
       const state = this.parseRoomStateEvents(roomId, response.events);
@@ -292,7 +324,7 @@ export class RoomManager {
     const encodedRoomId = encodeURIComponent(roomId);
 
     try {
-      const response = await this.httpClient.get<Record<string, string | object>>(
+      const response = await this.roomClient.get<Record<string, string | object>>(
         `/rooms/${encodedRoomId}/state/m.room.name`
       );
       const nameVal = response['name'];
@@ -307,7 +339,7 @@ export class RoomManager {
     const encodedRoomId = encodeURIComponent(roomId);
 
     try {
-      const response = await this.httpClient.get<Record<string, string | object>>(
+      const response = await this.roomClient.get<Record<string, string | object>>(
         `/rooms/${encodedRoomId}/state/m.room.topic`
       );
       const topicVal = response['topic'];
@@ -323,7 +355,7 @@ export class RoomManager {
     const emptyContent: Record<string, string | object> = {};
 
     try {
-      await this.httpClient.post<object>(`/rooms/${encodedRoomId}/forget`, emptyContent);
+      await this.roomClient.post<object>(`/rooms/${encodedRoomId}/forget`, emptyContent);
     } catch (error) {
       logger.error('Failed to forget room:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -339,7 +371,7 @@ export class RoomManager {
     };
 
     try {
-      await this.httpClient.post<object>(`/rooms/${encodedRoomId}/kick`, content);
+      await this.roomClient.post<object>(`/rooms/${encodedRoomId}/kick`, content);
     } catch (error) {
       logger.error('Failed to kick user:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -355,7 +387,7 @@ export class RoomManager {
     };
 
     try {
-      await this.httpClient.post<object>(`/rooms/${encodedRoomId}/ban`, content);
+      await this.roomClient.post<object>(`/rooms/${encodedRoomId}/ban`, content);
     } catch (error) {
       logger.error('Failed to ban user:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -370,7 +402,7 @@ export class RoomManager {
     };
 
     try {
-      await this.httpClient.post<object>(`/rooms/${encodedRoomId}/unban`, content);
+      await this.roomClient.post<object>(`/rooms/${encodedRoomId}/unban`, content);
     } catch (error) {
       logger.error('Failed to unban user:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -420,7 +452,7 @@ export class RoomManager {
     content.initial_state = initialState;
 
     try {
-      const response = await this.httpClient.post<RoomCreateResponse>('/createRoom', content);
+      const response = await this.roomClient.post<RoomCreateResponse>('/createRoom', content);
       return response.room_id;
     } catch (error) {
       logger.error('Failed to create space:', error);
@@ -433,7 +465,7 @@ export class RoomManager {
     const encodedRoomId = encodeURIComponent(roomId);
 
     try {
-      const response = await this.httpClient.get<SpaceChildrenResponse>(
+      const response = await this.roomClient.get<SpaceChildrenResponse>(
         `/rooms/${encodedRoomId}/spaces`,
         undefined,
         'v1'
@@ -455,7 +487,7 @@ export class RoomManager {
     };
 
     try {
-      await this.httpClient.put<object>(
+      await this.roomClient.put<object>(
         `/rooms/${encodedParentId}/state/m.space.child/${encodedChildId}`,
         content
       );
@@ -471,7 +503,7 @@ export class RoomManager {
     const encodedChildId = encodeURIComponent(childRoomId);
 
     try {
-      await this.httpClient.delete<object>(
+      await this.roomClient.delete<object>(
         `/rooms/${encodedParentId}/state/m.space.child/${encodedChildId}`
       );
     } catch (error) {
@@ -481,69 +513,8 @@ export class RoomManager {
     }
   }
 
-  private stringContent(event: Event): string {
-    const content = event.content as Record<string, string | object>;
-    if (content && typeof content.body === 'string') {
-      return content.body;
-    }
-    return '';
-  }
-
-  private parseRoomStateEvents(roomId: string, stateEvents: Event[]): ParsedRoomState {
-    let roomName: string = '';
-    let roomTopic: string = '';
-    let joinRule: string = '';
-    let historyVisibility: string = '';
-    let canonicalAlias: string = '';
-    let creator: string = '';
-
-    for (let i: number = 0; i < stateEvents.length; i++) {
-      const event: Event = stateEvents[i];
-      switch (event.type) {
-        case 'm.room.name':
-          roomName = this.stringContent(event);
-          break;
-        case 'm.room.topic':
-          roomTopic = this.stringContent(event);
-          break;
-        case 'm.room.join_rules':
-          const joinRulesContent = event.content as Record<string, string | object>;
-          if (joinRulesContent && typeof joinRulesContent.join_rule === 'string') {
-            joinRule = joinRulesContent.join_rule;
-          }
-          break;
-        case 'm.room.history_visibility':
-          const historyContent = event.content as Record<string, string | object>;
-          if (historyContent && typeof historyContent.history_visibility === 'string') {
-            historyVisibility = historyContent.history_visibility;
-          }
-          break;
-        case 'm.room.canonical_alias':
-          const canonicalContent = event.content as Record<string, string | object>;
-          if (canonicalContent && typeof canonicalContent.alias === 'string') {
-            canonicalAlias = canonicalContent.alias;
-          }
-          break;
-        case 'm.room.create':
-          const createContent = event.content as Record<string, string | object>;
-          if (createContent && typeof createContent.room_version === 'string') {
-          }
-          if (createContent && typeof createContent.creator === 'string') {
-            creator = createContent.creator;
-          }
-          break;
-      }
-    }
-
-    return {
-      roomId: roomId,
-      name: roomName,
-      topic: roomTopic,
-      joinRule: joinRule,
-      historyVisibility: historyVisibility,
-      canonicalAlias: canonicalAlias,
-      creator: creator
-    };
+  parseRoomStateEvents(roomId: string, stateEvents: Event[]): ParsedRoomState {
+    return RoomStateParser.toParsedRoomState(roomId, stateEvents);
   }
 
   async startTyping(roomId: string, timeout: number = 10000): Promise<void> {
@@ -553,7 +524,7 @@ export class RoomManager {
     }
 
     try {
-      await this.httpClient.putTyping(roomId, userId, true, timeout);
+      await this.roomClient.putTyping(roomId, userId, true, timeout);
     } catch (error) {
       logger.error('Failed to start typing:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -568,7 +539,7 @@ export class RoomManager {
     }
 
     try {
-      await this.httpClient.putTyping(roomId, userId, false);
+      await this.roomClient.putTyping(roomId, userId, false);
     } catch (error) {
       logger.error('Failed to stop typing:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -583,7 +554,7 @@ export class RoomManager {
     }
 
     try {
-      return await this.httpClient.getTypingUsers(roomId, userId);
+      return await this.roomClient.getTypingUsers(roomId, userId);
     } catch (error) {
       logger.error('Failed to get typing users:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -593,7 +564,7 @@ export class RoomManager {
 
   async sendReadReceipt(roomId: string, eventId: string, threadId?: string): Promise<void> {
     try {
-      await this.httpClient.postReceipt(roomId, 'm.read', eventId, threadId);
+      await this.roomClient.postReceipt(roomId, 'm.read', eventId, threadId);
     } catch (error) {
       logger.error('Failed to send read receipt:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -603,11 +574,29 @@ export class RoomManager {
 
   async sendPrivateReadReceipt(roomId: string, eventId: string, threadId?: string): Promise<void> {
     try {
-      await this.httpClient.postReceipt(roomId, 'm.read.private', eventId, threadId);
+      await this.roomClient.postReceipt(roomId, 'm.read.private', eventId, threadId);
     } catch (error) {
       logger.error('Failed to send private read receipt:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to send private read receipt: ${errMsg}`);
     }
+  }
+
+  async searchPublicRooms(server?: string, query?: string, limit?: number, since?: string): Promise<PublicRoomsResponse> {
+    if (query) {
+      const room: Record<string, string | object> = {
+        'name': query
+      };
+      return await this.roomClient.postPublicRooms(room);
+    }
+    return await this.roomClient.getPublicRooms(server, limit, since);
+  }
+
+  async searchUsers(query: string, limit?: number): Promise<Record<string, string | object>> {
+    const body: Record<string, string | object> = {
+      'search_term': query,
+      'limit': String(limit ?? 10)
+    };
+    return await this.roomClient.post<Record<string, string | object>>('/user_directory/search', body);
   }
 }

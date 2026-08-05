@@ -25,7 +25,7 @@ import { CryptoDao } from '../database/dao/CryptoDao';
 import { DeviceKeysStorage } from '../database/dao/DeviceKeysDao';
 import { InboundGroupSessionEntity } from '../database/entities/InboundGroupSessionEntity';
 import { CryptoManager } from './CryptoManager';
-import { AuthManager } from './AuthManager';
+import { AuthManager, IAuthManager } from './AuthManager';
 import { VerificationService } from './VerificationService';
 
 const logger = AppLogger.getLogger('CryptoService');
@@ -89,12 +89,11 @@ interface DeviceIdentityUpload {
  * - Key request/response handling
  */
 export class CryptoService {
-  private static instance: CryptoService;
   private initialized: boolean = false;
   private cryptoDao: CryptoDao;
   private deviceKeysStorage: DeviceKeysStorage;
   private cryptoManager: CryptoManager;
-  private authManager: AuthManager;
+  private authManager: IAuthManager;
   private verificationService: VerificationService;
 
   // Device identity
@@ -110,19 +109,18 @@ export class CryptoService {
   // Callbacks
   private decryptionCallbacks: Array<(roomId: string, eventId: string) => void> = [];
 
-  private constructor() {
-    this.cryptoDao = CryptoDao.getInstance();
-    this.deviceKeysStorage = DeviceKeysStorage.getInstance();
-    this.cryptoManager = CryptoManager.getInstance();
-    this.authManager = AuthManager.getInstance();
-    this.verificationService = VerificationService.getInstance();
-  }
-
-  static getInstance(): CryptoService {
-    if (!CryptoService.instance) {
-      CryptoService.instance = new CryptoService();
-    }
-    return CryptoService.instance;
+  constructor(
+    authManager: IAuthManager,
+    cryptoManager: CryptoManager,
+    verificationService: VerificationService,
+    cryptoDao: CryptoDao,
+    deviceKeysStorage: DeviceKeysStorage
+  ) {
+    this.authManager = authManager;
+    this.cryptoManager = cryptoManager;
+    this.verificationService = verificationService;
+    this.cryptoDao = cryptoDao;
+    this.deviceKeysStorage = deviceKeysStorage;
   }
 
   /**
@@ -137,6 +135,10 @@ export class CryptoService {
 
     try {
       logger.info('Initializing CryptoService');
+
+      const session = this.authManager.getSession();
+      if (session && session.homeServer) {
+      }
 
       // Initialize OlmWrapper
       OlmWrapper.initialize();

@@ -1,7 +1,7 @@
-import { AuthManager } from '../services/AuthManager';
 import { ThemeColors, getThemeColors } from '../utils/ThemeManager';
 import { ToastUtils } from '../utils/ToastUtils';
 import { AppLogger } from '../utils/AppLogger';
+import { ServiceRegistry } from '../services/ServiceRegistry';
 
 const logger = AppLogger.getLogger('RegisterPage');
 
@@ -43,11 +43,10 @@ struct RegisterPage {
   @State confirmPassword: string = '';
   @State isLoading: boolean = false;
   @State errorMessage: string = '';
-  private authManager: AuthManager = AuthManager.getInstance();
   pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
-    this.homeserver = this.authManager.getHomeserver() || '';
+    this.homeserver = ServiceRegistry.getCurrent().getAuthManager().getHomeserver() || '';
   }
 
   getThemeColors(): RegisterThemeColors {
@@ -123,17 +122,18 @@ struct RegisterPage {
   }
 
   async doRegister(serverUrl: string): Promise<void> {
-    if (serverUrl !== this.authManager.getHomeserver()) {
-      await this.authManager.setHomeserver(serverUrl);
+    const authManager = ServiceRegistry.getCurrent().getAuthManager();
+    if (serverUrl !== authManager.getHomeserver()) {
+      await authManager.setHomeserver(serverUrl);
     }
 
-    const isValidServer = await this.authManager.checkHomeserverVersion();
+    const isValidServer = await authManager.checkHomeserverVersion();
     if (!isValidServer) {
       this.errorMessage = '无法连接到服务器';
       return;
     }
 
-    await this.authManager.register(this.username, this.password);
+    await authManager.register(this.username, this.password);
 
     ToastUtils.show('注册成功', 2000);
 

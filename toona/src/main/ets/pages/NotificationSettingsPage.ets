@@ -1,9 +1,8 @@
 import { ToastUtils } from '../utils/ToastUtils';
-import { PushManager } from '../services/PushManager';
-import { AuthManager } from '../services/AuthManager';
 import { getThemeColors } from '../utils/ThemeManager';
 import { AppLogger } from '../utils/AppLogger';
 import { PushRule } from '../models/types/PushTypes';
+import { ServiceRegistry } from '../services/ServiceRegistry';
 
 const logger = AppLogger.getLogger('NotificationSettingsPage');
 
@@ -20,8 +19,6 @@ struct NotificationSettingsPage {
   @State showMutedRooms: boolean = false;
   @State mutedRooms: string[] = [];
   @State isLoading: boolean = true;
-  private pushManager: PushManager = PushManager.getInstance();
-  private authManager: AuthManager = AuthManager.getInstance();
   pathStack: NavPathStack = new NavPathStack();
   private logger = AppLogger.getLogger('NotificationSettingsPage');
 
@@ -33,7 +30,7 @@ struct NotificationSettingsPage {
     this.isLoading = true;
     try {
       // Load push rules from server
-      const pushRules = await this.pushManager.getPushRules();
+      const pushRules = await ServiceRegistry.getCurrent().getPushManager().getPushRules();
       
       // Check if notifications are enabled globally
       if (pushRules?.global?.underride) {

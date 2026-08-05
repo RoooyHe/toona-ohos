@@ -1,8 +1,8 @@
 import { AppLogger } from '../utils/AppLogger';
 import { RoomTags } from '../models/MatrixTypes';
-import { AuthManager } from './AuthManager';
+import { AuthManager, IAuthManager } from './AuthManager';
 import { LocalDatabase } from '../database/LocalDatabase';
-import { MatrixConfig, MatrixHttpClient } from '../network/MatrixHttpClient';
+import { UserHttpClient } from '../network/clients/UserHttpClient';
 
 interface GeneratedTypeLiteralInterface_1 {
   order?: number;
@@ -10,31 +10,18 @@ interface GeneratedTypeLiteralInterface_1 {
 
 export class RoomTagManager {
   private logger = AppLogger.getLogger(RoomTagManager);
-  private static instance: RoomTagManager;
-  private httpClient: MatrixHttpClient | null = null;
+  private userClient: UserHttpClient;
+  private authManager: IAuthManager;
   private localDatabase: LocalDatabase;
 
-  private constructor() {
-    this.localDatabase = LocalDatabase.getInstance();
-  }
-
-  static getInstance(): RoomTagManager {
-    if (!RoomTagManager.instance) {
-      RoomTagManager.instance = new RoomTagManager();
-    }
-    return RoomTagManager.instance;
-  }
-
-  setHomeserver(homeserverUrl: string): void {
-    MatrixConfig.getInstance().setHomeserver(homeserverUrl);
-    this.httpClient = MatrixConfig.getInstance().getHttpClient();
-  }
-
-  private ensureHttpClient(): MatrixHttpClient {
-    if (!this.httpClient) {
-      this.httpClient = MatrixConfig.getInstance().getHttpClient();
-    }
-    return this.httpClient;
+  constructor(
+    authManager: IAuthManager,
+    localDatabase: LocalDatabase,
+    userClient: UserHttpClient
+  ) {
+    this.authManager = authManager;
+    this.localDatabase = localDatabase;
+    this.userClient = userClient;
   }
 
   async getRoomTags(roomId: string): Promise<RoomTags> {
@@ -51,12 +38,12 @@ export class RoomTagManager {
   }
 
   async addTag(roomId: string, tag: string, order?: number): Promise<void> {
-    const userId: string = AuthManager.getInstance().getUserId();
+    const userId: string = this.authManager.getUserId();
     if (!userId) {
       throw new Error('Not logged in');
     }
     try {
-      await this.ensureHttpClient().addRoomTag(userId, roomId, tag, order);
+      await this.userClient.addRoomTag(userId, roomId, tag, order);
     } catch (error) {
       this.logger.error('Failed to add room tag:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -65,12 +52,12 @@ export class RoomTagManager {
   }
 
   async removeTag(roomId: string, tag: string): Promise<void> {
-    const userId: string = AuthManager.getInstance().getUserId();
+    const userId: string = this.authManager.getUserId();
     if (!userId) {
       throw new Error('Not logged in');
     }
     try {
-      await this.ensureHttpClient().removeRoomTag(userId, roomId, tag);
+      await this.userClient.removeRoomTag(userId, roomId, tag);
     } catch (error) {
       this.logger.error('Failed to remove room tag:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);

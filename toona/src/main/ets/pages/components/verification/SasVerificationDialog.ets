@@ -16,7 +16,7 @@ export struct SasVerificationDialog {
   onCancel: () => void = () => {};
   onConfirm: () => void = () => {};
 
-  private verificationService: VerificationService = VerificationService.getInstance();
+  verificationService: VerificationService | null = null;
   @State sasDigits: string = '';
   @State sasEmojis: string[] = [];
   @State phase: VerificationPhase = VerificationPhase.REQUEST;
@@ -26,7 +26,7 @@ export struct SasVerificationDialog {
   }
 
   loadSession() {
-    if (!this.sessionId) {
+    if (!this.sessionId || !this.verificationService) {
       return;
     }
 
@@ -34,7 +34,6 @@ export struct SasVerificationDialog {
     if (session) {
       this.phase = session.phase;
 
-      // Generate SAS digits
       if (session.sasBytes && session.sasBytes.length > 0) {
         const digits = this.verificationService.getSasDigits(session.sasBytes);
         this.sasDigits = digits.decimal;
@@ -167,7 +166,7 @@ export struct SasVerificationDialog {
 
   async confirmVerification() {
     try {
-      await this.verificationService.confirmVerification(this.sessionId);
+      await this.verificationService!.confirmVerification(this.sessionId);
       ToastUtils.show('Device verified successfully');
       this.onConfirm();
     } catch (error) {

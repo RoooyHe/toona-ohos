@@ -1,7 +1,7 @@
-import { RoomManager } from '../services/RoomManager';
 import { Room } from '../models/DataModels';
 import { getThemeColors } from '../utils/ThemeManager';
 import { AppLogger } from '../utils/AppLogger';
+import { ServiceRegistry } from '../services/ServiceRegistry';
 
 const logger = AppLogger.getLogger('SearchPage');
 
@@ -15,7 +15,6 @@ struct SearchPage {
   @State searchQuery: string = '';
   @State searchResults: Room[] = [];
   @State isSearching: boolean = false;
-  private roomManager: RoomManager = RoomManager.getInstance();
   pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
@@ -28,8 +27,8 @@ struct SearchPage {
 
     this.isSearching = true;
     try {
-      const roomId = await this.roomManager.resolveRoomAlias(this.searchQuery.trim());
-      const room = await this.roomManager.getRoom(roomId);
+      const roomId = await ServiceRegistry.getCurrent().getRoomManager().resolveRoomAlias(this.searchQuery.trim());
+      const room = await ServiceRegistry.getCurrent().getRoomManager().getRoom(roomId);
       if (room) {
         this.searchResults = [room];
       } else {

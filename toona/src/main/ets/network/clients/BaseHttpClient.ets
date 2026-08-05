@@ -1,30 +1,29 @@
 import http from '@ohos.net.http';
 import { AppLogger } from '../../utils/AppLogger';
+import { ConnectionConfig } from '../ConnectionConfig';
 
 
 export type HttpVersion = 'v3' | 'r0' | 'v1';
 
 export class BaseHttpClient {
   protected logger = AppLogger.getLogger(BaseHttpClient);
-  protected baseUrl: string;
-  protected mediaBaseUrl: string;
-  protected accessToken: string | null = null;
+  protected config: ConnectionConfig;
 
-  constructor(baseUrl: string) {
-    this.baseUrl = baseUrl.replace(/\/$/, '');
-    this.mediaBaseUrl = baseUrl.replace(/\/$/, '') + '/_matrix/media/v3';
+  constructor(config: ConnectionConfig) {
+    this.config = config;
   }
 
-  setAccessToken(token: string | null): void {
-    this.accessToken = token;
+  public getBaseUrl(): string {
+    return this.config.getHomeserver().replace(/\/$/, '');
   }
 
-  getAccessToken(): string | null {
-    return this.accessToken;
+  protected getAccessToken(): string | null {
+    return this.config.getAccessToken();
   }
 
   public buildMediaUrl(endpoint: string, queryParams?: Record<string, string | number>): string {
-    let url = `${this.mediaBaseUrl}${endpoint}`;
+    const baseUrl = this.getBaseUrl();
+    let url = `${baseUrl}/_matrix/media/v3${endpoint}`;
     if (queryParams) {
       const keys = Object.keys(queryParams);
       if (keys.length > 0) {
@@ -40,8 +39,9 @@ export class BaseHttpClient {
 
   public buildUrl(endpoint: string, queryParams?: Record<string, string | number>,
     version: HttpVersion = 'v3'): string {
-    this.logger.info('BaseHttpClient: buildUrl called, baseUrl: ' + this.baseUrl + ', endpoint: ' + endpoint);
-    let url = `${this.baseUrl}/_matrix/client/${version}${endpoint}`;
+    const baseUrl = this.getBaseUrl();
+    this.logger.info('BaseHttpClient: buildUrl called, baseUrl: ' + baseUrl + ', endpoint: ' + endpoint);
+    let url = `${baseUrl}/_matrix/client/${version}${endpoint}`;
     if (queryParams) {
       const keys = Object.keys(queryParams);
       if (keys.length > 0) {
@@ -59,8 +59,9 @@ export class BaseHttpClient {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json'
     };
-    if (this.accessToken) {
-      headers['Authorization'] = `Bearer ${this.accessToken}`;
+    const token = this.getAccessToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
     return headers;
   }
@@ -114,11 +115,10 @@ export class BaseHttpClient {
       } else {
         let errcode: string = 'UNKNOWN';
         let errorMsg: string = '';
-        let session: string = ''; // ✅ 新增：提取 Session
+        let session: string = '';
 
         try {
           if (typeof result.result === 'string') {
-            // ✅ 使用 Record<string, Object> 解析，确保兼容 UIA 的复杂结构
             const parsed: Record<string, Object> = JSON.parse(result.result) as Record<string, Object>;
             errcode = (parsed['errcode'] as string) || 'UNKNOWN';
             errorMsg = (parsed['error'] as string) || '';
@@ -132,7 +132,6 @@ export class BaseHttpClient {
           errorMsg = 'Failed to parse error response';
         }
 
-        // ✅ 核心修复：如果是 401 且含有 session，说明是 UIA 安全验证，抛出特定标识
         if (result.responseCode === 401 && session) {
           throw new Error(`UIA_REQUIRED:${session}`);
         }
@@ -150,7 +149,8 @@ export class BaseHttpClient {
   }
 
   public async getWithoutVersionPrefix<T>(endpoint: string): Promise<T> {
-    const url = `${this.baseUrl}/_matrix/client${endpoint}`;
+    const baseUrl = this.getBaseUrl();
+    const url = `${baseUrl}/_matrix/client${endpoint}`;
     const headers = this.buildHeaders();
 
     this.logger.info(`[HTTP] GET ${url}`);
@@ -193,9 +193,107 @@ export class BaseHttpClient {
     return this.request<T>('PUT', endpoint, body);
   }
 
-  // ✅ 修复：让 DELETE 方法也支持传递 Body 参数（UIA 密码验证必须放入 Body）
   public async delete<T>(endpoint: string, body?: Record<string, string | object>): Promise<T> {
     return this.request<T>('DELETE', endpoint, body);
+  }
+
+  public async requestBinary(
+    url: string,
+    headers?: Record<string, string>
+  ): Promise<ArrayBuffer> {
+    const requestHeaders: Record<string, string> = headers || this.buildHeaders();
+
+    this.logger.info(`[HTTP] GET BINARY ${url}`);
+
+    const httpRequest = http.createHttp();
+
+    try {
+      const result = await new Promise<http.HttpResponse>((resolve, reject) => {
+        const options: http.HttpRequestOptions = {
+          method: http.RequestMethod.GET,
+          header: requestHeaders,
+          expectDataType: http.HttpDataType.ARRAY_BUFFER
+        };
+        httpRequest.request(url, options, (err, data) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(data);
+          }
+        });
+      });
+
+      this.logger.info(`[HTTP] Response code: ${result.responseCode}`);
+
+      if (result.responseCode >= 200 && result.responseCode < 300) {
+        if (result.result instanceof ArrayBuffer) {
+          return result.result;
+        }
+        return new ArrayBuffer(0);
+      }
+      throw new Error(`HTTP ${result.responseCode}`);
+    } finally {
+      httpRequest.destroy();
+    }
+  }
+
+  public async requestMediaJson<T>(
+    endpoint: string,
+    queryParams?: Record<string, string | number>
+  ): Promise<T> {
+    const url = this.buildMediaUrl(endpoint, queryParams);
+    const headers = this.buildHeaders();
+
+    this.logger.info(`[HTTP] GET ${url}`);
+
+    const httpRequest = http.createHttp();
+
+    try {
+      const result = await new Promise<http.HttpResponse>((resolve, reject) => {
+        const options: http.HttpRequestOptions = {
+          method: http.RequestMethod.GET,
+          header: headers,
+          expectDataType: http.HttpDataType.STRING
+        };
+        httpRequest.request(url, options, (err, data) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(data);
+          }
+        });
+      });
+
+      this.logger.info(`[HTTP] Response code: ${result.responseCode}`);
+      if (typeof result.result === 'string' && result.result.length > 0) {
+        this.logger.info(`[HTTP] Response body: ${result.result}`);
+      }
+
+      if (result.responseCode >= 200 && result.responseCode < 300) {
+        if (typeof result.result === 'string' && result.result.length > 0) {
+          return JSON.parse(result.result) as T;
+        }
+        return Object() as T;
+      }
+      let errcode: string = 'UNKNOWN';
+      let errorMsg: string = '';
+      try {
+        if (typeof result.result === 'string') {
+          const parsed: Record<string, string> = JSON.parse(result.result) as Record<string, string>;
+          errcode = parsed['errcode'] || 'UNKNOWN';
+          errorMsg = parsed['error'] || '';
+        } else {
+          errcode = 'UNKNOWN';
+          errorMsg = String(result.result);
+        }
+      } catch {
+        errcode = 'PARSE_ERROR';
+        errorMsg = 'Failed to parse error response';
+      }
+      throw new Error(`${errcode}: ${errorMsg}`);
+    } finally {
+      httpRequest.destroy();
+    }
   }
 
   public async upload<T>(
@@ -204,14 +302,12 @@ export class BaseHttpClient {
     contentType: string,
     fileName: string
   ): Promise<T> {
-    let url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}${endpoint}`;
+    const baseUrl = this.getBaseUrl();
+    let url = endpoint.startsWith('http') ? endpoint : `${baseUrl}${endpoint}`;
 
-    // ✅ 修复 2：调用 buildHeaders，它会自动注入 Authorization: Bearer {token}
     const headers = this.buildHeaders();
     headers['Content-Type'] = contentType;
 
-    // Matrix 要求带上 filename 参数在 URL 中，但这取决于你的 MediaHttpClient 怎么传
-    // 标准做法是在查询参数中加上 ?filename=...
     if (!url.includes('filename=')) {
       url += `?filename=${encodeURIComponent(fileName)}`;
     }
@@ -221,7 +317,7 @@ export class BaseHttpClient {
     try {
       const result = await new Promise<http.HttpResponse>((resolve, reject) => {
         const options: http.HttpRequestOptions = {
-          method: http.RequestMethod.POST, // ✅ 媒体上传是 POST 请求
+          method: http.RequestMethod.POST,
           header: headers,
           extraData: data,
           expectDataType: http.HttpDataType.STRING
@@ -253,7 +349,6 @@ export class BaseHttpClient {
             errorMsg = parsed['error'] || errorMsg;
           }
         } catch (e) {
-          // 解析失败忽略
         }
         throw new Error(`${errcode}: ${errorMsg}`);
       }

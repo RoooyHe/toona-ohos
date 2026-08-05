@@ -18,22 +18,36 @@ import { RoomEntity } from './entities/RoomEntity';
 import { UserEntity } from './entities/UserEntity';
 import { RoomMemberEntity } from './entities/RoomMemberEntity';
 
-export class LocalDatabase {
-  private static instance: LocalDatabase;
+export interface ILocalDatabase {
+  init(context: Context): Promise<void>;
+  saveMessage(message: Message): Promise<void>;
+  saveMessages(messages: Message[]): Promise<void>;
+  getMessages(roomId: string, limit?: number, beforeEventId?: string): Promise<Message[]>;
+  clearRoomMessages(roomId: string): Promise<void>;
+  saveRoom(room: RoomModel): Promise<void>;
+  saveRooms(rooms: RoomModel[]): Promise<void>;
+  getRooms(): Promise<RoomModel[]>;
+  getRoom(roomId: string): Promise<RoomModel | null>;
+  updateRoomState(roomId: string, state: ParsedRoomState): Promise<void>;
+  getRoomState(roomId: string): Promise<ParsedRoomState | null>;
+  updateRoomUnreadCount(roomId: string, unreadCount: number, highlightCount?: number): Promise<void>;
+  deleteRoom(roomId: string): Promise<void>;
+  saveUser(user: User): Promise<void>;
+  getUser(userId: string): Promise<User | null>;
+  saveRoomMember(roomId: string, userId: string, displayName?: string, avatarUrl?: string, membership?: string): Promise<void>;
+  getRoomMembers(roomId: string): Promise<RoomMemberInfo[]>;
+  clearAllData(): Promise<void>;
+  close(): void;
+}
+
+export class LocalDatabase implements ILocalDatabase {
   private isInitialized: boolean = false;
   private messageDao: MessageDao | null = null;
   private roomDao: RoomDao | null = null;
   private userDao: UserDao | null = null;
   private roomMemberDao: RoomMemberDao | null = null;
 
-  private constructor() {
-  }
-
-  static getInstance(): LocalDatabase {
-    if (!LocalDatabase.instance) {
-      LocalDatabase.instance = new LocalDatabase();
-    }
-    return LocalDatabase.instance;
+  constructor() {
   }
 
   private static logger = AppLogger.getLogger(LocalDatabase);

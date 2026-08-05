@@ -6,39 +6,26 @@ import {
   RoomFilterPart,
   PresenceFilter
 } from '../models/MatrixTypes';
-import { MatrixHttpClient } from '../network/MatrixHttpClient';
-import { MatrixConfig } from '../network/MatrixConfig';
+import { BaseHttpClient, HttpVersion } from '../network/clients/BaseHttpClient';
 
 export class FilterManager {
-  private static instance: FilterManager;
-  private httpClient: MatrixHttpClient | null = null;
+  private httpClient: BaseHttpClient;
   private logger = AppLogger.getLogger(FilterManager);
 
-  private constructor() {
+  constructor(httpClient: BaseHttpClient) {
+    this.httpClient = httpClient;
   }
 
-  static getInstance(): FilterManager {
-    if (!FilterManager.instance) {
-      FilterManager.instance = new FilterManager();
-    }
-    return FilterManager.instance;
-  }
-
-  setHomeserver(homeserverUrl: string): void {
-    MatrixConfig.getInstance().setHomeserver(homeserverUrl);
-    this.httpClient = MatrixConfig.getInstance().getHttpClient();
-  }
-
-  private ensureHttpClient(): MatrixHttpClient {
-    if (!this.httpClient) {
-      throw new Error('FilterManager not initialized. Call setHomeserver first.');
-    }
-    return this.httpClient;
-  }
-
-  async createFilter(userId: string, filter: Filter, version: 'v3' | 'r0' = 'v3'): Promise<CreateFilterResponse> {
+  async createFilter(userId: string, filter: Filter, version: HttpVersion = 'v3'): Promise<CreateFilterResponse> {
     try {
-      return await this.ensureHttpClient().createFilter(userId, filter, version);
+      const encodedUserId = encodeURIComponent(userId);
+      return await this.httpClient.request<CreateFilterResponse>(
+        'POST',
+        `/user/${encodedUserId}/filter`,
+        filter as Record<string, string | object>,
+        undefined,
+        version
+      );
     } catch (error) {
       this.logger.error('Failed to create filter:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -46,9 +33,15 @@ export class FilterManager {
     }
   }
 
-  async getFilter(userId: string, filterId: string, version: 'v3' | 'r0' = 'v3'): Promise<GetFilterResponse> {
+  async getFilter(userId: string, filterId: string, version: HttpVersion = 'v3'): Promise<GetFilterResponse> {
     try {
-      return await this.ensureHttpClient().getFilter(userId, filterId, version);
+      const encodedUserId = encodeURIComponent(userId);
+      const encodedFilterId = encodeURIComponent(filterId);
+      return await this.httpClient.get<GetFilterResponse>(
+        `/user/${encodedUserId}/filter/${encodedFilterId}`,
+        undefined,
+        version
+      );
     } catch (error) {
       this.logger.error('Failed to get filter:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);

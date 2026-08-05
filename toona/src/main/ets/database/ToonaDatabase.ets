@@ -11,11 +11,10 @@ import { AppLogger } from '../utils/AppLogger';
 
 const logger = AppLogger.getLogger('ToonaDatabase');
 
-@Database({ entities: [MessageEntity, RoomEntity, UserEntity, RoomMemberEntity, InboundGroupSessionEntity, OlmSessionEntity, DeviceKeysEntity], name: "toona_matrix.db", version: 6 })
+@Database({ entities: [MessageEntity, RoomEntity, UserEntity, RoomMemberEntity, InboundGroupSessionEntity, OlmSessionEntity, DeviceKeysEntity], name: "toona_matrix.db", version: 7 })
 export class ToonaDatabase {
   async onCreate(db: relationalStore.RdbStore): Promise<void> {
     logger.info('Database created');
-    // Room handles table creation via entity decorators automatically
   }
 
   async onUpgrade(db: relationalStore.RdbStore, oldVersion: number, newVersion: number): Promise<void> {
@@ -33,7 +32,7 @@ export class ToonaDatabase {
 
       for (const migration of migrations) {
         try {
-          db.executeSql(migration);
+          await db.executeSql(migration);
           logger.info(`Migration v1→v2 succeeded: ${migration}`);
         } catch (error) {
           logger.error(`Migration v1→v2 failed: ${migration}`, error);
@@ -48,7 +47,7 @@ export class ToonaDatabase {
 
       for (const migration of migrations) {
         try {
-          db.executeSql(migration);
+          await db.executeSql(migration);
           logger.info(`Migration v2→v3 succeeded: ${migration}`);
         } catch (error) {
           logger.error(`Migration v2→v3 failed: ${migration}`, error);
@@ -77,7 +76,7 @@ export class ToonaDatabase {
 
       for (const migration of migrations) {
         try {
-          db.executeSql(migration);
+          await db.executeSql(migration);
           logger.info(`Migration v3→v4 succeeded: ${migration.substring(0, 50)}...`);
         } catch (error) {
           logger.error(`Migration v3→v4 failed: ${migration.substring(0, 50)}...`, error);
@@ -100,7 +99,7 @@ export class ToonaDatabase {
 
       for (const migration of migrations) {
         try {
-          db.executeSql(migration);
+          await db.executeSql(migration);
           logger.info(`Migration v4→v5 succeeded: ${migration.substring(0, 50)}...`);
         } catch (error) {
           logger.error(`Migration v4→v5 failed: ${migration.substring(0, 50)}...`, error);
@@ -117,10 +116,26 @@ export class ToonaDatabase {
 
       for (const migration of migrations) {
         try {
-          db.executeSql(migration);
+          await db.executeSql(migration);
           logger.info(`Migration v5→v6 succeeded: ${migration.substring(0, 50)}...`);
         } catch (error) {
           logger.error(`Migration v5→v6 failed: ${migration.substring(0, 50)}...`, error);
+        }
+      }
+    }
+
+    if (oldVersion < 7 && newVersion >= 7) {
+      const migrations = [
+        'ALTER TABLE rooms ADD COLUMN last_event_id TEXT',
+        'ALTER TABLE rooms ADD COLUMN last_event_time INTEGER'
+      ];
+
+      for (const migration of migrations) {
+        try {
+          await db.executeSql(migration);
+          logger.info(`Migration v6→v7 succeeded: ${migration}`);
+        } catch (error) {
+          logger.error(`Migration v6→v7 failed: ${migration}`, error);
         }
       }
     }

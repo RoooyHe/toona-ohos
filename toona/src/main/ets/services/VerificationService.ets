@@ -21,7 +21,7 @@ import {
   VERIFICATION_TIMEOUT_MS
 } from '../crypto/types/CryptoTypes';
 import { DeviceKeysStorage } from '../database/dao/DeviceKeysDao';
-import { AuthManager } from './AuthManager';
+import { AuthManager, IAuthManager } from './AuthManager';
 
 const logger = AppLogger.getLogger('VerificationService');
 
@@ -47,9 +47,8 @@ interface QrCodePayload {
  * - Update device trust levels
  */
 export class VerificationService {
-  private static instance: VerificationService;
   private deviceKeysStorage: DeviceKeysStorage;
-  private authManager: AuthManager;
+  private authManager: IAuthManager;
 
   // Active verification sessions
   private sessions: Map<string, VerificationSession> = new Map();
@@ -58,16 +57,12 @@ export class VerificationService {
   private onVerificationUpdateCallbacks: Array<(session: VerificationSession) => void> = [];
   private onVerificationCompleteCallbacks: Array<(userId: string, deviceId: string, verified: boolean) => void> = [];
 
-  private constructor() {
-    this.deviceKeysStorage = DeviceKeysStorage.getInstance();
-    this.authManager = AuthManager.getInstance();
-  }
-
-  static getInstance(): VerificationService {
-    if (!VerificationService.instance) {
-      VerificationService.instance = new VerificationService();
-    }
-    return VerificationService.instance;
+  constructor(
+    authManager: IAuthManager,
+    deviceKeysStorage: DeviceKeysStorage
+  ) {
+    this.authManager = authManager;
+    this.deviceKeysStorage = deviceKeysStorage;
   }
 
   /**
