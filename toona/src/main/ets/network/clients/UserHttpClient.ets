@@ -4,7 +4,9 @@ import {
   PushRuleAction,
   NotificationsResponse,
   RoomTags,
-  SetNotificationMarkerRequest
+  SetNotificationMarkerRequest,
+  GetPresenceResponse,
+  SetPresenceRequest
 } from '../../models/MatrixTypes';
 import { BaseHttpClient } from './BaseHttpClient';
 
@@ -153,5 +155,19 @@ export class UserHttpClient extends BaseHttpClient {
     await this.delete<void>(
       `/user/${encodedUserId}/rooms/${encodedRoomId}/tags/${encodedTag}`
     );
+  }
+
+  async getPresence(userId: string): Promise<GetPresenceResponse> {
+    const encodedUserId = encodeURIComponent(userId);
+    return await this.get<GetPresenceResponse>(`/presence/${encodedUserId}/status`);
+  }
+
+  async setPresence(userId: string, request: SetPresenceRequest): Promise<void> {
+    const encodedUserId = encodeURIComponent(userId);
+    const body: Record<string, string | object> = { 'presence': request.presence };
+    if (request.status_msg !== undefined) {
+      body['status_msg'] = request.status_msg;
+    }
+    await this.put<void>(`/presence/${encodedUserId}/status`, body);
   }
 }

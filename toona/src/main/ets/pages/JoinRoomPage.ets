@@ -153,13 +153,13 @@ struct JoinRoomPage {
     this.isSearching = true;
     try {
       const results = await ServiceRegistry.getCurrent().getRoomManager().searchUsers(this.searchQuery.trim());
-      const mapped: DirectoryUser[] = results.map((u: Record<string, string>) => {
-        return {
-          user_id: u['user_id'] || '',
-          display_name: u['display_name'] || u['user_id'] || '',
-          avatar_url: u['avatar_url'] || ''
-        };
-      });
+      const resultObj: Record<string, string | object> = results;
+      const userId: string = (resultObj['user_id'] as string) || '';
+      const mapped: DirectoryUser[] = [{
+        user_id: userId,
+        display_name: (resultObj['display_name'] as string) || userId,
+        avatar_url: (resultObj['avatar_url'] as string) || ''
+      }];
       this.searchResults = mapped;
     } catch (error) {
       logger.error('Search users failed:', error);

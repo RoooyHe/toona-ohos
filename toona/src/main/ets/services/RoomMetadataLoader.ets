@@ -1,6 +1,6 @@
 import { IRoomManager } from './RoomManager';
 import { IAuthManager } from './AuthManager';
-import { PresenceManager } from './PresenceManager';
+import { UserManager } from './UserManager';
 import { PresenceState } from '../models/MatrixTypes';
 import { AppLogger } from '../utils/AppLogger';
 
@@ -20,7 +20,7 @@ export interface RoomTopicResult {
 export class RoomMetadataLoader {
   private roomManager: IRoomManager;
   private authManager: IAuthManager;
-  private presenceManager: PresenceManager;
+  private userManager: UserManager;
 
   private typingTimeout: number = 0;
   private typingStopTimeout: number = 0;
@@ -28,11 +28,11 @@ export class RoomMetadataLoader {
   constructor(
     roomManager: IRoomManager,
     authManager: IAuthManager,
-    presenceManager: PresenceManager
+    userManager: UserManager
   ) {
     this.roomManager = roomManager;
     this.authManager = authManager;
-    this.presenceManager = presenceManager;
+    this.userManager = userManager;
   }
 
   async loadMemberPresences(roomId: string): Promise<MemberPresence[]> {
@@ -45,7 +45,7 @@ export class RoomMetadataLoader {
       for (let i = 0; i < otherMembers.length; i++) {
         const userId: string = otherMembers[i];
         try {
-          const presence = await this.presenceManager.getPresence(userId);
+          const presence = await this.userManager.getPresence(userId);
           const displayName: string = presence.displayname || userId;
           const mp: MemberPresence = {
             userId: userId,

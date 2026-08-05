@@ -24,7 +24,7 @@ import {
 import { CryptoDao } from '../database/dao/CryptoDao';
 import { DeviceKeysStorage } from '../database/dao/DeviceKeysDao';
 import { InboundGroupSessionEntity } from '../database/entities/InboundGroupSessionEntity';
-import { CryptoManager } from './CryptoManager';
+import { DeviceHttpClient } from '../network/clients/DeviceHttpClient';
 import { AuthManager, IAuthManager } from './AuthManager';
 import { VerificationService } from './VerificationService';
 
@@ -92,7 +92,7 @@ export class CryptoService {
   private initialized: boolean = false;
   private cryptoDao: CryptoDao;
   private deviceKeysStorage: DeviceKeysStorage;
-  private cryptoManager: CryptoManager;
+  private deviceClient: DeviceHttpClient;
   private authManager: IAuthManager;
   private verificationService: VerificationService;
 
@@ -111,13 +111,13 @@ export class CryptoService {
 
   constructor(
     authManager: IAuthManager,
-    cryptoManager: CryptoManager,
+    deviceClient: DeviceHttpClient,
     verificationService: VerificationService,
     cryptoDao: CryptoDao,
     deviceKeysStorage: DeviceKeysStorage
   ) {
     this.authManager = authManager;
-    this.cryptoManager = cryptoManager;
+    this.deviceClient = deviceClient;
     this.verificationService = verificationService;
     this.cryptoDao = cryptoDao;
     this.deviceKeysStorage = deviceKeysStorage;
@@ -300,7 +300,7 @@ export class CryptoService {
         ed25519Key: this.deviceIdentity.ed25519Key,
         curve25519Key: this.deviceIdentity.curve25519Key
       };
-      await this.cryptoManager.uploadDeviceKeys(identityObj as Object as Record<string, string | object>);
+      await this.uploadDeviceKeys(identityObj as Object as Record<string, string | object>);
       logger.info('Device keys uploaded');
     } catch (error) {
       logger.error('Failed to upload device keys:', error);
@@ -319,7 +319,7 @@ export class CryptoService {
         oneTimeKeys[keyId] = key;
       }
 
-      await this.cryptoManager.uploadOneTimeKeys(oneTimeKeys);
+      await this.uploadOneTimeKeys(oneTimeKeys);
       logger.info(`Uploaded ${ONE_TIME_KEY_TARGET} one-time keys`);
     } catch (error) {
       logger.error('Failed to upload one-time keys:', error);
@@ -793,6 +793,30 @@ export class CryptoService {
   /**
    * Request keys for a specific room and session
    */
+  async uploadDeviceKeys(deviceKeys: Record<string, string | object>): Promise<void> {
+    const request: Record<string, string | object> = { 'device_keys': deviceKeys as object };
+    try {
+      await this.deviceClient.uploadKeys(request as Object as Record<string, Object>);
+      logger.info('Device keys uploaded');
+    } catch (error) {
+      logger.error('Failed to upload device keys:', error);
+      const errMsg: string = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to upload device keys: ${errMsg}`);
+    }
+  }
+
+  async uploadOneTimeKeys(oneTimeKeys: Record<string, string>): Promise<void> {
+    const request: Record<string, string | object> = { 'one_time_keys': oneTimeKeys as object };
+    try {
+      await this.deviceClient.uploadKeys(request as Object as Record<string, Object>);
+      logger.info(`Uploaded one-time keys`);
+    } catch (error) {
+      logger.error('Failed to upload one-time keys:', error);
+      const errMsg: string = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to upload one-time keys: ${errMsg}`);
+    }
+  }
+
   async requestRoomKeys(roomId: string, sessionId: string): Promise<void> {
     try {
       logger.info(`Requesting keys for room ${roomId}, session ${sessionId}`);

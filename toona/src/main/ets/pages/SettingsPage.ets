@@ -94,7 +94,7 @@ export struct SettingsPage {
     try {
       const registry = ServiceRegistry.getCurrent();
       const profilePromise = registry.getUserManager().getUserProfile();
-      const presencePromise = registry.getPresenceManager().getPresence(this.userId);
+      const presencePromise = registry.getUserManager().getPresence(this.userId);
       const profile = await profilePromise;
       this.displayName = profile.displayName || '';
       this.avatarUrl = profile.avatarUrl || '';
@@ -169,7 +169,7 @@ export struct SettingsPage {
 
   async setPresence(state: PresenceState) {
     try {
-      await ServiceRegistry.getCurrent().getPresenceManager().setPresence(this.userId, state, this.statusMsg);
+      await ServiceRegistry.getCurrent().getUserManager().setPresence(this.userId, state, this.statusMsg);
       this.presence = state;
       this.showPresenceMenu = false;
       ToastUtils.show('状态已更新');
@@ -181,7 +181,7 @@ export struct SettingsPage {
 
   async setStatusMessage() {
     try {
-      await ServiceRegistry.getCurrent().getPresenceManager().setPresence(this.userId, this.presence, this.statusMsg);
+      await ServiceRegistry.getCurrent().getUserManager().setPresence(this.userId, this.presence, this.statusMsg);
       ToastUtils.show('状态消息已更新');
     } catch (error) {
       this.logger.error('Failed to set status message: %{public}s', error.message);

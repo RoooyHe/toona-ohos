@@ -136,7 +136,7 @@ struct RoomDetailPage {
     const roomManager = registry.getRoomManager();
     const authManager = registry.getAuthManager();
     const messageManager = registry.getMessageManager();
-    const presenceManager = registry.getPresenceManager();
+    const presenceManager = registry.getUserManager();
     this.mediaManager = registry.getMediaManager();
     this.verificationService = registry.getVerificationService();
 

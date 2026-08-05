@@ -33,7 +33,7 @@ struct UserProfilePage {
     try {
       const registry = ServiceRegistry.getCurrent();
       const profilePromise = registry.getUserManager().getUserProfile(this.userId);
-      const presencePromise = registry.getPresenceManager().getPresence(this.userId);
+      const presencePromise = registry.getUserManager().getPresence(this.userId);
       const profile = await profilePromise;
       this.displayName = profile.displayName || '';
       this.avatarUrl = profile.avatarUrl || '';

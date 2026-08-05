@@ -1,6 +1,7 @@
 import { UserHttpClient } from '../network/clients/UserHttpClient';
 import { AppLogger } from '../utils/AppLogger';
 import { AuthManager, IAuthManager } from './AuthManager';
+import { GetPresenceResponse, PresenceState, SetPresenceRequest } from '../models/MatrixTypes';
 
 interface GeneratedTypeLiteralInterface_1 {
   displayName: string | null;
@@ -84,5 +85,29 @@ export class UserManager {
       displayName: displayName,
       avatarUrl: avatarUrl
     };
+  }
+
+  async getPresence(userId: string): Promise<GetPresenceResponse> {
+    try {
+      return await this.userClient.getPresence(userId);
+    } catch (error) {
+      this.logger.error('Failed to get presence:', error);
+      const errMsg: string = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to get presence: ${errMsg}`);
+    }
+  }
+
+  async setPresence(userId: string, presence: PresenceState, statusMsg?: string): Promise<void> {
+    try {
+      const request: SetPresenceRequest = { presence: presence };
+      if (statusMsg !== undefined) {
+        request.status_msg = statusMsg;
+      }
+      await this.userClient.setPresence(userId, request);
+    } catch (error) {
+      this.logger.error('Failed to set presence:', error);
+      const errMsg: string = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to set presence: ${errMsg}`);
+    }
   }
 }
