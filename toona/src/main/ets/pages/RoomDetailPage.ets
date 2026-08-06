@@ -1,18 +1,7 @@
 import { ToastUtils } from '../utils/ToastUtils';
 import { QuickDialogManager, QuickDialogParams, QuickDialogController } from 'quickdialog';
 import { Message } from '../models/DataModels';
-import { MessageStatus, PresenceState } from '../models/MatrixTypes';
 import { ServiceRegistry } from '../services/ServiceRegistry';
-import { MediaManager } from '../services/MediaManager';
-import { VerificationService } from '../services/VerificationService';
-import { MessageActionHandler, ReplyQuoteData } from '../services/MessageActionHandler';
-import { MediaActionHandler } from '../services/MediaActionHandler';
-import { RoomMetadataLoader, MemberPresence } from '../services/RoomMetadataLoader';
-import { HarmonyFilePicker } from '../platform/adapters/HarmonyFilePicker';
-import { HarmonyAudioRecorder } from '../platform/adapters/HarmonyAudioRecorder';
-import { HarmonyClipboard } from '../platform/adapters/HarmonyClipboard';
-import { ShareManager } from '../services/ShareManager';
-import { DeviceSecurityManager } from '../services/DeviceSecurityManager';
 import { getThemeColors } from '../utils/ThemeManager';
 import { MessageBubble } from './components/MessageBubble';
 import { MessageInputBar } from './components/MessageInputBar';
@@ -24,25 +13,12 @@ import { ReactionPicker } from './components/ReactionPicker';
 import { StickerPicker } from './components/StickerPicker';
 import { MessageSourceDialog } from './components/MessageSourceDialog';
 import { MessageReportDialog } from './components/MessageReportDialog';
-import { formatTime, getTimeGroupLabel, shouldShowTimeGroup, getReplySenderName } from '../utils/MessageFormatter';
+import { getTimeGroupLabel, shouldShowTimeGroup } from '../utils/MessageFormatter';
+import { RoomDetailViewModel, RoomDetailState } from '../viewmodels/RoomDetailViewModel';
+import { MemberPresence } from '../services/RoomMetadataLoader';
+import { ReplyQuoteData } from '../services/MessageActionHandler';
 import { media } from '@kit.MediaKit';
-import common from '@ohos.app.ability.common';
 import curves from '@ohos.curves';
-import { AppLogger } from '../utils/AppLogger';
-
-const logger = AppLogger.getLogger('RoomDetailPage');
-
-interface StickerInfo {
-  w: number;
-  h: number;
-  mimetype: string;
-}
-
-interface StickerContent {
-  url: string;
-  body: string;
-  info: StickerInfo;
-}
 
 @Builder
 export function RoomDetailPageBuilder(name: string, param: Object) {
@@ -122,125 +98,66 @@ struct RoomDetailPage {
   private audioPath: string = '';
   private audioFd: number = -1;
   private scroller: Scroller = new Scroller();
-  private presenceInterval: number = 0;
   private recordingDialogController: QuickDialogController | undefined = undefined;
   pathStack: NavPathStack = new NavPathStack();
-  private messageHandler: MessageActionHandler | null = null;
-  private mediaHandler: MediaActionHandler | null = null;
-  private metadataLoader: RoomMetadataLoader | null = null;
-  private mediaManager: MediaManager | null = null;
-  private verificationService: VerificationService | null = null;
+  private viewModel: RoomDetailViewModel | null = null;
 
   aboutToAppear() {
     const registry = ServiceRegistry.getCurrent();
-    const roomManager = registry.getRoomManager();
-    const authManager = registry.getAuthManager();
-    const messageManager = registry.getMessageManager();
-    const presenceManager = registry.getUserManager();
-    this.mediaManager = registry.getMediaManager();
-    this.verificationService = registry.getVerificationService();
-
-    const filePicker = new HarmonyFilePicker();
-    const audioRecorder = new HarmonyAudioRecorder();
-    const clipboard = new HarmonyClipboard();
-
-    this.messageHandler = new MessageActionHandler(
-      roomManager,
-      authManager,
-      messageManager,
-      clipboard,
-      ShareManager.getInstance(),
-      DeviceSecurityManager.getInstance()
-    );
-
-    this.mediaHandler = new MediaActionHandler(
-      filePicker,
-      audioRecorder,
-      this.mediaManager,
-      messageManager
-    );
-
-    this.metadataLoader = new RoomMetadataLoader(
-      roomManager,
-      authManager,
-      presenceManager
-    );
-
-    this.loadRoomTopic();
-    this.loadMessages();
-    this.loadMemberPresences();
+    this.viewModel = new RoomDetailViewModel(this.roomId, this.roomName, registry);
 
     const self = this;
-    this.presenceInterval = setInterval(() => {
-      self.loadMemberPresences();
-      self.checkTypingUsers();
-    }, 30000) as number;
-
-    registry.getSyncManager().setRoomLeftCallback((leftRoomId: string) => {
-      if (leftRoomId === self.roomId) {
-        ToastUtils.show('已离开房间');
-        self.pathStack.pop();
-      }
+    this.viewModel.setLeaveRoomCallback(() => {
+      ToastUtils.show('已离开房间');
+      self.pathStack.pop();
     });
 
-    registry.getSyncManager().setNewMessagesCallback((msgRoomId: string) => {
-      if (msgRoomId === self.roomId) {
-        self.loadMessages();
-        self.checkTypingUsers();
-      }
+    this.viewModel.setOnStateChanged((state: RoomDetailState) => {
+      self.messages = state.messages;
+      self.isLoading = state.isLoading;
+      self.typingUsers = state.typingUsers;
+      self.memberPresences = state.memberPresences;
+      self.roomTopic = state.roomTopic;
+      self.roomName = state.roomName;
+      self.hasMoreMessages = state.hasMoreMessages;
+      self.isLoadingMore = state.isLoadingMore;
+      self.isRecording = state.isRecording;
+      self.replyQuote = state.replyQuote;
+      self.editingMessage = state.editingMessage;
+      self.editText = state.editText;
+      self.inputText = state.inputText;
+      self.selectedMessage = state.selectedMessage;
     });
+
+    this.viewModel.initialize();
   }
 
   aboutToDisappear() {
-    ServiceRegistry.getCurrent().getSyncManager().clearAllCallbacks();
-    if (this.presenceInterval) {
-      clearInterval(this.presenceInterval);
+    if (this.viewModel) {
+      this.viewModel.destroy();
     }
-    if (this.metadataLoader) {
-      this.metadataLoader.cleanup(this.roomId);
-    }
-  }
-
-  async loadMemberPresences() {
-    if (!this.metadataLoader) return;
-    this.memberPresences = await this.metadataLoader.loadMemberPresences(this.roomId);
-  }
-
-  async loadRoomTopic() {
-    if (!this.metadataLoader) return;
-    const result = await this.metadataLoader.loadRoomTopic(this.roomId);
-    this.roomTopic = result.roomTopic;
-    if (this.roomName === '聊天室' && result.roomName) {
-      this.roomName = result.roomName;
-    }
-  }
-
-  async checkTypingUsers() {
-    if (!this.metadataLoader) return;
-    this.typingUsers = await this.metadataLoader.checkTypingUsers(this.roomId);
   }
 
   async onInputChange(text: string) {
-    this.inputText = text;
-    if (!this.metadataLoader) return;
-    this.metadataLoader.onInputChange(text, this.roomId);
+    if (!this.viewModel) return;
+    this.viewModel.onInputChange(text);
   }
 
   async handleSelectImage() {
-    if (!this.mediaHandler) return;
-    await this.mediaHandler.selectAndUploadImage(this.roomId);
+    if (!this.viewModel) return;
+    await this.viewModel.handleSelectImage();
   }
 
   async startRecording() {
-    if (!this.mediaHandler) return;
+    if (!this.viewModel) return;
     const context: Object = getContext(this);
-    const result: Object | null = await this.mediaHandler.startRecording(context);
+    const result: Object | null = await this.viewModel.startRecording(context);
     if (result) {
       const recordData: Record<string, Object> = result as Record<string, Object>;
       this.avRecorder = recordData['avRecorder'] as media.AVRecorder;
       this.audioPath = recordData['audioPath'] as string;
       this.audioFd = recordData['audioFd'] as number;
-      this.isRecording = true;
+      this.viewModel.setRecording(true);
       this.recordingDialogController = QuickDialogManager.newBuilder(
         this.getUIContext(),
         wrapBuilder(RecordingDialogBuilder)
@@ -250,214 +167,80 @@ struct RoomDetailPage {
   }
 
   async stopAndSendRecording() {
-    if (!this.mediaHandler || !this.avRecorder || !this.isRecording) return;
-    try {
-      const recordingResult = await this.mediaHandler.stopRecording(this.avRecorder, this.audioPath, this.audioFd);
-      if (recordingResult) {
-        await this.mediaHandler.uploadAndSendAudio(this.roomId, recordingResult.buffer, recordingResult.fileName, recordingResult.buffer.byteLength);
-      }
-    } catch (err) {
-      const errMsg: string = err instanceof Error ? err.message : String(err);
-      logger.error('Failed to stop recording: ' + errMsg);
-    } finally {
-      this.isRecording = false;
-      this.recordingDialogController?.dismiss();
-    }
-  }
-
-  async loadMessages() {
-    if (!this.metadataLoader) return;
-    const registry = ServiceRegistry.getCurrent();
-    const roomManager = registry.getRoomManager();
-    try {
-      const roomMessages: Message[] = await roomManager.getRoomMessages(this.roomId, 50);
-      this.messages = roomMessages.reverse();
-      this.hasMoreMessages = this.messages.length >= 50;
-    } catch (error) {
-      const errMsg: string = error instanceof Error ? error.message : String(error);
-      logger.error('Failed to load messages: ' + errMsg);
-      this.messages = [];
-    }
-    this.isLoading = false;
+    if (!this.viewModel || !this.avRecorder || !this.isRecording) return;
+    this.recordingDialogController?.dismiss();
+    await this.viewModel.stopRecording(this.avRecorder, this.audioPath, this.audioFd);
   }
 
   async loadMoreMessages() {
-    if (this.isLoadingMore || !this.hasMoreMessages) {
-      return;
-    }
-    this.isLoadingMore = true;
-    const registry = ServiceRegistry.getCurrent();
-    const roomManager = registry.getRoomManager();
-    try {
-      if (this.messages.length === 0) {
-        return;
-      }
-      const oldestMessage: Message = this.messages[0];
-      const olderMessages: Message[] = await roomManager.getRoomMessages(this.roomId, 50, oldestMessage.eventId);
-      if (olderMessages.length > 0) {
-        const reversed: Message[] = olderMessages.reverse();
-        this.messages = [...reversed, ...this.messages];
-        this.hasMoreMessages = olderMessages.length >= 50;
-      } else {
-        this.hasMoreMessages = false;
-      }
-    } catch (error) {
-      const errMsg: string = error instanceof Error ? error.message : String(error);
-      logger.error('Failed to load more messages: ' + errMsg);
-    } finally {
-      this.isLoadingMore = false;
-    }
+    if (!this.viewModel) return;
+    await this.viewModel.loadMoreMessages();
   }
 
   async sendMessage() {
-    if (!this.inputText.trim() && !this.replyQuote) {
-      return;
-    }
-    if (!this.messageHandler) return;
-
-    const messageText: string = this.inputText.trim();
-    this.inputText = '';
-
-    if (this.metadataLoader) {
-      this.metadataLoader.stopTyping(this.roomId);
-    }
-
-    const msgContent: Record<string, string | object> = {
-      'msgtype': 'm.text',
-      'body': messageText
-    };
-
-    if (this.replyQuote) {
-      const inReplyTo: Record<string, string> = { 'event_id': this.replyQuote.eventId };
-      const relatesTo: Record<string, object> = { 'm.in_reply_to': inReplyTo as object };
-      msgContent['m.relates_to'] = relatesTo as object;
-      const reference: Record<string, string> = { 'event_id': this.replyQuote.eventId, 'sender': this.replyQuote.sender };
-      msgContent['m.reference'] = reference as object;
-    }
-
-    const tempMessage: Message = Message.createPendingMessage(this.roomId, msgContent);
-    tempMessage.timestamp = Date.now();
-    tempMessage.replyEventId = this.replyQuote?.eventId;
-    this.messages.push(tempMessage);
-
-    const replyQuoteData: ReplyQuoteData | null = this.replyQuote;
-    this.replyQuote = null;
-
-    try {
-      await this.messageHandler.sendMessage(this.roomId, messageText, replyQuoteData);
-      const index: number = this.messages.findIndex((m: Message) => m.eventId === tempMessage.eventId);
-      if (index >= 0) {
-        this.messages[index].status = MessageStatus.SENT;
-      }
-    } catch (error) {
-      const index: number = this.messages.findIndex((m: Message) => m.eventId === tempMessage.eventId);
-      if (index >= 0) {
-        this.messages[index].status = MessageStatus.FAILED;
-      }
-      ToastUtils.show('发送失败');
-    }
+    if (!this.viewModel) return;
+    await this.viewModel.sendMessage();
   }
 
   async leaveRoom() {
-    if (!this.messageHandler) return;
-    try {
-      await this.messageHandler.leaveRoom(this.roomId);
-      ToastUtils.show('已离开房间');
-      this.pathStack?.pop();
-    } catch (error) {
-      ToastUtils.show('离开失败');
-    }
+    if (!this.viewModel) return;
+    await this.viewModel.leaveRoom();
   }
 
   shareRoom() {
-    if (!this.messageHandler) return;
-    const homeserver: string = this.messageHandler.getHomeserver() || '';
-    this.messageHandler.shareRoom(this.roomId, this.roomName, homeserver);
+    if (!this.viewModel) return;
+    this.viewModel.shareRoom();
   }
 
   startReply(message: Message) {
-    if (!this.messageHandler) return;
-    const quote: ReplyQuoteData = this.messageHandler.startReply(message);
-    this.replyQuote = quote;
+    if (!this.viewModel) return;
+    this.viewModel.startReply(message);
     this.showReplyMenu = false;
-    this.selectedMessage = null;
   }
 
   cancelReply() {
-    this.replyQuote = null;
+    if (!this.viewModel) return;
+    this.viewModel.cancelReply();
   }
 
   copyMessage(message: Message): void {
-    if (!this.messageHandler) return;
-    this.messageHandler.copyMessage(message);
+    if (!this.viewModel) return;
+    this.viewModel.copyMessage(message);
     this.showMessageAction = false;
-    this.selectedMessage = null;
   }
 
   shareMessage(message: Message) {
-    if (!this.messageHandler) return;
-    this.messageHandler.shareMessage(message);
+    if (!this.viewModel) return;
+    this.viewModel.shareMessage(message);
     this.showReplyMenu = false;
-    this.selectedMessage = null;
   }
 
   checkMessageSecurity(message: Message) {
-    if (!this.messageHandler) return;
-    this.messageHandler.checkMessageSecurity(message);
+    if (!this.viewModel) return;
+    this.viewModel.checkMessageSecurity(message);
     this.showReplyMenu = false;
-    this.selectedMessage = null;
   }
 
   async deleteMessage(message: Message) {
-    if (!message.eventId || message.eventId.startsWith('temp_')) {
-      const index: number = this.messages.findIndex((m: Message) => m.eventId === message.eventId);
-      if (index >= 0) {
-        this.messages.splice(index, 1);
-      }
-      this.showMessageAction = false;
-      this.selectedMessage = null;
-      return;
-    }
-
-    if (!this.messageHandler) return;
-    await this.messageHandler.deleteMessage(this.roomId, message);
-    const index: number = this.messages.findIndex((m: Message) => m.eventId === message.eventId);
-    if (index >= 0) {
-      this.messages.splice(index, 1);
-    }
+    if (!this.viewModel) return;
+    await this.viewModel.deleteMessage(message);
     this.showMessageAction = false;
-    this.selectedMessage = null;
   }
 
   startEdit(message: Message) {
-    this.editingMessage = message;
-    this.editText = message.getMessageBody();
+    if (!this.viewModel) return;
+    this.viewModel.startEdit(message);
     this.showReplyMenu = false;
-    this.selectedMessage = null;
   }
 
   async saveEdit() {
-    if (!this.editingMessage || !this.editText.trim()) {
-      this.cancelEdit();
-      return;
-    }
-    if (!this.messageHandler) return;
-
-    if (!this.editingMessage.eventId || this.editingMessage.eventId.startsWith('temp_')) {
-      ToastUtils.show('消息尚未发送，无法编辑');
-      this.cancelEdit();
-      return;
-    }
-
-    await this.messageHandler.editMessage(this.roomId, this.editingMessage, this.editText.trim());
-    this.cancelEdit();
+    if (!this.viewModel) return;
+    await this.viewModel.saveEdit();
   }
 
   cancelEdit() {
-    this.editingMessage = null;
-    this.editText = '';
-    this.showReplyMenu = false;
-    this.selectedMessage = null;
+    if (!this.viewModel) return;
+    this.viewModel.cancelEdit();
   }
 
   startVoiceCall() {
@@ -469,7 +252,8 @@ struct RoomDetailPage {
   }
 
   onMessageLongPress(message: Message) {
-    this.selectedMessage = message;
+    if (!this.viewModel) return;
+    this.viewModel.onMessageLongPress(message);
     this.showReplyMenu = true;
   }
 
@@ -478,44 +262,39 @@ struct RoomDetailPage {
   }
 
   async sendReaction(emoji: string) {
-    if (!this.messageHandler || !this.selectedMessage) return;
-    await this.messageHandler.sendReaction(this.roomId, this.selectedMessage, emoji);
+    if (!this.viewModel) return;
+    await this.viewModel.sendReaction(emoji);
     this.showReactionPicker = false;
-    this.selectedMessage = null;
   }
 
   async sendSticker(stickerUrl: string, stickerBody: string) {
-    if (!this.messageHandler) return;
-    await this.messageHandler.sendSticker(this.roomId, stickerUrl, stickerBody);
+    if (!this.viewModel) return;
+    await this.viewModel.sendSticker(stickerUrl, stickerBody);
     this.showStickerPicker = false;
   }
 
   async forwardMessage(message: Message) {
-    if (!this.messageHandler) return;
-    await this.messageHandler.forwardMessage(this.roomId, message);
+    if (!this.viewModel) return;
+    await this.viewModel.forwardMessage(message);
     this.showMessageAction = false;
-    this.selectedMessage = null;
   }
 
   async pinMessage(message: Message) {
-    if (!this.messageHandler) return;
-    await this.messageHandler.pinMessage(this.roomId, message);
+    if (!this.viewModel) return;
+    await this.viewModel.pinMessage(message);
     this.showMessageAction = false;
-    this.selectedMessage = null;
   }
 
   viewMessageSource(message: Message) {
-    if (!this.messageHandler) return;
-    this.messageHandler.viewMessageSource(message);
+    if (!this.viewModel) return;
+    this.viewModel.viewMessageSource(message);
     this.showMessageAction = false;
-    this.selectedMessage = null;
   }
 
   async reportMessage(reason: string) {
-    if (!this.messageHandler || !this.selectedMessage) return;
-    await this.messageHandler.reportMessage(this.roomId, this.selectedMessage, reason);
+    if (!this.viewModel) return;
+    await this.viewModel.reportMessage(reason);
     this.showReportDialog = false;
-    this.selectedMessage = null;
   }
 
   @Builder
@@ -649,7 +428,9 @@ struct RoomDetailPage {
           this.cancelEdit();
         },
         onSave: (text: string) => {
-          this.editText = text;
+          if (this.viewModel) {
+            this.viewModel.startEdit(this.editingMessage!);
+          }
           this.saveEdit();
         }
       });
@@ -726,9 +507,9 @@ struct RoomDetailPage {
                 } else {
                   MessageBubble({
                     message: message,
-                    isOutgoing: message.sender === (this.messageHandler?.getUserId() || ''),
-                    mediaManager: this.mediaManager!,
-                    verificationService: this.verificationService!,
+                    isOutgoing: message.sender === (this.viewModel?.getUserId() || ''),
+                    mediaManager: this.viewModel?.getMediaManager()!,
+                    verificationService: this.viewModel?.getVerificationService()!,
                     onLongPress: () => {
                       this.onMessageLongPress(message);
                     }
