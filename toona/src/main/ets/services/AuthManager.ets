@@ -60,7 +60,7 @@ export class AuthManager implements IAuthManager {
 
   async checkHomeserverVersion(): Promise<boolean> {
     try {
-      const response = await this.httpClient.getWithoutVersionPrefix<VersionsResponse>('/versions');
+      const response = await this.httpClient.get<VersionsResponse>('/versions', undefined, '');
       if (response.versions) {
         return response.versions.includes('v1.1') ||
         response.versions.includes('v1.2') ||

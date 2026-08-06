@@ -1,21 +1,21 @@
 import { AppLogger } from '../utils/AppLogger';
 import { Device, DevicesResponse, UpdateDeviceRequest } from '../models/MatrixTypes';
 import { AuthManager, IAuthManager } from './AuthManager';
-import { DeviceAuthData, DeviceHttpClient } from '../network/clients/DeviceHttpClient';
+import { DeviceAuthData, MatrixEndpoints } from '../network/clients/MatrixEndpoints';
 
 export class DeviceManager {
-  private deviceClient: DeviceHttpClient;
+  private matrixEndpoints: MatrixEndpoints;
   private logger = AppLogger.getLogger(DeviceManager);
   private authManager: IAuthManager;
 
-  constructor(authManager: IAuthManager, deviceClient: DeviceHttpClient) {
+  constructor(authManager: IAuthManager, matrixEndpoints: MatrixEndpoints) {
     this.authManager = authManager;
-    this.deviceClient = deviceClient;
+    this.matrixEndpoints = matrixEndpoints;
   }
 
   async getDevices(): Promise<DevicesResponse> {
     try {
-      return await this.deviceClient.getDevices();
+      return await this.matrixEndpoints.getDevices();
     } catch (error) {
       this.logger.error('Failed to get devices:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -25,7 +25,7 @@ export class DeviceManager {
 
   async getDevice(deviceId: string): Promise<Device> {
     try {
-      return await this.deviceClient.getDevice(deviceId);
+      return await this.matrixEndpoints.getDevice(deviceId);
     } catch (error) {
       this.logger.error('Failed to get device:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -39,7 +39,7 @@ export class DeviceManager {
       update.display_name = displayName;
     }
     try {
-      await this.deviceClient.updateDevice(deviceId, update);
+      await this.matrixEndpoints.updateDevice(deviceId, update);
     } catch (error) {
       this.logger.error('Failed to update device:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -49,7 +49,7 @@ export class DeviceManager {
 
   async deleteDevice(deviceId: string, authData?: DeviceAuthData): Promise<void> {
     try {
-      await this.deviceClient.deleteDevice(deviceId, authData);
+      await this.matrixEndpoints.deleteDevice(deviceId, authData);
     } catch (error) {
       throw error as Error;
     }
@@ -57,7 +57,7 @@ export class DeviceManager {
 
   async deleteDevices(deviceIds: string[], authData?: DeviceAuthData): Promise<void> {
     try {
-      await this.deviceClient.deleteDevices(deviceIds, authData);
+      await this.matrixEndpoints.deleteDevices(deviceIds, authData);
     } catch (error) {
       throw error as Error;
     }

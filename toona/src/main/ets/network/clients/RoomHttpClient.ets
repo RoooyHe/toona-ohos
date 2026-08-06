@@ -13,7 +13,7 @@ import { BaseHttpClient } from './BaseHttpClient';
 
 export class RoomHttpClient extends BaseHttpClient {
   async setRoomAvatar(roomId: string, avatar: RoomAvatarContent): Promise<void> {
-    const encodedRoomId = encodeURIComponent(roomId);
+    const encodedRoomId = this.encodePath(roomId);
     const body: Record<string, string | object> = { 'url': avatar.url };
     if (avatar.info) {
       if (avatar.info.mimetype) {
@@ -33,7 +33,7 @@ export class RoomHttpClient extends BaseHttpClient {
   }
 
   async getCanonicalAlias(roomId: string): Promise<CanonicalAliasContent | null> {
-    const encodedRoomId = encodeURIComponent(roomId);
+    const encodedRoomId = this.encodePath(roomId);
     try {
       return await this.get<CanonicalAliasContent>(
         `/rooms/${encodedRoomId}/state/m.room.canonical_alias`
@@ -47,13 +47,13 @@ export class RoomHttpClient extends BaseHttpClient {
   }
 
   async setCanonicalAlias(roomId: string, alias: string): Promise<void> {
-    const encodedRoomId = encodeURIComponent(roomId);
+    const encodedRoomId = this.encodePath(roomId);
     const body: Record<string, string | object> = { 'alias': alias };
     await this.put<void>(`/rooms/${encodedRoomId}/state/m.room.canonical_alias`, body);
   }
 
   async getRoomAliases(roomId: string): Promise<RoomAliasesContent | null> {
-    const encodedRoomId = encodeURIComponent(roomId);
+    const encodedRoomId = this.encodePath(roomId);
     try {
       return await this.get<RoomAliasesContent>(
         `/rooms/${encodedRoomId}/state/m.room.aliases`
@@ -67,23 +67,18 @@ export class RoomHttpClient extends BaseHttpClient {
   }
 
   async setRoomAliases(roomId: string, aliases: string[]): Promise<void> {
-    const encodedRoomId = encodeURIComponent(roomId);
+    const encodedRoomId = this.encodePath(roomId);
     const body: Record<string, string | object> = { 'aliases': aliases };
     await this.put<void>(`/rooms/${encodedRoomId}/state/m.room.aliases`, body);
   }
 
   async getRoomMembers(roomId: string, start?: string, end?: string, sess?: string): Promise<RoomMembersResponse> {
-    const encodedRoomId = encodeURIComponent(roomId);
-    const queryParams: Record<string, string | number> = {};
-    if (start !== undefined) {
-      queryParams['start'] = start;
-    }
-    if (end !== undefined) {
-      queryParams['end'] = end;
-    }
-    if (sess !== undefined) {
-      queryParams['sess'] = sess;
-    }
+    const encodedRoomId = this.encodePath(roomId);
+    const queryParams = this.buildQueryParams({
+      'start': start,
+      'end': end,
+      'sess': sess
+    });
     return await this.get<RoomMembersResponse>(
       `/rooms/${encodedRoomId}/members`,
       queryParams
@@ -91,7 +86,7 @@ export class RoomHttpClient extends BaseHttpClient {
   }
 
   async setReadMarkers(roomId: string, request: SetReadMarkersRequest): Promise<void> {
-    const encodedRoomId = encodeURIComponent(roomId);
+    const encodedRoomId = this.encodePath(roomId);
     const body: Record<string, string | object> = {};
     if (request.fully_read !== undefined) {
       body['fully_read'] = request.fully_read;
@@ -106,16 +101,16 @@ export class RoomHttpClient extends BaseHttpClient {
   }
 
   async getReceipt(roomId: string, receiptType: string, eventId: string): Promise<ReceiptContent> {
-    const encodedRoomId = encodeURIComponent(roomId);
-    const encodedEventId = encodeURIComponent(eventId);
+    const encodedRoomId = this.encodePath(roomId);
+    const encodedEventId = this.encodePath(eventId);
     return await this.get<ReceiptContent>(
       `/rooms/${encodedRoomId}/receipt/${receiptType}/${encodedEventId}`
     );
   }
 
   async postReceipt(roomId: string, receiptType: string, eventId: string, threadId?: string): Promise<void> {
-    const encodedRoomId = encodeURIComponent(roomId);
-    const encodedEventId = encodeURIComponent(eventId);
+    const encodedRoomId = this.encodePath(roomId);
+    const encodedEventId = this.encodePath(eventId);
     const body: Record<string, string | object> = {};
     if (threadId !== undefined) {
       body['thread_id'] = threadId;
@@ -124,32 +119,27 @@ export class RoomHttpClient extends BaseHttpClient {
   }
 
   async createRoomAlias(roomAlias: string, roomId: string, servers: string[]): Promise<void> {
-    const encodedRoomAlias = encodeURIComponent(roomAlias);
+    const encodedRoomAlias = this.encodePath(roomAlias);
     const body: Record<string, string | object> = { 'room_id': roomId, 'servers': servers };
     await this.put<void>(`/directory/room/${encodedRoomAlias}`, body);
   }
 
   async deleteRoomAlias(roomAlias: string): Promise<void> {
-    const encodedRoomAlias = encodeURIComponent(roomAlias);
+    const encodedRoomAlias = this.encodePath(roomAlias);
     await this.delete<void>(`/directory/room/${encodedRoomAlias}`);
   }
 
   async resolveRoomAlias(roomAlias: string): Promise<RoomDirectoryResponse> {
-    const encodedRoomAlias = encodeURIComponent(roomAlias);
+    const encodedRoomAlias = this.encodePath(roomAlias);
     return await this.get<RoomDirectoryResponse>(`/directory/room/${encodedRoomAlias}`);
   }
 
   async getPublicRooms(server?: string, limit?: number, since?: string): Promise<PublicRoomsResponse> {
-    const queryParams: Record<string, string | number> = {};
-    if (server !== undefined) {
-      queryParams['server'] = server;
-    }
-    if (limit !== undefined) {
-      queryParams['limit'] = limit;
-    }
-    if (since !== undefined) {
-      queryParams['since'] = since;
-    }
+    const queryParams = this.buildQueryParams({
+      'server': server,
+      'limit': limit,
+      'since': since
+    });
     return await this.get<PublicRoomsResponse>('/publicRooms', queryParams);
   }
 
@@ -183,8 +173,8 @@ export class RoomHttpClient extends BaseHttpClient {
   }
 
   async putTyping(roomId: string, userId: string, typing: boolean, timeout?: number): Promise<void> {
-    const encodedRoomId = encodeURIComponent(roomId);
-    const encodedUserId = encodeURIComponent(userId);
+    const encodedRoomId = this.encodePath(roomId);
+    const encodedUserId = this.encodePath(userId);
     const body: Record<string, string | object> = { 'typing': typing ? 'true' : 'false' };
     if (timeout !== undefined) {
       body['timeout'] = String(timeout);
@@ -196,8 +186,8 @@ export class RoomHttpClient extends BaseHttpClient {
   }
 
   async getTypingUsers(roomId: string, userId: string): Promise<string[]> {
-    const encodedRoomId = encodeURIComponent(roomId);
-    const encodedUserId = encodeURIComponent(userId);
+    const encodedRoomId = this.encodePath(roomId);
+    const encodedUserId = this.encodePath(userId);
     interface TypingUsersResponse {
       user_ids: string[];
     }

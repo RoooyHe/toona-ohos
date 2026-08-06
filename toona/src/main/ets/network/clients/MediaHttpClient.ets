@@ -15,9 +15,8 @@ export class MediaHttpClient extends BaseHttpClient {
   }
 
   async downloadMedia(serverName: string, mediaId: string): Promise<ArrayBuffer> {
-    const encodedServerName = encodeURIComponent(serverName);
-    const encodedMediaId = encodeURIComponent(mediaId);
-    const url = this.buildMediaUrl(`/download/${encodedServerName}/${encodedMediaId}`);
+    const encodedPath = this.encodePath(serverName, mediaId);
+    const url = this.buildMediaUrl(`/download/${encodedPath}`);
     return await this.requestBinary(url);
   }
 
@@ -29,8 +28,7 @@ export class MediaHttpClient extends BaseHttpClient {
     method?: 'crop' | 'scale',
     animated?: boolean
   ): Promise<ArrayBuffer> {
-    const encodedServerName = encodeURIComponent(serverName);
-    const encodedMediaId = encodeURIComponent(mediaId);
+    const encodedPath = this.encodePath(serverName, mediaId);
     const queryParams: Record<string, string | number> = {
       "width": width,
       "height": height
@@ -41,15 +39,15 @@ export class MediaHttpClient extends BaseHttpClient {
     if (animated !== undefined) {
       queryParams['animated'] = animated ? 'true' : 'false';
     }
-    const url = this.buildMediaUrl(`/thumbnail/${encodedServerName}/${encodedMediaId}`, queryParams);
+    const url = this.buildMediaUrl(`/thumbnail/${encodedPath}`, queryParams);
     return await this.requestBinary(url);
   }
 
   async getUrlPreview(url: string, ts?: number): Promise<UrlPreviewResponse> {
-    const queryParams: Record<string, string | number> = { "url": url };
-    if (ts !== undefined) {
-      queryParams['ts'] = ts;
-    }
+    const queryParams = this.buildQueryParams({
+      'url': url,
+      'ts': ts
+    });
     return await this.requestMediaJson<UrlPreviewResponse>('/preview_url', queryParams);
   }
 

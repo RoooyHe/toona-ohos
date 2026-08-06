@@ -2,7 +2,7 @@ import { AppLogger } from '../utils/AppLogger';
 import { RoomTags } from '../models/MatrixTypes';
 import { AuthManager, IAuthManager } from './AuthManager';
 import { LocalDatabase } from '../database/LocalDatabase';
-import { UserHttpClient } from '../network/clients/UserHttpClient';
+import { MatrixEndpoints } from '../network/clients/MatrixEndpoints';
 
 interface GeneratedTypeLiteralInterface_1 {
   order?: number;
@@ -10,18 +10,18 @@ interface GeneratedTypeLiteralInterface_1 {
 
 export class RoomTagManager {
   private logger = AppLogger.getLogger(RoomTagManager);
-  private userClient: UserHttpClient;
+  private matrixEndpoints: MatrixEndpoints;
   private authManager: IAuthManager;
   private localDatabase: LocalDatabase;
 
   constructor(
     authManager: IAuthManager,
     localDatabase: LocalDatabase,
-    userClient: UserHttpClient
+    matrixEndpoints: MatrixEndpoints
   ) {
     this.authManager = authManager;
     this.localDatabase = localDatabase;
-    this.userClient = userClient;
+    this.matrixEndpoints = matrixEndpoints;
   }
 
   async getRoomTags(roomId: string): Promise<RoomTags> {
@@ -43,7 +43,7 @@ export class RoomTagManager {
       throw new Error('Not logged in');
     }
     try {
-      await this.userClient.addRoomTag(userId, roomId, tag, order);
+      await this.matrixEndpoints.addRoomTag(userId, roomId, tag, order);
     } catch (error) {
       this.logger.error('Failed to add room tag:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -57,7 +57,7 @@ export class RoomTagManager {
       throw new Error('Not logged in');
     }
     try {
-      await this.userClient.removeRoomTag(userId, roomId, tag);
+      await this.matrixEndpoints.removeRoomTag(userId, roomId, tag);
     } catch (error) {
       this.logger.error('Failed to remove room tag:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);

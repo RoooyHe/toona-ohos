@@ -1,4 +1,4 @@
-import { UserHttpClient } from '../network/clients/UserHttpClient';
+import { MatrixEndpoints } from '../network/clients/MatrixEndpoints';
 import { AppLogger } from '../utils/AppLogger';
 import { AuthManager, IAuthManager } from './AuthManager';
 import { GetPresenceResponse, PresenceState, SetPresenceRequest } from '../models/MatrixTypes';
@@ -9,13 +9,13 @@ interface GeneratedTypeLiteralInterface_1 {
 }
 
 export class UserManager {
-  private userClient: UserHttpClient;
+  private matrixEndpoints: MatrixEndpoints;
   private logger = AppLogger.getLogger(UserManager);
   private authManager: IAuthManager;
 
-  constructor(authManager: IAuthManager, userClient: UserHttpClient) {
+  constructor(authManager: IAuthManager, matrixEndpoints: MatrixEndpoints) {
     this.authManager = authManager;
-    this.userClient = userClient;
+    this.matrixEndpoints = matrixEndpoints;
   }
 
   async getDisplayName(userId?: string): Promise<string | null> {
@@ -24,7 +24,7 @@ export class UserManager {
       throw new Error('Not logged in');
     }
     try {
-      return await this.userClient.getDisplayName(targetUserId);
+      return await this.matrixEndpoints.getDisplayName(targetUserId);
     } catch (error) {
       this.logger.error('Failed to get display name:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -38,7 +38,7 @@ export class UserManager {
       throw new Error('Not logged in');
     }
     try {
-      await this.userClient.setDisplayName(userId, displayName);
+      await this.matrixEndpoints.setDisplayName(userId, displayName);
     } catch (error) {
       this.logger.error('Failed to set display name:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -52,7 +52,7 @@ export class UserManager {
       throw new Error('Not logged in');
     }
     try {
-      return await this.userClient.getAvatarUrl(targetUserId);
+      return await this.matrixEndpoints.getAvatarUrl(targetUserId);
     } catch (error) {
       this.logger.error('Failed to get avatar URL:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -66,7 +66,7 @@ export class UserManager {
       throw new Error('Not logged in');
     }
     try {
-      await this.userClient.setAvatarUrl(userId, avatarUrl);
+      await this.matrixEndpoints.setAvatarUrl(userId, avatarUrl);
     } catch (error) {
       this.logger.error('Failed to set avatar URL:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -89,7 +89,7 @@ export class UserManager {
 
   async getPresence(userId: string): Promise<GetPresenceResponse> {
     try {
-      return await this.userClient.getPresence(userId);
+      return await this.matrixEndpoints.getPresence(userId);
     } catch (error) {
       this.logger.error('Failed to get presence:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -103,7 +103,7 @@ export class UserManager {
       if (statusMsg !== undefined) {
         request.status_msg = statusMsg;
       }
-      await this.userClient.setPresence(userId, request);
+      await this.matrixEndpoints.setPresence(userId, request);
     } catch (error) {
       this.logger.error('Failed to set presence:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);

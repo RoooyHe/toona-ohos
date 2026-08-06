@@ -2,8 +2,12 @@ import http from '@ohos.net.http';
 import { AppLogger } from '../../utils/AppLogger';
 import { ConnectionConfig } from '../ConnectionConfig';
 
+export type HttpVersion = 'v3' | 'r0' | 'v1' | '';
 
-export type HttpVersion = 'v3' | 'r0' | 'v1';
+enum ErrorParseMode {
+  FULL,
+  MINIMAL
+}
 
 export class BaseHttpClient {
   protected logger = AppLogger.getLogger(BaseHttpClient);
@@ -25,14 +29,7 @@ export class BaseHttpClient {
     const baseUrl = this.getBaseUrl();
     let url = `${baseUrl}/_matrix/media/v3${endpoint}`;
     if (queryParams) {
-      const keys = Object.keys(queryParams);
-      if (keys.length > 0) {
-        const queryString = keys.map(key => {
-          const value = queryParams[key];
-          return `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`;
-        }).join('&');
-        url += `?${queryString}`;
-      }
+      url = this.appendQueryString(url, queryParams);
     }
     return url;
   }
@@ -40,17 +37,10 @@ export class BaseHttpClient {
   public buildUrl(endpoint: string, queryParams?: Record<string, string | number>,
     version: HttpVersion = 'v3'): string {
     const baseUrl = this.getBaseUrl();
-    this.logger.info('BaseHttpClient: buildUrl called, baseUrl: ' + baseUrl + ', endpoint: ' + endpoint);
-    let url = `${baseUrl}/_matrix/client/${version}${endpoint}`;
+    const versionPath: string = version ? `/${version}` : '';
+    let url = `${baseUrl}/_matrix/client${versionPath}${endpoint}`;
     if (queryParams) {
-      const keys = Object.keys(queryParams);
-      if (keys.length > 0) {
-        const queryString = keys.map(key => {
-          const value = queryParams[key];
-          return `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`;
-        }).join('&');
-        url += `?${queryString}`;
-      }
+      url = this.appendQueryString(url, queryParams);
     }
     return url;
   }
@@ -66,6 +56,23 @@ export class BaseHttpClient {
     return headers;
   }
 
+  protected encodePath(...segments: string[]): string {
+    return segments.map((s: string) => encodeURIComponent(s)).join('/');
+  }
+
+  protected buildQueryParams(params: Record<string, string | number | undefined>): Record<string, string | number> {
+    const result: Record<string, string | number> = {};
+    const keys = Object.keys(params);
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      const value = params[key];
+      if (value !== undefined) {
+        result[key] = value;
+      }
+    }
+    return result;
+  }
+
   public async request<T>(
     method: string,
     endpoint: string,
@@ -76,113 +83,12 @@ export class BaseHttpClient {
     const url = this.buildUrl(endpoint, queryParams, version);
     const headers = this.buildHeaders();
     const requestBody = body ? JSON.stringify(body) : undefined;
-
-    this.logger.info(`[HTTP] ${method} ${url}`);
-    if (requestBody) {
-      this.logger.info(`[HTTP] Request body: ${requestBody}`);
-    }
-
-    const httpRequest = http.createHttp();
-
-    try {
-      const result = await new Promise<http.HttpResponse>((resolve, reject) => {
-        const options: http.HttpRequestOptions = {
-          method: method as http.RequestMethod,
-          header: headers,
-          extraData: requestBody,
-          expectDataType: http.HttpDataType.STRING
-        };
-
-        httpRequest.request(url, options, (err, data) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(data);
-          }
-        });
-      });
-
-      this.logger.info(`[HTTP] Response code: ${result.responseCode}`);
-      if (typeof result.result === 'string' && result.result.length > 0) {
-        this.logger.info(`[HTTP] Response body: ${result.result}`);
-      }
-
-      if (result.responseCode >= 200 && result.responseCode < 300) {
-        if (typeof result.result === 'string' && result.result.length > 0) {
-          return JSON.parse(result.result) as T;
-        }
-        return Object() as T;
-      } else {
-        let errcode: string = 'UNKNOWN';
-        let errorMsg: string = '';
-        let session: string = '';
-
-        try {
-          if (typeof result.result === 'string') {
-            const parsed: Record<string, Object> = JSON.parse(result.result) as Record<string, Object>;
-            errcode = (parsed['errcode'] as string) || 'UNKNOWN';
-            errorMsg = (parsed['error'] as string) || '';
-            session = (parsed['session'] as string) || '';
-          } else {
-            errcode = 'UNKNOWN';
-            errorMsg = String(result.result);
-          }
-        } catch {
-          errcode = 'PARSE_ERROR';
-          errorMsg = 'Failed to parse error response';
-        }
-
-        if (result.responseCode === 401 && session) {
-          throw new Error(`UIA_REQUIRED:${session}`);
-        }
-
-        throw new Error(`${errcode}: ${errorMsg}`);
-      }
-    } finally {
-      httpRequest.destroy();
-    }
+    return this.executeRequest<T>(url, method, headers, requestBody, http.HttpDataType.STRING, ErrorParseMode.FULL);
   }
 
   public async get<T>(endpoint: string, queryParams?: Record<string, string | number>,
     version: HttpVersion = 'v3'): Promise<T> {
     return this.request<T>('GET', endpoint, undefined, queryParams, version);
-  }
-
-  public async getWithoutVersionPrefix<T>(endpoint: string): Promise<T> {
-    const baseUrl = this.getBaseUrl();
-    const url = `${baseUrl}/_matrix/client${endpoint}`;
-    const headers = this.buildHeaders();
-
-    this.logger.info(`[HTTP] GET ${url}`);
-
-    const httpRequest = http.createHttp();
-    const result = await new Promise<http.HttpResponse>((resolve, reject) => {
-      const options: http.HttpRequestOptions = {
-        method: http.RequestMethod.GET,
-        header: headers,
-        expectDataType: http.HttpDataType.STRING
-      };
-      httpRequest.request(url, options, (err, data) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(data);
-        }
-      });
-    });
-
-    this.logger.info(`[HTTP] Response code: ${result.responseCode}`);
-    if (typeof result.result === 'string' && result.result.length > 0) {
-      this.logger.info(`[HTTP] Response body: ${result.result}`);
-    }
-
-    if (result.responseCode >= 200 && result.responseCode < 300) {
-      if (typeof result.result === 'string' && result.result.length > 0) {
-        return JSON.parse(result.result) as T;
-      }
-      return Object() as T;
-    }
-    throw new Error(`HTTP ${result.responseCode}`);
   }
 
   public async post<T>(endpoint: string, body?: Record<string, string | object>): Promise<T> {
@@ -202,39 +108,11 @@ export class BaseHttpClient {
     headers?: Record<string, string>
   ): Promise<ArrayBuffer> {
     const requestHeaders: Record<string, string> = headers || this.buildHeaders();
-
-    this.logger.info(`[HTTP] GET BINARY ${url}`);
-
-    const httpRequest = http.createHttp();
-
-    try {
-      const result = await new Promise<http.HttpResponse>((resolve, reject) => {
-        const options: http.HttpRequestOptions = {
-          method: http.RequestMethod.GET,
-          header: requestHeaders,
-          expectDataType: http.HttpDataType.ARRAY_BUFFER
-        };
-        httpRequest.request(url, options, (err, data) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(data);
-          }
-        });
-      });
-
-      this.logger.info(`[HTTP] Response code: ${result.responseCode}`);
-
-      if (result.responseCode >= 200 && result.responseCode < 300) {
-        if (result.result instanceof ArrayBuffer) {
-          return result.result;
-        }
-        return new ArrayBuffer(0);
-      }
-      throw new Error(`HTTP ${result.responseCode}`);
-    } finally {
-      httpRequest.destroy();
+    const result = await this.executeRawRequest(url, http.RequestMethod.GET, requestHeaders, undefined, http.HttpDataType.ARRAY_BUFFER);
+    if (result.result instanceof ArrayBuffer) {
+      return result.result;
     }
+    return new ArrayBuffer(0);
   }
 
   public async requestMediaJson<T>(
@@ -243,17 +121,49 @@ export class BaseHttpClient {
   ): Promise<T> {
     const url = this.buildMediaUrl(endpoint, queryParams);
     const headers = this.buildHeaders();
+    const requestBody: string | undefined = undefined;
+    return this.executeRequest<T>(url, 'GET', headers, requestBody, http.HttpDataType.STRING, ErrorParseMode.FULL);
+  }
 
-    this.logger.info(`[HTTP] GET ${url}`);
+  public async upload<T>(
+    endpoint: string,
+    data: ArrayBuffer,
+    contentType: string,
+    fileName: string
+  ): Promise<T> {
+    const baseUrl = this.getBaseUrl();
+    let url = endpoint.startsWith('http') ? endpoint : `${baseUrl}${endpoint}`;
+    const headers = this.buildHeaders();
+    headers['Content-Type'] = contentType;
+    if (!url.includes('filename=')) {
+      url += `?filename=${encodeURIComponent(fileName)}`;
+    }
+    return this.executeUpload<T>(url, headers, data);
+  }
+
+  private async executeRequest<T>(
+    url: string,
+    method: string,
+    headers: Record<string, string>,
+    body: string | undefined,
+    expectDataType: http.HttpDataType,
+    errorParseMode: ErrorParseMode
+  ): Promise<T> {
+    const methodLabel: string = method;
+    this.logger.info(`[HTTP] ${methodLabel} ${url}`);
+    if (body) {
+      this.logger.info(`[HTTP] Request body: ${body}`);
+    }
 
     const httpRequest = http.createHttp();
 
     try {
       const result = await new Promise<http.HttpResponse>((resolve, reject) => {
         const options: http.HttpRequestOptions = {
-          method: http.RequestMethod.GET,
+          method: method as http.RequestMethod,
           header: headers,
-          expectDataType: http.HttpDataType.STRING
+          extraData: body,
+          expectDataType: expectDataType
         };
         httpRequest.request(url, options, (err, data) => {
           if (err) {
@@ -275,43 +185,57 @@ export class BaseHttpClient {
         }
         return Object() as T;
       }
-      let errcode: string = 'UNKNOWN';
-      let errorMsg: string = '';
-      try {
-        if (typeof result.result === 'string') {
-          const parsed: Record<string, string> = JSON.parse(result.result) as Record<string, string>;
-          errcode = parsed['errcode'] || 'UNKNOWN';
-          errorMsg = parsed['error'] || '';
-        } else {
-          errcode = 'UNKNOWN';
-          errorMsg = String(result.result);
-        }
-      } catch {
-        errcode = 'PARSE_ERROR';
-        errorMsg = 'Failed to parse error response';
-      }
-      throw new Error(`${errcode}: ${errorMsg}`);
+
+      throw this.parseHttpError(result, errorParseMode);
     } finally {
       httpRequest.destroy();
     }
   }
 
-  public async upload<T>(
-    endpoint: string,
-    data: ArrayBuffer,
-    contentType: string,
-    fileName: string
-  ): Promise<T> {
-    const baseUrl = this.getBaseUrl();
-    let url = endpoint.startsWith('http') ? endpoint : `${baseUrl}${endpoint}`;
+  private async executeRawRequest(
+    url: string,
+    method: http.RequestMethod,
+    headers: Record<string, string>,
+    body: string | ArrayBuffer | undefined,
+    expectDataType: http.HttpDataType
+  ): Promise<http.HttpResponse> {
+    this.logger.info(`[HTTP] ${method} ${url}`);
+    const httpRequest = http.createHttp();
 
-    const headers = this.buildHeaders();
-    headers['Content-Type'] = contentType;
+    try {
+      const result = await new Promise<http.HttpResponse>((resolve, reject) => {
+        const options: http.HttpRequestOptions = {
+          method: method,
+          header: headers,
+          extraData: body,
+          expectDataType: expectDataType
+        };
+        httpRequest.request(url, options, (err, data) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(data);
+          }
+        });
+      });
 
-    if (!url.includes('filename=')) {
-      url += `?filename=${encodeURIComponent(fileName)}`;
+      this.logger.info(`[HTTP] Response code: ${result.responseCode}`);
+
+      if (result.responseCode >= 200 && result.responseCode < 300) {
+        return result;
+      }
+      throw new Error(`HTTP ${result.responseCode}`);
+    } finally {
+      httpRequest.destroy();
     }
+  }
 
+  private async executeUpload<T>(
+    url: string,
+    headers: Record<string, string>,
+    data: ArrayBuffer
+  ): Promise<T> {
+    this.logger.info(`[HTTP] POST MEDIA ${url}`);
     const httpRequest = http.createHttp();
 
     try {
@@ -322,7 +246,6 @@ export class BaseHttpClient {
           extraData: data,
           expectDataType: http.HttpDataType.STRING
         };
-
         httpRequest.request(url, options, (err, data) => {
           if (err) {
             reject(err);
@@ -339,21 +262,64 @@ export class BaseHttpClient {
           return JSON.parse(result.result) as T;
         }
         return Object() as T;
-      } else {
-        let errcode = 'UNKNOWN';
-        let errorMsg = String(result.result);
-        try {
-          if (typeof result.result === 'string') {
-            const parsed = JSON.parse(result.result) as Record<string, string>;
-            errcode = parsed['errcode'] || 'UNKNOWN';
-            errorMsg = parsed['error'] || errorMsg;
-          }
-        } catch (e) {
-        }
-        throw new Error(`${errcode}: ${errorMsg}`);
       }
+
+      let errcode: string = 'UNKNOWN';
+      let errorMsg: string = String(result.result);
+      try {
+        if (typeof result.result === 'string') {
+          const parsed = JSON.parse(result.result) as Record<string, string>;
+          errcode = parsed['errcode'] || 'UNKNOWN';
+          errorMsg = parsed['error'] || errorMsg;
+        }
+      } catch (e) {
+      }
+      throw new Error(`${errcode}: ${errorMsg}`);
     } finally {
       httpRequest.destroy();
     }
+  }
+
+  private parseHttpError(result: http.HttpResponse, mode: ErrorParseMode): Error {
+    if (mode === ErrorParseMode.MINIMAL) {
+      return new Error(`HTTP ${result.responseCode}`);
+    }
+
+    let errcode: string = 'UNKNOWN';
+    let errorMsg: string = '';
+    let session: string = '';
+
+    try {
+      if (typeof result.result === 'string') {
+        const parsed: Record<string, Object> = JSON.parse(result.result) as Record<string, Object>;
+        errcode = (parsed['errcode'] as string) || 'UNKNOWN';
+        errorMsg = (parsed['error'] as string) || '';
+        session = (parsed['session'] as string) || '';
+      } else {
+        errcode = 'UNKNOWN';
+        errorMsg = String(result.result);
+      }
+    } catch (e) {
+      errcode = 'PARSE_ERROR';
+      errorMsg = 'Failed to parse error response';
+    }
+
+    if (result.responseCode === 401 && session) {
+      throw new Error(`UIA_REQUIRED:${session}`);
+    }
+
+    return new Error(`${errcode}: ${errorMsg}`);
+  }
+
+  private appendQueryString(url: string, queryParams: Record<string, string | number>): string {
+    const keys = Object.keys(queryParams);
+    if (keys.length === 0) {
+      return url;
+    }
+    const queryString = keys.map((key: string) => {
+      const value = queryParams[key];
+      return `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`;
+    }).join('&');
+    return `${url}?${queryString}`;
   }
 }

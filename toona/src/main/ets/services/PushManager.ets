@@ -8,19 +8,19 @@ import {
   NotificationsResponse,
   SetNotificationMarkerRequest
 } from '../models/MatrixTypes';
-import { UserHttpClient } from '../network/clients/UserHttpClient';
+import { MatrixEndpoints } from '../network/clients/MatrixEndpoints';
 
 export class PushManager {
-  private userClient: UserHttpClient;
+  private matrixEndpoints: MatrixEndpoints;
   private logger = AppLogger.getLogger(PushManager);
 
-  constructor(userClient: UserHttpClient) {
-    this.userClient = userClient;
+  constructor(matrixEndpoints: MatrixEndpoints) {
+    this.matrixEndpoints = matrixEndpoints;
   }
 
   async getPushRules(): Promise<PushRules> {
     try {
-      return await this.userClient.getPushRules();
+      return await this.matrixEndpoints.getPushRules();
     } catch (error) {
       this.logger.error('Failed to get push rules:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -30,7 +30,7 @@ export class PushManager {
 
   async getPushRule(scope: PushRuleScope, kind: PushRuleKind, ruleId: string): Promise<PushRule> {
     try {
-      return await this.userClient.getPushRule(scope, kind, ruleId);
+      return await this.matrixEndpoints.getPushRule(scope, kind, ruleId);
     } catch (error) {
       this.logger.error('Failed to get push rule:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -45,7 +45,7 @@ export class PushManager {
     rule: Partial<PushRule>
   ): Promise<void> {
     try {
-      await this.userClient.setPushRule(scope, kind, ruleId, rule);
+      await this.matrixEndpoints.setPushRule(scope, kind, ruleId, rule);
     } catch (error) {
       this.logger.error('Failed to add push rule:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -60,7 +60,7 @@ export class PushManager {
     rule: Partial<PushRule>
   ): Promise<void> {
     try {
-      await this.userClient.setPushRule(scope, kind, ruleId, rule);
+      await this.matrixEndpoints.setPushRule(scope, kind, ruleId, rule);
     } catch (error) {
       this.logger.error('Failed to update push rule:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -70,7 +70,7 @@ export class PushManager {
 
   async deletePushRule(scope: PushRuleScope, kind: PushRuleKind, ruleId: string): Promise<void> {
     try {
-      await this.userClient.deletePushRule(scope, kind, ruleId);
+      await this.matrixEndpoints.deletePushRule(scope, kind, ruleId);
     } catch (error) {
       this.logger.error('Failed to delete push rule:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -85,7 +85,7 @@ export class PushManager {
     actions: PushRuleAction[]
   ): Promise<void> {
     try {
-      await this.userClient.setPushRuleActions(scope, kind, ruleId, actions);
+      await this.matrixEndpoints.setPushRuleActions(scope, kind, ruleId, actions);
     } catch (error) {
       this.logger.error('Failed to set push rule actions:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -95,7 +95,7 @@ export class PushManager {
 
   async getNotifications(limit?: number, since?: string): Promise<NotificationsResponse> {
     try {
-      return await this.userClient.getNotifications(limit, since);
+      return await this.matrixEndpoints.getNotifications(limit, since);
     } catch (error) {
       this.logger.error('Failed to get notifications:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -106,7 +106,7 @@ export class PushManager {
   async setNotificationMarker(notificationKey: string): Promise<void> {
     try {
       const request: SetNotificationMarkerRequest = { notification_key: notificationKey };
-      await this.userClient.setNotificationMarker(request);
+      await this.matrixEndpoints.setNotificationMarker(request);
     } catch (error) {
       this.logger.error('Failed to set notification marker:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);

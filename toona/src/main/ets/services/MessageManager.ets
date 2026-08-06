@@ -1,4 +1,4 @@
-import { MessageHttpClient } from '../network/clients/MessageHttpClient';
+import { MatrixEndpoints } from '../network/clients/MatrixEndpoints';
 import { SendMessageResult } from '../models/MatrixTypes';
 import { IAuthManager } from './AuthManager';
 import { LocalDatabase } from '../database/LocalDatabase';
@@ -16,7 +16,7 @@ interface PendingMessage {
 
 export class MessageManager {
   private logger = AppLogger.getLogger(MessageManager);
-  private messageClient: MessageHttpClient;
+  private matrixEndpoints: MatrixEndpoints;
   private authManager: IAuthManager;
   private localDatabase: LocalDatabase;
   private offlineQueue: PendingMessage[] = [];
@@ -24,11 +24,11 @@ export class MessageManager {
   constructor(
     authManager: IAuthManager,
     localDatabase: LocalDatabase,
-    messageClient: MessageHttpClient
+    matrixEndpoints: MatrixEndpoints
   ) {
     this.authManager = authManager;
     this.localDatabase = localDatabase;
-    this.messageClient = messageClient;
+    this.matrixEndpoints = matrixEndpoints;
   }
 
   async sendTextMessage(roomId: string, text: string): Promise<string> {
@@ -63,7 +63,7 @@ export class MessageManager {
     const encodedRoomId = encodeURIComponent(roomId);
 
     try {
-      const response = await this.messageClient.put<SendMessageResult>(
+      const response = await this.matrixEndpoints.put<SendMessageResult>(
         `/rooms/${encodedRoomId}/send/${eventType}/${txnId}`,
         content
       );
@@ -112,7 +112,7 @@ export class MessageManager {
     const encodedRoomId = encodeURIComponent(roomId);
 
     try {
-      const response = await this.messageClient.put<SendMessageResult>(
+      const response = await this.matrixEndpoints.put<SendMessageResult>(
         `/rooms/${encodedRoomId}/send/${'m.room.message'}/${txnId}`,
         content
       );
@@ -133,7 +133,7 @@ export class MessageManager {
       const redactContent: Record<string, string | object> = {
         "reason": reason !== undefined ? reason : ''
       };
-      await this.messageClient.put<object>(`/rooms/${encodedRoomId}/redact/${encodedEventId}`, redactContent);
+      await this.matrixEndpoints.put<object>(`/rooms/${encodedRoomId}/redact/${encodedEventId}`, redactContent);
     } catch (error) {
       this.logger.error('Failed to delete message:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
