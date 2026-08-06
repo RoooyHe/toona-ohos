@@ -3,7 +3,6 @@ import { User, Room, Message } from '../models/DataModels';
 import { LocalDatabase } from '../database/LocalDatabase';
 import { AppLogger } from '../utils/AppLogger';
 import { CryptoService, EncryptedMatrixEvent } from './CryptoService';
-import { OlmWrapper } from '../crypto/OlmWrapper';
 
 export interface IEventProcessor {
   processPresenceEvents(events: PresEvent[]): Promise<void>;

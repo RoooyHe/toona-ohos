@@ -35,9 +35,14 @@ export struct SasVerificationDialog {
       this.phase = session.phase;
 
       if (session.sasBytes && session.sasBytes.length > 0) {
-        const digits = this.verificationService.getSasDigits(session.sasBytes);
-        this.sasDigits = digits.decimal;
-        this.sasEmojis = digits.emoji;
+        try {
+          const digits = this.verificationService.getSasDigits(session.sasBytes);
+          this.sasDigits = digits.decimal;
+          this.sasEmojis = digits.emoji;
+        } catch (error) {
+          this.sasDigits = 'N/A';
+          this.sasEmojis = ['⚠️'];
+        }
       }
     }
   }

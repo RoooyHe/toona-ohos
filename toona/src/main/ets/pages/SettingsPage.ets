@@ -491,11 +491,9 @@ export struct SettingsPage {
                   .fontSize(14)
                   .fontColor(getThemeColors().text);
                 Blank();
-                Toggle({ type: ToggleType.Switch, isOn: this.isE2EEEnabled })
-                  .selectedColor(getThemeColors().primary)
-                  .onChange((isOn: boolean) => {
-                    this.toggleE2EE(isOn);
-                  });
+                Text('暂不可用')
+                  .fontSize(14)
+                  .fontColor(getThemeColors().textMute2);
               }
               .width('100%')
               .padding({
@@ -504,53 +502,6 @@ export struct SettingsPage {
                 top: 12,
                 bottom: 12
               });
-
-              if (this.isE2EEEnabled) {
-                Divider().color(getThemeColors().divider);
-
-                Row() {
-                  Text('设备ID')
-                    .fontSize(14)
-                    .fontColor(getThemeColors().textSecondary);
-                  Blank();
-                  Text(this.deviceId || '未初始化')
-                    .fontSize(14)
-                    .fontColor(getThemeColors().textMute2);
-                }
-                .width('100%')
-                .padding({
-                  left: 20,
-                  right: 20,
-                  top: 12,
-                  bottom: 12
-                });
-
-                Divider().color(getThemeColors().divider);
-
-                Row() {
-                  Text('加密状态')
-                    .fontSize(14)
-                    .fontColor(getThemeColors().textSecondary);
-                  Blank();
-                  Row() {
-                    Circle()
-                      .width(8)
-                      .height(8)
-                      .fill(this.isE2EEEnabled ? getThemeColors().success : getThemeColors().textMute);
-                    Text(this.isE2EEEnabled ? '已启用' : '未启用')
-                      .fontSize(14)
-                      .fontColor(getThemeColors().textMute2)
-                      .margin({ left: 6 });
-                  }
-                }
-                .width('100%')
-                .padding({
-                  left: 20,
-                  right: 20,
-                  top: 12,
-                  bottom: 12
-                });
-              }
             }
             .width('100%')
             .backgroundColor(getThemeColors().surface);
@@ -579,9 +530,9 @@ export struct SettingsPage {
                   .fontSize(14)
                   .fontColor(getThemeColors().textSecondary);
                 Blank();
-                Text(this.isE2EEEnabled ? '设备已验证' : '未验证')
+                Text('暂不可用')
                   .fontSize(14)
-                  .fontColor(this.isE2EEEnabled ? getThemeColors().success : getThemeColors().textMute2);
+                  .fontColor(getThemeColors().textMute2);
               }
               .width('100%')
               .padding({
@@ -590,38 +541,6 @@ export struct SettingsPage {
                 top: 12,
                 bottom: 12
               });
-
-              if (this.isE2EEEnabled) {
-                Divider().color(getThemeColors().divider);
-
-                Row() {
-                  Text('验证其他设备')
-                    .fontSize(14)
-                    .fontColor(getThemeColors().text);
-                  Blank();
-                  Button('开始验证')
-                    .fontSize(12)
-                    .backgroundColor(getThemeColors().primary)
-                    .fontColor(getThemeColors().onPrimary)
-                    .borderRadius(6)
-                    .padding({
-                      left: 12,
-                      right: 12,
-                      top: 6,
-                      bottom: 6
-                    })
-                    .onClick(() => {
-                      this.startDeviceVerification();
-                    });
-                }
-                .width('100%')
-                .padding({
-                  left: 20,
-                  right: 20,
-                  top: 12,
-                  bottom: 12
-                });
-              }
             }
             .width('100%')
             .backgroundColor(getThemeColors().surface);
@@ -737,47 +656,15 @@ export struct SettingsPage {
   }
 
   async toggleE2EE(enable: boolean) {
-    if (enable) {
-      try {
-        await this.cryptoService.initialize();
-        this.isE2EEEnabled = true;
-        this.deviceId = this.cryptoService.getDeviceId();
-        ToastUtils.show('端到端加密已启用');
-      } catch (error) {
-        this.logger.error('Failed to enable E2EE: %{public}s', error.message);
-        ToastUtils.show('启用加密失败');
-        this.isE2EEEnabled = false;
-      }
-    } else {
-      ToastUtils.show('端到端加密当前无法关闭');
-    }
+    ToastUtils.show('端到端加密暂不可用');
   }
 
   loadEncryptionStatus() {
-    this.isE2EEEnabled = this.cryptoService.isInitialized();
-    if (this.isE2EEEnabled) {
-      this.deviceId = this.cryptoService.getDeviceId();
-    }
+    this.isE2EEEnabled = false;
   }
 
   async startDeviceVerification() {
-    if (!this.isE2EEEnabled) {
-      ToastUtils.show('请先启用端到端加密');
-      return;
-    }
-
-    try {
-      // For demo purposes, we'll show a toast
-      // In a real implementation, this would open a device list and allow selecting a device to verify
-      ToastUtils.show('设备验证功能开发中');
-
-      // Example of starting SAS verification:
-      // const transactionId = await this.verificationService.startSasVerification(userId, deviceId);
-      // Then show the SAS verification dialog with the transactionId
-    } catch (error) {
-      this.logger.error('Failed to start device verification: %{public}s', error.message);
-      ToastUtils.show('启动验证失败');
-    }
+    ToastUtils.show('设备验证暂不可用');
   }
 
   async handleLogout() {

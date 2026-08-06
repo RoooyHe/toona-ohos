@@ -1,5 +1,5 @@
 import { AppLogger } from '../utils/AppLogger';
-import { OlmWrapper, MegolmSession } from '../crypto/OlmWrapper';
+import { CryptoStub, MegolmSession } from '../crypto/CryptoStub';
 import {
   DeviceIdentity,
   RoomKeyEvent,
@@ -70,24 +70,6 @@ interface KeyRequestEvent {
   content: KeyRequestContent;
 }
 
-interface DeviceIdentityUpload {
-  userId: string;
-  deviceId: string;
-  ed25519Key: string;
-  curve25519Key: string;
-}
-
-/**
- * CryptoService handles all E2EE operations for the Matrix client.
- * 
- * Responsibilities:
- * - Device key generation and upload
- * - Megolm session management
- * - Message decryption
- * - To-device event processing
- * - One-time key management
- * - Key request/response handling
- */
 export class CryptoService {
   private initialized: boolean = false;
   private cryptoDao: CryptoDao;
@@ -96,17 +78,12 @@ export class CryptoService {
   private authManager: IAuthManager;
   private verificationService: VerificationService;
 
-  // Device identity
   private deviceId: string = '';
-  private ed25519Key: string = '';
-  private curve25519Key: string = '';
   private deviceIdentity: DeviceIdentity | null = null;
 
-  // Session caches
   private inboundGroupSessions: Map<string, MegolmSession> = new Map();
   private pendingRoomKeys: Map<string, RoomKeyEvent[]> = new Map();
 
-  // Callbacks
   private decryptionCallbacks: Array<(roomId: string, eventId: string) => void> = [];
 
   constructor(
@@ -123,10 +100,6 @@ export class CryptoService {
     this.deviceKeysStorage = deviceKeysStorage;
   }
 
-  /**
-   * Initialize the crypto service
-   * Must be called after authentication
-   */
   async initialize(): Promise<void> {
     if (this.initialized) {
       logger.info('CryptoService already initialized');
@@ -134,32 +107,19 @@ export class CryptoService {
     }
 
     try {
-      logger.info('Initializing CryptoService');
+      logger.info('Initializing CryptoService (E2EE not available — encryption stubs active)');
 
-      const session = this.authManager.getSession();
-      if (session && session.homeServer) {
-      }
+      CryptoStub.initialize();
 
-      // Initialize OlmWrapper
-      OlmWrapper.initialize();
-
-      // Get or generate device ID
       this.deviceId = await this.getOrCreateDeviceId();
 
-      // Get or generate device keys
-      await this.getOrCreateDeviceKeys();
+      await this.loadDeviceKeysIfAvailable();
 
-      // Load cached sessions from database
       await this.loadCachedSessions();
 
-      // Upload device keys if needed
-      await this.ensureKeysUploaded();
-
-      // Upload one-time keys if needed
-      await this.ensureOneTimeKeys();
+      logger.info('CryptoService initialized (encryption stubs active — no key upload)');
 
       this.initialized = true;
-      logger.info('CryptoService initialized successfully');
     } catch (error) {
       logger.error('Failed to initialize CryptoService:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -167,16 +127,10 @@ export class CryptoService {
     }
   }
 
-  /**
-   * Register a callback for when a message is decrypted
-   */
   onDecrypted(callback: (roomId: string, eventId: string) => void): void {
     this.decryptionCallbacks.push(callback);
   }
 
-  /**
-   * Notify listeners about a decrypted message
-   */
   private notifyDecrypted(roomId: string, eventId: string): void {
     for (const callback of this.decryptionCallbacks) {
       try {
@@ -187,52 +141,33 @@ export class CryptoService {
     }
   }
 
-  /**
-   * Get or create device ID
-   */
   private async getOrCreateDeviceId(): Promise<string> {
     const session = this.authManager.getSession();
     if (!session) {
       throw new Error('No active session');
     }
 
-    // Try to load existing device keys from database
     const existingKeys = await this.deviceKeysStorage.getDeviceKeys(session.userId);
     if (existingKeys && existingKeys.device_id) {
-      this.ed25519Key = existingKeys.ed25519_key;
-      this.curve25519Key = existingKeys.curve25519_key;
-      logger.info(`Loaded existing device keys for ${existingKeys.device_id}`);
+      logger.info(`Loaded existing device ID: ${existingKeys.device_id}`);
       return existingKeys.device_id;
     }
 
-    // Generate a new secure random device ID
     const devicePrefix = 'TOONA_';
-    const randomKey = OlmWrapper.generateRandomKey(8);
-    const randomPart = randomKey.replace(/[^a-zA-Z0-9]/g, '').substring(0, 8).toUpperCase();
-    return `${devicePrefix}${randomPart}`;
+    const randomPart: string = Date.now().toString(36).toUpperCase();
+    const newDeviceId: string = `${devicePrefix}${randomPart}`;
+    logger.info(`Generated device ID (no crypto keys): ${newDeviceId}`);
+    return newDeviceId;
   }
 
-  /**
-   * Get or generate device keys
-   */
-  private async getOrCreateDeviceKeys(): Promise<void> {
+  private async loadDeviceKeysIfAvailable(): Promise<void> {
     const session = this.authManager.getSession();
     if (!session) {
-      throw new Error('No active session');
-    }
-
-    // Check if we already have keys in memory
-    if (this.ed25519Key && this.curve25519Key && this.deviceIdentity) {
       return;
     }
 
-    // Try to load from database
     const existingKeys = await this.deviceKeysStorage.getDeviceKeys(session.userId);
     if (existingKeys && existingKeys.ed25519_key && existingKeys.curve25519_key) {
-      this.ed25519Key = existingKeys.ed25519_key;
-      this.curve25519Key = existingKeys.curve25519_key;
-
-      // Reconstruct device identity
       this.deviceIdentity = {
         userId: session.userId,
         deviceId: existingKeys.device_id,
@@ -241,38 +176,18 @@ export class CryptoService {
         algorithms: JSON.parse(existingKeys.algorithms),
         signatures: JSON.parse(existingKeys.signatures)
       };
-
-      logger.info(`Loaded device keys from database for ${existingKeys.device_id}`);
-      return;
+      logger.info(`Loaded existing device keys for ${existingKeys.device_id}`);
+    } else {
+      logger.info('No device keys available — E2EE not implemented');
+      this.deviceIdentity = null;
     }
-
-    // Generate new keys
-    const identity = OlmWrapper.generateDeviceIdentity(session.userId, this.deviceId);
-    this.deviceIdentity = identity;
-    this.ed25519Key = identity.ed25519Key;
-    this.curve25519Key = identity.curve25519Key;
-
-    // Persist the new keys
-    await this.deviceKeysStorage.saveDeviceKeys(
-      session.userId,
-      this.deviceId,
-      identity.ed25519Key,
-      identity.curve25519Key,
-      identity.algorithms,
-      identity.signatures
-    );
-
-    logger.info(`Generated and saved device keys for ${this.deviceId}`);
   }
 
-  /**
-   * Load cached sessions from database
-   */
   private async loadCachedSessions(): Promise<void> {
     try {
       const sessions = await this.cryptoDao.getAllInboundGroupSessions();
       for (const entity of sessions) {
-        const session = OlmWrapper.unpickleSession(entity.session_data, '');
+        const session = CryptoStub.unpickleSession(entity.session_data, '');
         if (session) {
           const cacheKey = `${entity.room_id}:${entity.megolm_session_id}`;
           this.inboundGroupSessions.set(cacheKey, session);
@@ -284,51 +199,6 @@ export class CryptoService {
     }
   }
 
-  /**
-   * Ensure device keys are uploaded to server
-   */
-  private async ensureKeysUploaded(): Promise<void> {
-    if (!this.deviceIdentity) {
-      logger.error('No device identity to upload');
-      return;
-    }
-
-    try {
-      const identityObj: DeviceIdentityUpload = {
-        userId: this.deviceIdentity.userId,
-        deviceId: this.deviceIdentity.deviceId,
-        ed25519Key: this.deviceIdentity.ed25519Key,
-        curve25519Key: this.deviceIdentity.curve25519Key
-      };
-      await this.uploadDeviceKeys(identityObj as Object as Record<string, string | object>);
-      logger.info('Device keys uploaded');
-    } catch (error) {
-      logger.error('Failed to upload device keys:', error);
-    }
-  }
-
-  /**
-   * Ensure we have enough one-time keys
-   */
-  private async ensureOneTimeKeys(): Promise<void> {
-    try {
-      const oneTimeKeys: Record<string, string> = {};
-      for (let i = 0; i < ONE_TIME_KEY_TARGET; i++) {
-        const keyId = `signed_curve25519:${i}`;
-        const key = OlmWrapper.generateRandomKey(32);
-        oneTimeKeys[keyId] = key;
-      }
-
-      await this.uploadOneTimeKeys(oneTimeKeys);
-      logger.info(`Uploaded ${ONE_TIME_KEY_TARGET} one-time keys`);
-    } catch (error) {
-      logger.error('Failed to upload one-time keys:', error);
-    }
-  }
-
-  /**
-   * Process a to-device event
-   */
   async processToDeviceEvent(event: ToDeviceEventInternal): Promise<void> {
     if (!this.initialized) {
       logger.warn('CryptoService not initialized, queuing event');
@@ -350,7 +220,6 @@ export class CryptoService {
         case 'm.room_key_request.cancellation':
           await this.handleRoomKeyRequestCancellation(content);
           break;
-        // Verification events
         case KEY_VERIFICATION_REQUEST:
           await this.handleVerificationRequest(this.contentToVerificationRequestEvent(content));
           break;
@@ -450,254 +319,136 @@ export class CryptoService {
     return evt;
   }
 
-  /**
-   * Handle m.room_key to-device event
-   */
   private async handleRoomKeyEvent(event: RoomKeyEvent): Promise<void> {
     logger.info(`Received room key for room ${event.room_id}`);
 
-    // Validate required fields
     if (!event.room_id || !event.session_id || !event.session_key) {
       logger.error('Invalid room key event: missing required fields');
       return;
     }
 
-    // Create inbound group session
-    const session = OlmWrapper.createInboundGroupSession(
+    const session = CryptoStub.createInboundGroupSession(
       event.room_id,
       event.sender_key || '',
       event.session_id,
       event.session_key
     );
 
-    // Cache the session
     const cacheKey = `${event.room_id}:${event.session_id}`;
     this.inboundGroupSessions.set(cacheKey, session);
 
-    // Store in database
     const entity = new InboundGroupSessionEntity();
     entity.sessionId = cacheKey;
     entity.room_id = event.room_id;
     entity.sender_key = event.sender_key || '';
     entity.megolm_session_id = event.session_id;
-    entity.session_data = OlmWrapper.pickleSession(session, '');
+    entity.session_data = CryptoStub.pickleSession(session, '');
     entity.forwarding_chain = JSON.stringify(event.forwarding_curve25519_key_chain || []);
     entity.created_at = Date.now();
 
     await this.cryptoDao.saveInboundGroupSession(entity);
 
-    // Process any pending encrypted events for this room
-    await this.processPendingEvents(event.room_id);
-
-    logger.info(`Stored Megolm session ${event.session_id} for room ${event.room_id}`);
+    logger.info(`Stored Megolm session ${event.session_id} for room ${event.room_id} (decryption not available)`);
   }
 
-  /**
-   * Handle m.room_key_request to-device event
-   */
   private async handleRoomKeyRequest(content: Record<string, string | object>): Promise<void> {
     const requestingUserId = content['requesting_user_id'] as string;
     const requestingDevice = content['requesting_device_id'] as string;
-    const roomId = content['room_id'] as string;
     const sessionId = content['session_id'] as string;
 
-    logger.info(`Received key request from ${requestingUserId}:${requestingDevice} for session ${sessionId}`);
-
-    // Check if we have the requested session
-    const cacheKey = `${roomId}:${sessionId}`;
-    const session = this.inboundGroupSessions.get(cacheKey);
-
-    if (session) {
-      logger.info(`We have the requested session, sending key share`);
-      await this.sendKeyShareResponse(requestingUserId, requestingDevice, session);
-    } else {
-      logger.info(`We don't have the requested session, ignoring request`);
-    }
+    logger.info(`Received key request from ${requestingUserId}:${requestingDevice} for session ${sessionId} — key sharing not available (E2EE not implemented)`);
   }
 
-  /**
-   * Send a key share response
-   */
   private async sendKeyShareResponse(
     requestingUserId: string,
     requestingDevice: string,
     session: MegolmSession
   ): Promise<void> {
-    try {
-      // Create the forwarded room key event
-      const forwardedKey: RoomKeyEvent = {
-        type: 'm.forwarded_room_key',
-        algorithm: MEGOLM_ALGORITHM,
-        room_id: session.roomId,
-        session_id: session.sessionId,
-        session_key: session.sessionKey,
-        sender_key: this.curve25519Key,
-        forwarding_curve25519_key_chain: [this.curve25519Key]
-      };
-
-      // Send via to-device message
-      // Note: This requires a to-device send API which may not be available
-      logger.info(`Would send key share to ${requestingUserId}:${requestingDevice}`);
-      logger.info(`Key share contains session ${session.sessionId} for room ${session.roomId}`);
-    } catch (error) {
-      logger.error('Failed to send key share response:', error);
-    }
+    logger.info(`Key sharing not available — would send key for session ${session.sessionId} to ${requestingUserId}:${requestingDevice} (E2EE not implemented)`);
   }
 
-  /**
-   * Handle m.forwarded_room_key to-device event
-   */
   private async handleForwardedRoomKeyEvent(event: RoomKeyEvent): Promise<void> {
     logger.info(`Received forwarded room key for room ${event.room_id}`);
 
-    // Validate required fields
     if (!event.room_id || !event.session_id || !event.session_key) {
       logger.error('Invalid forwarded room key event: missing required fields');
       return;
     }
 
-    // Create inbound group session from forwarded key
-    const session = OlmWrapper.createInboundGroupSession(
+    const session = CryptoStub.createInboundGroupSession(
       event.room_id,
       event.sender_key || '',
       event.session_id,
       event.session_key
     );
 
-    // Cache the session
     const cacheKey = `${event.room_id}:${event.session_id}`;
     this.inboundGroupSessions.set(cacheKey, session);
 
-    // Store in database
     const entity = new InboundGroupSessionEntity();
     entity.sessionId = cacheKey;
     entity.room_id = event.room_id;
     entity.sender_key = event.sender_key || '';
     entity.megolm_session_id = event.session_id;
-    entity.session_data = OlmWrapper.pickleSession(session, '');
+    entity.session_data = CryptoStub.pickleSession(session, '');
     entity.forwarding_chain = JSON.stringify(event.forwarding_curve25519_key_chain || []);
     entity.created_at = Date.now();
 
     await this.cryptoDao.saveInboundGroupSession(entity);
 
-    // Process any pending encrypted events for this room
-    await this.processPendingEvents(event.room_id);
-
-    logger.info(`Stored forwarded Megolm session ${event.session_id} for room ${event.room_id}`);
+    logger.info(`Stored forwarded Megolm session ${event.session_id} for room ${event.room_id} (decryption not available)`);
   }
 
-  /**
-   * Handle m.room_key_request.cancellation to-device event
-   */
   private async handleRoomKeyRequestCancellation(content: Record<string, string | object>): Promise<void> {
     const requestId = content['request_id'] as string;
     logger.info(`Received key request cancellation for request ${requestId}`);
-    // No action needed - we were going to share the key anyway
   }
 
-  // ── Verification Event Handlers ──
-
-  /**
-   * Handle m.keyverification.request to-device event
-   */
   private async handleVerificationRequest(event: VerificationRequestEvent): Promise<void> {
     logger.info(`Received verification request from device ${event.from_device}`);
-
-    // Delegate to VerificationService
     await this.verificationService.handleVerificationRequest(event, event.from_device);
   }
 
-  /**
-   * Handle m.keyverification.ready to-device event
-   */
   private async handleVerificationReady(event: VerificationReadyEvent): Promise<void> {
     logger.info(`Verification ${event.transaction_id} is ready`);
-
-    // Delegate to VerificationService
     await this.verificationService.handleVerificationReady(event, '');
   }
 
-  /**
-   * Handle m.keyverification.start to-device event
-   */
   private async handleVerificationStart(event: VerificationStartEvent): Promise<void> {
     logger.info(`Verification ${event.transaction_id} started with method ${event.method}`);
-
-    // Delegate to VerificationService
     await this.verificationService.handleVerificationStart(event, '');
   }
 
-  /**
-   * Handle m.keyverification.key to-device event
-   */
   private async handleVerificationKey(event: VerificationKeyEvent): Promise<void> {
     logger.info(`Verification ${event.transaction_id} received key`);
-
-    // Delegate to VerificationService
     await this.verificationService.handleVerificationKey(event, '');
   }
 
-  /**
-   * Handle m.keyverification.mac to-device event
-   */
   private async handleVerificationMac(event: VerificationMacEvent): Promise<void> {
     logger.info(`Verification ${event.transaction_id} received MAC`);
-
-    // Delegate to VerificationService
     await this.verificationService.handleVerificationMac(event, '');
   }
 
-  /**
-   * Handle m.keyverification.cancel to-device event
-   */
   private async handleVerificationCancel(event: VerificationCancelEvent): Promise<void> {
     logger.info(`Verification ${event.transaction_id} cancelled: ${event.reason}`);
-
-    // Delegate to VerificationService
     await this.verificationService.handleVerificationCancel(event, '');
   }
 
-  /**
-   * Handle m.keyverification.done to-device event
-   */
   private async handleVerificationDone(content: Record<string, string | object>): Promise<void> {
     const transactionId = content['transaction_id'] as string;
     logger.info(`Verification ${transactionId} completed`);
-
-    // Delegate to VerificationService
     await this.verificationService.handleVerificationDone(transactionId, '');
   }
 
-  // ── End Verification Event Handlers ──
-
-  /**
-   * Process pending encrypted events for a room
-   */
-  private async processPendingEvents(roomId: string): Promise<void> {
-    const pending = this.pendingRoomKeys.get(roomId);
-    if (pending && pending.length > 0) {
-      logger.info(`Processing ${pending.length} pending events for room ${roomId}`);
-      // Clear the pending list
-      this.pendingRoomKeys.delete(roomId);
-
-      // Note: The actual decryption will be triggered by EventProcessor
-      // when it processes the next sync with these events
-    }
-  }
-
-  /**
-   * Decrypt an encrypted event
-   */
   async decryptEvent(event: EncryptedMatrixEvent): Promise<DecryptedEvent> {
     if (!this.initialized) {
       return this.createDecryptionError(event, 'CryptoService not initialized');
     }
 
     const contentAlgo: string = (event.content['algorithm'] as string) || '';
-    const contentCiphertext: string = (event.content['ciphertext'] as string) || '';
     const contentSessionId: string = (event.content['session_id'] as string) || '';
+    const contentCiphertext: string = (event.content['ciphertext'] as string) || '';
     const contentSenderId: string = (event.content['sender_key'] as string) || '';
-    const contentDeviceId: string = (event.content['device_id'] as string) || '';
 
     if (contentAlgo !== MEGOLM_ALGORITHM) {
       return this.createDecryptionError(event, `Unsupported algorithm: ${contentAlgo}`);
@@ -713,7 +464,7 @@ export class CryptoService {
     if (!session) {
       const entity = await this.cryptoDao.getInboundGroupSession(cacheKey);
       if (entity) {
-        const loaded = OlmWrapper.unpickleSession(entity.session_data, '');
+        const loaded = CryptoStub.unpickleSession(entity.session_data, '');
         if (loaded) {
           this.inboundGroupSessions.set(cacheKey, loaded);
           session = loaded;
@@ -737,12 +488,12 @@ export class CryptoService {
       return this.createDecryptionError(event, 'No session available for decryption');
     }
 
-    const decryptedJson = OlmWrapper.decryptGroupMessage(session, contentCiphertext);
+    const decryptedJson = CryptoStub.decryptGroupMessage(session, contentCiphertext);
     if (!decryptedJson) {
-      return this.createDecryptionError(event, 'Decryption failed');
+      return this.createDecryptionError(event, 'E2EE not available — decryption requires real Olm library');
     }
 
-    const parsed = OlmWrapper.parseDecryptedMessage(decryptedJson);
+    const parsed = CryptoStub.parseDecryptedMessage(decryptedJson);
     if (!parsed) {
       return this.createDecryptionError(event, 'Failed to parse decrypted message');
     }
@@ -752,12 +503,11 @@ export class CryptoService {
     entity.room_id = event.room_id;
     entity.sender_key = contentSenderId;
     entity.megolm_session_id = contentSessionId;
-    entity.session_data = OlmWrapper.pickleSession(session, '');
+    entity.session_data = CryptoStub.pickleSession(session, '');
     entity.forwarding_chain = '[]';
     entity.created_at = Date.now();
     await this.cryptoDao.saveInboundGroupSession(entity);
 
-    // Notify listeners about the decrypted message
     this.notifyDecrypted(event.room_id, event.event_id);
 
     const parsedType: string = (parsed as Record<string, string | object>)['type'] as string || 'm.room.message';
@@ -790,93 +540,34 @@ export class CryptoService {
     return result;
   }
 
-  /**
-   * Request keys for a specific room and session
-   */
   async uploadDeviceKeys(deviceKeys: Record<string, string | object>): Promise<void> {
-    const request: Record<string, string | object> = { 'device_keys': deviceKeys as object };
-    try {
-      await this.deviceClient.uploadKeys(request as Object as Record<string, Object>);
-      logger.info('Device keys uploaded');
-    } catch (error) {
-      logger.error('Failed to upload device keys:', error);
-      const errMsg: string = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to upload device keys: ${errMsg}`);
-    }
+    throw new Error('E2EE not available — device key upload requires real Olm library');
   }
 
   async uploadOneTimeKeys(oneTimeKeys: Record<string, string>): Promise<void> {
-    const request: Record<string, string | object> = { 'one_time_keys': oneTimeKeys as object };
-    try {
-      await this.deviceClient.uploadKeys(request as Object as Record<string, Object>);
-      logger.info(`Uploaded one-time keys`);
-    } catch (error) {
-      logger.error('Failed to upload one-time keys:', error);
-      const errMsg: string = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to upload one-time keys: ${errMsg}`);
-    }
+    throw new Error('E2EE not available — one-time key upload requires real Olm library');
   }
 
   async requestRoomKeys(roomId: string, sessionId: string): Promise<void> {
-    try {
-      logger.info(`Requesting keys for room ${roomId}, session ${sessionId}`);
-
-      // Create key request event
-      const keyRequestBody: KeyRequestBody = {
-        algorithm: MEGOLM_ALGORITHM,
-        room_id: roomId,
-        session_id: sessionId,
-        sender_key: ''
-      };
-      const keyRequestContent: KeyRequestContent = {
-        action: 'request',
-        requesting_user_id: this.authManager.getSession()?.userId || '',
-        requesting_device_id: this.deviceId,
-        request_id: `key_request_${Date.now()}`,
-        body: keyRequestBody
-      };
-      const keyRequest: KeyRequestEvent = {
-        type: 'm.room_key_request',
-        content: keyRequestContent
-      };
-
-      logger.info(`Would send key request: ${JSON.stringify(keyRequest)}`);
-    } catch (error) {
-      logger.error('Failed to request room keys:', error);
-    }
+    logger.info(`Key requests not available — would request keys for room ${roomId}, session ${sessionId} (E2EE not implemented)`);
   }
 
-  /**
-   * Get device identity
-   */
   getDeviceIdentity(): DeviceIdentity | null {
     return this.deviceIdentity;
   }
 
-  /**
-   * Get device ID
-   */
   getDeviceId(): string {
     return this.deviceId;
   }
 
-  /**
-   * Check if initialized
-   */
   isInitialized(): boolean {
     return this.initialized;
   }
 
-  /**
-   * Get the number of cached sessions
-   */
   getSessionCount(): number {
     return this.inboundGroupSessions.size;
   }
 
-  /**
-   * Get the number of pending events
-   */
   getPendingEventCount(): number {
     let count = 0;
     for (const pending of this.pendingRoomKeys.values()) {

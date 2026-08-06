@@ -451,69 +451,32 @@ export struct MessageBubble {
   @Builder
   buildEncryptedMessage() {
     Column() {
-      if (this.message.isDecryptionFailed()) {
-        // Show decryption error with retry option
-        Row() {
-          Text('🔒')
-            .fontSize(16)
-            .margin({ right: 6 });
-          Column() {
-            Text('Unable to decrypt')
-              .fontSize(14)
-              .fontColor(this.getThemeColors().textSecondary);
-            Text(this.message.getDecryptionError() || 'Unknown error')
-              .fontSize(12)
-              .fontColor(this.getThemeColors().textMute2)
-              .margin({ top: 2 });
-
-            // Show retry button for retryable errors
-            if (this.message.isRetryableDecryptionError()) {
-              Text('Tap to retry')
-                .fontSize(12)
-                .fontColor(this.getThemeColors().primary)
-                .margin({ top: 4 })
-                .onClick(() => {
-                  // Request keys for this message
-                  ToastUtils.show('Requesting encryption keys...');
-                });
-            }
-          }
-          .alignItems(HorizontalAlign.Start);
-        }
-        .width('100%')
-        .padding({ left: 12, right: 12, top: 10, bottom: 10 })
-        .backgroundColor(this.isOutgoing ? this.getThemeColors().outgoingBg : this.getThemeColors().messageBg)
-        .borderRadius(12)
-        .gesture(
-          LongPressGesture()
-            .onAction(() => {
-              this.onLongPress(this.message);
-            })
-        );
-      } else {
-        // Show encrypted message placeholder
-        Row() {
-          Text('🔒')
-            .fontSize(16)
-            .margin({ right: 6 });
-          Text('Encrypted message')
+      Row() {
+        Text('🔒')
+          .fontSize(16)
+          .margin({ right: 6 });
+        Column() {
+          Text('加密消息暂不可读')
             .fontSize(14)
-            .fontColor(this.getThemeColors().textSecondary)
-            .opacity(0.8);
+            .fontColor(this.getThemeColors().textSecondary);
+          Text('端到端加密暂未实现')
+            .fontSize(12)
+            .fontColor(this.getThemeColors().textMute2)
+            .margin({ top: 2 });
         }
-        .width('100%')
-        .padding({ left: 12, right: 12, top: 10, bottom: 10 })
-        .backgroundColor(this.isOutgoing ? this.getThemeColors().outgoingBg : this.getThemeColors().messageBg)
-        .borderRadius(12)
-        .gesture(
-          LongPressGesture()
-            .onAction(() => {
-              this.onLongPress(this.message);
-            })
-        );
+        .alignItems(HorizontalAlign.Start);
       }
+      .width('100%')
+      .padding({ left: 12, right: 12, top: 10, bottom: 10 })
+      .backgroundColor(this.isOutgoing ? this.getThemeColors().outgoingBg : this.getThemeColors().messageBg)
+      .borderRadius(12)
+      .gesture(
+        LongPressGesture()
+          .onAction(() => {
+            this.onLongPress(this.message);
+          })
+      );
 
-      // ImageViewer overlay
       ImageViewer({
         isVisible: this.showImageViewer,
         imageUrl: this.selectedImageUrl,
@@ -525,7 +488,6 @@ export struct MessageBubble {
         }
       });
 
-      // FilePreview overlay
       FilePreview({
         isVisible: this.showFilePreview,
         fileUrl: this.selectedFileUrl,
