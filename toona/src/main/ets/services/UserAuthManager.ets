@@ -7,16 +7,8 @@ interface BiometricSupportResult {
 }
 
 export class UserAuthManager {
-  private static instance: UserAuthManager;
   private isBiometricEnabled: boolean = false;
   private isDeviceSupported: boolean = false;
-
-  static getInstance(): UserAuthManager {
-    if (!UserAuthManager.instance) {
-      UserAuthManager.instance = new UserAuthManager();
-    }
-    return UserAuthManager.instance;
-  }
 
   async checkBiometricSupport(): Promise<BiometricSupportResult> {
     // Stub implementation - biometric API compatibility varies by SDK version

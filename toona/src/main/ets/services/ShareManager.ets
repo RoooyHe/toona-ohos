@@ -5,14 +5,6 @@ import { AppLogger } from '../utils/AppLogger';
 
 export class ShareManager {
   private logger = AppLogger.getLogger(ShareManager);
-  private static instance: ShareManager;
-
-  static getInstance(): ShareManager {
-    if (!ShareManager.instance) {
-      ShareManager.instance = new ShareManager();
-    }
-    return ShareManager.instance;
-  }
 
   shareText(title: string, content: string): void {
     const logger = this.logger;

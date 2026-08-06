@@ -19,15 +19,7 @@ interface GeneratedTypeLiteralInterface_2 {
 }
 
 export class ScanManager {
-  private static instance: ScanManager;
   private logger = AppLogger.getLogger(ScanManager);
-
-  static getInstance(): ScanManager {
-    if (!ScanManager.instance) {
-      ScanManager.instance = new ScanManager();
-    }
-    return ScanManager.instance;
-  }
 
   async startScan(): Promise<string | null> {
     const logger = this.logger;

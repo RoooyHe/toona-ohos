@@ -30,7 +30,7 @@ struct LoginPage {
   @State errorMessage: string = '';
   @State rememberMe: boolean = true;
   @State isDiscovering: boolean = false;
-  private userAuthManager: UserAuthManager = UserAuthManager.getInstance();
+  private userAuthManager: UserAuthManager = ServiceRegistry.getCurrent().getUserAuthManager();
   private logger = AppLogger.getLogger(LoginPage);
   pathStack: NavPathStack = new NavPathStack();
 

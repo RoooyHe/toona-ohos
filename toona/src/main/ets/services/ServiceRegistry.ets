@@ -9,6 +9,12 @@ import { MediaManager } from './MediaManager';
 import { PushManager } from './PushManager';
 import { RoomTagManager } from './RoomTagManager';
 import { UserManager } from './UserManager';
+import { UserAuthManager } from './UserAuthManager';
+import { DeviceSecurityManager } from './DeviceSecurityManager';
+import { ScanManager } from './ScanManager';
+import { ShareManager } from './ShareManager';
+import { ServiceCollaborationManager } from './ServiceCollaborationManager';
+import { EventProcessor } from './EventProcessor';
 import { LocalDatabase } from '../database/LocalDatabase';
 import { ConnectionConfig } from '../network/ConnectionConfig';
 import { AppLogger } from '../utils/AppLogger';
@@ -31,6 +37,12 @@ export class ServiceRegistry {
   private roomTagManager: RoomTagManager | null = null;
   private userManager: UserManager | null = null;
   private localDatabase: LocalDatabase | null = null;
+  private userAuthManager: UserAuthManager | null = null;
+  private deviceSecurityManager: DeviceSecurityManager | null = null;
+  private scanManager: ScanManager | null = null;
+  private shareManager: ShareManager | null = null;
+  private serviceCollaborationManager: ServiceCollaborationManager | null = null;
+  private eventProcessor: EventProcessor | null = null;
 
   static init(registry: ServiceRegistry): void {
     AppStorage.setOrCreate<ServiceRegistry>(REGISTRY_KEY, registry);
@@ -201,6 +213,78 @@ export class ServiceRegistry {
     return this.verificationService;
   }
 
+  registerEventProcessor(processor: EventProcessor): void {
+    this.eventProcessor = processor;
+    logger.info('EventProcessor registered');
+  }
+
+  getEventProcessor(): EventProcessor {
+    if (!this.eventProcessor) {
+      throw new Error('EventProcessor not initialized');
+    }
+    return this.eventProcessor;
+  }
+
+  registerUserAuthManager(manager: UserAuthManager): void {
+    this.userAuthManager = manager;
+    logger.info('UserAuthManager registered');
+  }
+
+  getUserAuthManager(): UserAuthManager {
+    if (!this.userAuthManager) {
+      throw new Error('UserAuthManager not initialized');
+    }
+    return this.userAuthManager;
+  }
+
+  registerDeviceSecurityManager(manager: DeviceSecurityManager): void {
+    this.deviceSecurityManager = manager;
+    logger.info('DeviceSecurityManager registered');
+  }
+
+  getDeviceSecurityManager(): DeviceSecurityManager {
+    if (!this.deviceSecurityManager) {
+      throw new Error('DeviceSecurityManager not initialized');
+    }
+    return this.deviceSecurityManager;
+  }
+
+  registerScanManager(manager: ScanManager): void {
+    this.scanManager = manager;
+    logger.info('ScanManager registered');
+  }
+
+  getScanManager(): ScanManager {
+    if (!this.scanManager) {
+      throw new Error('ScanManager not initialized');
+    }
+    return this.scanManager;
+  }
+
+  registerShareManager(manager: ShareManager): void {
+    this.shareManager = manager;
+    logger.info('ShareManager registered');
+  }
+
+  getShareManager(): ShareManager {
+    if (!this.shareManager) {
+      throw new Error('ShareManager not initialized');
+    }
+    return this.shareManager;
+  }
+
+  registerServiceCollaborationManager(manager: ServiceCollaborationManager): void {
+    this.serviceCollaborationManager = manager;
+    logger.info('ServiceCollaborationManager registered');
+  }
+
+  getServiceCollaborationManager(): ServiceCollaborationManager {
+    if (!this.serviceCollaborationManager) {
+      throw new Error('ServiceCollaborationManager not initialized');
+    }
+    return this.serviceCollaborationManager;
+  }
+
   reset(): void {
     this.connectionConfig = null;
     this.authManager = null;
@@ -215,6 +299,12 @@ export class ServiceRegistry {
     this.roomTagManager = null;
     this.userManager = null;
     this.localDatabase = null;
+    this.userAuthManager = null;
+    this.deviceSecurityManager = null;
+    this.scanManager = null;
+    this.shareManager = null;
+    this.serviceCollaborationManager = null;
+    this.eventProcessor = null;
     AppStorage.set<ServiceRegistry>(REGISTRY_KEY, this as ServiceRegistry);
     logger.info('ServiceRegistry reset');
   }

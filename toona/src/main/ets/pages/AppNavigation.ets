@@ -15,6 +15,11 @@ import { MediaManager } from '../services/MediaManager';
 import { PushManager } from '../services/PushManager';
 import { RoomTagManager } from '../services/RoomTagManager';
 import { UserManager } from '../services/UserManager';
+import { UserAuthManager } from '../services/UserAuthManager';
+import { DeviceSecurityManager } from '../services/DeviceSecurityManager';
+import { ScanManager } from '../services/ScanManager';
+import { ShareManager } from '../services/ShareManager';
+import { ServiceCollaborationManager } from '../services/ServiceCollaborationManager';
 import { ConnectionConfig } from '../network/ConnectionConfig';
 import { BaseHttpClient } from '../network/clients/BaseHttpClient';
 import { RoomHttpClient } from '../network/clients/RoomHttpClient';
@@ -66,6 +71,11 @@ struct AppNavigation {
     const pushManager = new PushManager(userClient);
     const roomTagManager = new RoomTagManager(authManager, localDatabase, userClient);
     const userManager = new UserManager(authManager, userClient);
+    const userAuthManager = new UserAuthManager();
+    const deviceSecurityManager = new DeviceSecurityManager();
+    const scanManager = new ScanManager();
+    const shareManager = new ShareManager();
+    const serviceCollaborationManager = new ServiceCollaborationManager();
 
     const registry = new ServiceRegistry();
     registry.registerConnectionConfig(config);
@@ -81,6 +91,12 @@ struct AppNavigation {
     registry.registerPushManager(pushManager);
     registry.registerRoomTagManager(roomTagManager);
     registry.registerUserManager(userManager);
+    registry.registerEventProcessor(eventProcessor);
+    registry.registerUserAuthManager(userAuthManager);
+    registry.registerDeviceSecurityManager(deviceSecurityManager);
+    registry.registerScanManager(scanManager);
+    registry.registerShareManager(shareManager);
+    registry.registerServiceCollaborationManager(serviceCollaborationManager);
     ServiceRegistry.init(registry);
   }
 

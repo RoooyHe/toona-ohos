@@ -55,10 +55,10 @@ export struct SettingsPage {
   @State colorModeType: ColorModeType = 'light';
   @State isE2EEEnabled: boolean = false;
   @State deviceId: string = '';
-  private collaborationManager: ServiceCollaborationManager = ServiceCollaborationManager.getInstance();
-  private deviceSecurityManager: DeviceSecurityManager = DeviceSecurityManager.getInstance();
-  private scanManager: ScanManager = ScanManager.getInstance();
-  private userAuthManager: UserAuthManager = UserAuthManager.getInstance();
+  private collaborationManager: ServiceCollaborationManager = ServiceRegistry.getCurrent().getServiceCollaborationManager();
+  private deviceSecurityManager: DeviceSecurityManager = ServiceRegistry.getCurrent().getDeviceSecurityManager();
+  private scanManager: ScanManager = ServiceRegistry.getCurrent().getScanManager();
+  private userAuthManager: UserAuthManager = ServiceRegistry.getCurrent().getUserAuthManager();
   private cryptoService: CryptoService = ServiceRegistry.getCurrent().getCryptoService();
   private verificationService: VerificationService = ServiceRegistry.getCurrent().getVerificationService();
   private themeManager: ThemeManager = ThemeManager.getInstance();

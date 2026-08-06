@@ -8,8 +8,6 @@ import { RoomMetadataLoader, MemberPresence, RoomTopicResult } from '../services
 import { HarmonyFilePicker } from '../platform/adapters/HarmonyFilePicker';
 import { HarmonyAudioRecorder } from '../platform/adapters/HarmonyAudioRecorder';
 import { HarmonyClipboard } from '../platform/adapters/HarmonyClipboard';
-import { ShareManager } from '../services/ShareManager';
-import { DeviceSecurityManager } from '../services/DeviceSecurityManager';
 import { IRoomManager } from '../services/RoomManager';
 import { IAuthManager } from '../services/AuthManager';
 import { MessageManager } from '../services/MessageManager';
@@ -99,8 +97,8 @@ export class RoomDetailViewModel {
       this.authManager,
       this.messageManager,
       clipboard,
-      ShareManager.getInstance(),
-      DeviceSecurityManager.getInstance()
+      registry.getShareManager(),
+      registry.getDeviceSecurityManager()
     );
 
     this.mediaHandler = new MediaActionHandler(

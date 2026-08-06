@@ -29,14 +29,6 @@ interface GeneratedTypeLiteralInterface_1 {
 
 export class DeviceSecurityManager {
   private logger = AppLogger.getLogger(DeviceSecurityManager);
-  private static instance: DeviceSecurityManager;
-
-  static getInstance(): DeviceSecurityManager {
-    if (!DeviceSecurityManager.instance) {
-      DeviceSecurityManager.instance = new DeviceSecurityManager();
-    }
-    return DeviceSecurityManager.instance;
-  }
 
   async isSecurityChipSupported(): Promise<boolean> {
     // Stub - DeviceSecurityKit API compatibility varies by SDK version

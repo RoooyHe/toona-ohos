@@ -139,7 +139,7 @@ struct JoinRoomPage {
   @State roomAddress: string = '';
   @State isJoining: boolean = false;
   private createRoomDialogController: QuickDialogController | undefined = undefined;
-  private scanManager: ScanManager = ScanManager.getInstance();
+  private scanManager: ScanManager = ServiceRegistry.getCurrent().getScanManager();
   pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {

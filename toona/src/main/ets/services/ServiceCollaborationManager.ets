@@ -7,16 +7,8 @@ interface CollaborationDeviceInfo {
 }
 
 export class ServiceCollaborationManager {
-  private static instance: ServiceCollaborationManager;
   private isCollaborationEnabled: boolean = false;
   private collaborationList: CollaborationDeviceInfo[] = [];
-
-  static getInstance(): ServiceCollaborationManager {
-    if (!ServiceCollaborationManager.instance) {
-      ServiceCollaborationManager.instance = new ServiceCollaborationManager();
-    }
-    return ServiceCollaborationManager.instance;
-  }
 
   async startCollaboration(): Promise<boolean> {
     // Stub - CollaborationKit not available in current SDK
