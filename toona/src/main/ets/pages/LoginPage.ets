@@ -4,7 +4,7 @@ import { UserAuthManager } from '../services/UserAuthManager';
 import { getThemeColors } from '../utils/ThemeManager';
 import http from '@ohos.net.http';
 import { AppLogger } from '../utils/AppLogger';
-import { ServiceRegistry } from '../services/ServiceRegistry';
+import { SessionContext } from '../services/facades/SessionContext';
 
 function extractHomeServerUrl(jsonString: string): string | null {
   const regex = /"m\.homeserver"\s*:\s*\{\s*"base_url"\s*:\s*"([^"]+)"/;
@@ -30,7 +30,8 @@ struct LoginPage {
   @State errorMessage: string = '';
   @State rememberMe: boolean = true;
   @State isDiscovering: boolean = false;
-  private userAuthManager: UserAuthManager = ServiceRegistry.getCurrent().getUserAuthManager();
+  private sessionCtx: SessionContext = new SessionContext();
+  private userAuthManager: UserAuthManager = this.sessionCtx.getUserAuthManager();
   private logger = AppLogger.getLogger(LoginPage);
   pathStack: NavPathStack = new NavPathStack();
 
@@ -124,9 +125,9 @@ struct LoginPage {
         serverUrl = serverUrl.replace(/\/$/, '');
       }
 
-      await ServiceRegistry.getCurrent().getAuthManager().setHomeserver(serverUrl);
+      await this.sessionCtx.setHomeserver(serverUrl);
 
-      const isValidServer = await ServiceRegistry.getCurrent().getAuthManager().checkHomeserverVersion();
+      const isValidServer = await this.sessionCtx.checkHomeserverVersion();
       if (!isValidServer) {
         this.errorMessage = '无法连接到服务器';
         this.isLoading = false;
@@ -134,7 +135,7 @@ struct LoginPage {
         return;
       }
 
-      const session = await ServiceRegistry.getCurrent().getAuthManager().login(this.userId, this.password);
+      const session = await this.sessionCtx.login(this.userId, this.password);
 
       await this.saveCredentials();
 

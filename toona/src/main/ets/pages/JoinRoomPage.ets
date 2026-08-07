@@ -4,7 +4,8 @@ import { RoomManager, CreateRoomOptions } from '../services/RoomManager';
 import { ScanManager } from '../services/ScanManager';
 import { getThemeColors } from '../utils/ThemeManager';
 import { AppLogger } from '../utils/AppLogger';
-import { ServiceRegistry } from '../services/ServiceRegistry';
+import { RoomContext } from '../services/facades/RoomContext';
+import { ServiceLocator } from '../services/ServiceLocator';
 
 interface CreateRoomDialogData {
   roomName: string;
@@ -138,8 +139,9 @@ struct JoinRoomPage {
   @State isSearching: boolean = false;
   @State roomAddress: string = '';
   @State isJoining: boolean = false;
+  private roomCtx: RoomContext = new RoomContext();
   private createRoomDialogController: QuickDialogController | undefined = undefined;
-  private scanManager: ScanManager = ServiceRegistry.getCurrent().getScanManager();
+  private scanManager: ScanManager = ServiceLocator.getScanManager();
   pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
@@ -152,7 +154,7 @@ struct JoinRoomPage {
 
     this.isSearching = true;
     try {
-      const results = await ServiceRegistry.getCurrent().getRoomManager().searchUsers(this.searchQuery.trim());
+      const results = await this.roomCtx.getRoomManager().searchUsers(this.searchQuery.trim());
       const resultObj: Record<string, string | object> = results;
       const userId: string = (resultObj['user_id'] as string) || '';
       const mapped: DirectoryUser[] = [{
@@ -181,7 +183,7 @@ struct JoinRoomPage {
       isDirect: true,
       inviteUsers: [userId]
     };
-    const roomId = await ServiceRegistry.getCurrent().getRoomManager().createRoom(options);
+    const roomId = await this.roomCtx.getRoomManager().createRoom(options);
     const param: Record<string, Object> = {
       "roomId": roomId,
       "roomName": userId
@@ -227,9 +229,9 @@ struct JoinRoomPage {
   async doJoinRoom(): Promise<void> {
     let roomId = this.roomAddress.trim();
     if (!roomId.startsWith('#') && !roomId.includes(':')) {
-      roomId = `#${roomId}:${ServiceRegistry.getCurrent().getAuthManager().getHomeserver()}`;
+      roomId = `#${roomId}:${this.roomCtx.getHomeserver()}`;
     }
-    await ServiceRegistry.getCurrent().getRoomManager().joinRoom(roomId);
+    await this.roomCtx.getRoomManager().joinRoom(roomId);
     ToastUtils.show('加入成功');
     this.pathStack.pop();
   }
@@ -260,7 +262,7 @@ struct JoinRoomPage {
       name: roomName.trim(),
       visibility: isPublic ? 'public' : 'private'
     };
-    await ServiceRegistry.getCurrent().getRoomManager().createRoom(options);
+    await this.roomCtx.getRoomManager().createRoom(options);
     ToastUtils.show('创建成功');
     this.pathStack.pop();
   }

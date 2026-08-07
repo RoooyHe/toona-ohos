@@ -17,295 +17,192 @@ import { ServiceCollaborationManager } from './ServiceCollaborationManager';
 import { EventProcessor } from './EventProcessor';
 import { LocalDatabase } from '../database/LocalDatabase';
 import { ConnectionConfig } from '../network/ConnectionConfig';
-import { AppLogger } from '../utils/AppLogger';
+import { ServiceLocator } from './ServiceLocator';
 
-const logger = AppLogger.getLogger('ServiceRegistry');
-
-const REGISTRY_KEY: string = 'serviceRegistry';
-
+/**
+ * @deprecated Use ServiceLocator and facade classes instead.
+ * This class is kept for backward compatibility and delegates all operations to ServiceLocator.
+ */
 export class ServiceRegistry {
-  private connectionConfig: ConnectionConfig | null = null;
-  private authManager: AuthManager | null = null;
-  private syncManager: SyncManager | null = null;
-  private roomManager: RoomManager | null = null;
-  private messageManager: MessageManager | null = null;
-  private cryptoService: CryptoService | null = null;
-  private verificationService: VerificationService | null = null;
-  private deviceManager: DeviceManager | null = null;
-  private mediaManager: MediaManager | null = null;
-  private pushManager: PushManager | null = null;
-  private roomTagManager: RoomTagManager | null = null;
-  private userManager: UserManager | null = null;
-  private localDatabase: LocalDatabase | null = null;
-  private userAuthManager: UserAuthManager | null = null;
-  private deviceSecurityManager: DeviceSecurityManager | null = null;
-  private scanManager: ScanManager | null = null;
-  private shareManager: ShareManager | null = null;
-  private serviceCollaborationManager: ServiceCollaborationManager | null = null;
-  private eventProcessor: EventProcessor | null = null;
-
   static init(registry: ServiceRegistry): void {
-    AppStorage.setOrCreate<ServiceRegistry>(REGISTRY_KEY, registry);
-    logger.info('ServiceRegistry initialized via AppStorage');
+    ServiceLocator.setConnectionConfig(registry.getConnectionConfig());
+    ServiceLocator.setAuthManager(registry.getAuthManager() as AuthManager);
+    ServiceLocator.setLocalDatabase(registry.getLocalDatabase());
+    ServiceLocator.setSyncManager(registry.getSyncManager() as SyncManager);
+    ServiceLocator.setRoomManager(registry.getRoomManager() as RoomManager);
+    ServiceLocator.setMessageManager(registry.getMessageManager());
+    ServiceLocator.setCryptoService(registry.getCryptoService());
+    ServiceLocator.setVerificationService(registry.getVerificationService());
+    ServiceLocator.setDeviceManager(registry.getDeviceManager());
+    ServiceLocator.setMediaManager(registry.getMediaManager());
+    ServiceLocator.setPushManager(registry.getPushManager());
+    ServiceLocator.setRoomTagManager(registry.getRoomTagManager());
+    ServiceLocator.setUserManager(registry.getUserManager());
+    ServiceLocator.setEventProcessor(registry.getEventProcessor());
+    ServiceLocator.setUserAuthManager(registry.getUserAuthManager());
+    ServiceLocator.setDeviceSecurityManager(registry.getDeviceSecurityManager());
+    ServiceLocator.setScanManager(registry.getScanManager());
+    ServiceLocator.setShareManager(registry.getShareManager());
+    ServiceLocator.setServiceCollaborationManager(registry.getServiceCollaborationManager());
   }
 
   static getCurrent(): ServiceRegistry {
-    const registry: ServiceRegistry | undefined = AppStorage.get<ServiceRegistry>(REGISTRY_KEY);
-    if (!registry) {
-      throw new Error('ServiceRegistry not initialized — call ServiceRegistry.init() first');
-    }
-    return registry;
+    return new ServiceRegistry();
   }
 
   registerConnectionConfig(config: ConnectionConfig): void {
-    this.connectionConfig = config;
-    logger.info('ConnectionConfig registered');
+    ServiceLocator.setConnectionConfig(config);
   }
 
   getConnectionConfig(): ConnectionConfig {
-    if (!this.connectionConfig) {
-      throw new Error('ConnectionConfig not initialized');
-    }
-    return this.connectionConfig;
+    return ServiceLocator.getConnectionConfig();
   }
 
   registerAuthManager(manager: AuthManager): void {
-    this.authManager = manager;
-    logger.info('AuthManager registered');
+    ServiceLocator.setAuthManager(manager);
   }
 
   getAuthManager(): IAuthManager {
-    if (!this.authManager) {
-      throw new Error('AuthManager not initialized');
-    }
-    return this.authManager;
+    return ServiceLocator.getAuthManager();
   }
 
   registerSyncManager(manager: SyncManager): void {
-    this.syncManager = manager;
-    logger.info('SyncManager registered');
+    ServiceLocator.setSyncManager(manager);
   }
 
   getSyncManager(): SyncManager {
-    if (!this.syncManager) {
-      throw new Error('SyncManager not initialized');
-    }
-    return this.syncManager;
+    return ServiceLocator.getSyncManager() as SyncManager;
   }
 
   registerRoomManager(manager: RoomManager): void {
-    this.roomManager = manager;
-    logger.info('RoomManager registered');
+    ServiceLocator.setRoomManager(manager);
   }
 
   getRoomManager(): IRoomManager {
-    if (!this.roomManager) {
-      throw new Error('RoomManager not initialized');
-    }
-    return this.roomManager;
+    return ServiceLocator.getRoomManager();
   }
 
   registerMessageManager(manager: MessageManager): void {
-    this.messageManager = manager;
-    logger.info('MessageManager registered');
+    ServiceLocator.setMessageManager(manager);
   }
 
   getMessageManager(): MessageManager {
-    if (!this.messageManager) {
-      throw new Error('MessageManager not initialized');
-    }
-    return this.messageManager;
+    return ServiceLocator.getMessageManager();
   }
 
   registerDeviceManager(manager: DeviceManager): void {
-    this.deviceManager = manager;
-    logger.info('DeviceManager registered');
+    ServiceLocator.setDeviceManager(manager);
   }
 
   getDeviceManager(): DeviceManager {
-    if (!this.deviceManager) {
-      throw new Error('DeviceManager not initialized');
-    }
-    return this.deviceManager;
+    return ServiceLocator.getDeviceManager();
   }
 
   registerMediaManager(manager: MediaManager): void {
-    this.mediaManager = manager;
-    logger.info('MediaManager registered');
+    ServiceLocator.setMediaManager(manager);
   }
 
   getMediaManager(): MediaManager {
-    if (!this.mediaManager) {
-      throw new Error('MediaManager not initialized');
-    }
-    return this.mediaManager;
+    return ServiceLocator.getMediaManager();
   }
 
   registerPushManager(manager: PushManager): void {
-    this.pushManager = manager;
-    logger.info('PushManager registered');
+    ServiceLocator.setPushManager(manager);
   }
 
   getPushManager(): PushManager {
-    if (!this.pushManager) {
-      throw new Error('PushManager not initialized');
-    }
-    return this.pushManager;
+    return ServiceLocator.getPushManager();
   }
 
   registerRoomTagManager(manager: RoomTagManager): void {
-    this.roomTagManager = manager;
-    logger.info('RoomTagManager registered');
+    ServiceLocator.setRoomTagManager(manager);
   }
 
   getRoomTagManager(): RoomTagManager {
-    if (!this.roomTagManager) {
-      throw new Error('RoomTagManager not initialized');
-    }
-    return this.roomTagManager;
+    return ServiceLocator.getRoomTagManager();
   }
 
   registerUserManager(manager: UserManager): void {
-    this.userManager = manager;
-    logger.info('UserManager registered');
+    ServiceLocator.setUserManager(manager);
   }
 
   getUserManager(): UserManager {
-    if (!this.userManager) {
-      throw new Error('UserManager not initialized');
-    }
-    return this.userManager;
+    return ServiceLocator.getUserManager();
   }
 
   registerLocalDatabase(database: LocalDatabase): void {
-    this.localDatabase = database;
-    logger.info('LocalDatabase registered');
+    ServiceLocator.setLocalDatabase(database);
   }
 
   getLocalDatabase(): LocalDatabase {
-    if (!this.localDatabase) {
-      throw new Error('LocalDatabase not initialized');
-    }
-    return this.localDatabase;
+    return ServiceLocator.getLocalDatabase();
   }
 
   registerCryptoService(service: CryptoService): void {
-    this.cryptoService = service;
-    logger.info('CryptoService registered');
+    ServiceLocator.setCryptoService(service);
   }
 
   getCryptoService(): CryptoService {
-    if (!this.cryptoService) {
-      throw new Error('CryptoService not initialized');
-    }
-    return this.cryptoService;
+    return ServiceLocator.getCryptoService();
   }
 
   registerVerificationService(service: VerificationService): void {
-    this.verificationService = service;
-    logger.info('VerificationService registered');
+    ServiceLocator.setVerificationService(service);
   }
 
   getVerificationService(): VerificationService {
-    if (!this.verificationService) {
-      throw new Error('VerificationService not initialized');
-    }
-    return this.verificationService;
+    return ServiceLocator.getVerificationService();
   }
 
   registerEventProcessor(processor: EventProcessor): void {
-    this.eventProcessor = processor;
-    logger.info('EventProcessor registered');
+    ServiceLocator.setEventProcessor(processor);
   }
 
   getEventProcessor(): EventProcessor {
-    if (!this.eventProcessor) {
-      throw new Error('EventProcessor not initialized');
-    }
-    return this.eventProcessor;
+    return ServiceLocator.getEventProcessor();
   }
 
   registerUserAuthManager(manager: UserAuthManager): void {
-    this.userAuthManager = manager;
-    logger.info('UserAuthManager registered');
+    ServiceLocator.setUserAuthManager(manager);
   }
 
   getUserAuthManager(): UserAuthManager {
-    if (!this.userAuthManager) {
-      throw new Error('UserAuthManager not initialized');
-    }
-    return this.userAuthManager;
+    return ServiceLocator.getUserAuthManager();
   }
 
   registerDeviceSecurityManager(manager: DeviceSecurityManager): void {
-    this.deviceSecurityManager = manager;
-    logger.info('DeviceSecurityManager registered');
+    ServiceLocator.setDeviceSecurityManager(manager);
   }
 
   getDeviceSecurityManager(): DeviceSecurityManager {
-    if (!this.deviceSecurityManager) {
-      throw new Error('DeviceSecurityManager not initialized');
-    }
-    return this.deviceSecurityManager;
+    return ServiceLocator.getDeviceSecurityManager();
   }
 
   registerScanManager(manager: ScanManager): void {
-    this.scanManager = manager;
-    logger.info('ScanManager registered');
+    ServiceLocator.setScanManager(manager);
   }
 
   getScanManager(): ScanManager {
-    if (!this.scanManager) {
-      throw new Error('ScanManager not initialized');
-    }
-    return this.scanManager;
+    return ServiceLocator.getScanManager();
   }
 
   registerShareManager(manager: ShareManager): void {
-    this.shareManager = manager;
-    logger.info('ShareManager registered');
+    ServiceLocator.setShareManager(manager);
   }
 
   getShareManager(): ShareManager {
-    if (!this.shareManager) {
-      throw new Error('ShareManager not initialized');
-    }
-    return this.shareManager;
+    return ServiceLocator.getShareManager();
   }
 
   registerServiceCollaborationManager(manager: ServiceCollaborationManager): void {
-    this.serviceCollaborationManager = manager;
-    logger.info('ServiceCollaborationManager registered');
+    ServiceLocator.setServiceCollaborationManager(manager);
   }
 
   getServiceCollaborationManager(): ServiceCollaborationManager {
-    if (!this.serviceCollaborationManager) {
-      throw new Error('ServiceCollaborationManager not initialized');
-    }
-    return this.serviceCollaborationManager;
+    return ServiceLocator.getServiceCollaborationManager();
   }
 
   reset(): void {
-    this.connectionConfig = null;
-    this.authManager = null;
-    this.syncManager = null;
-    this.roomManager = null;
-    this.messageManager = null;
-    this.cryptoService = null;
-    this.verificationService = null;
-    this.deviceManager = null;
-    this.mediaManager = null;
-    this.pushManager = null;
-    this.roomTagManager = null;
-    this.userManager = null;
-    this.localDatabase = null;
-    this.userAuthManager = null;
-    this.deviceSecurityManager = null;
-    this.scanManager = null;
-    this.shareManager = null;
-    this.serviceCollaborationManager = null;
-    this.eventProcessor = null;
-    AppStorage.set<ServiceRegistry>(REGISTRY_KEY, this as ServiceRegistry);
-    logger.info('ServiceRegistry reset');
+    ServiceLocator.reset();
   }
 }

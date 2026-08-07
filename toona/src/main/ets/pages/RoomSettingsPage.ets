@@ -1,7 +1,7 @@
 import { ToastUtils } from '../utils/ToastUtils';
 import { getThemeColors } from '../utils/ThemeManager';
 import { AppLogger } from '../utils/AppLogger';
-import { ServiceRegistry } from '../services/ServiceRegistry';
+import { RoomContext } from '../services/facades/RoomContext';
 
 const logger = AppLogger.getLogger('RoomSettingsPage');
 
@@ -25,6 +25,7 @@ struct RoomSettingsPage {
   @State memberCount: number = 0;
   @State isPublic: boolean = false;
   @State isLoading: boolean = true;
+  private roomCtx: RoomContext = new RoomContext();
   pathStack: NavPathStack = new NavPathStack();
   private logger = AppLogger.getLogger('RoomSettingsPage');
 
@@ -35,7 +36,7 @@ struct RoomSettingsPage {
   async loadRoomSettings() {
     this.isLoading = true;
     try {
-      const room = await ServiceRegistry.getCurrent().getRoomManager().getRoom(this.roomId);
+      const room = await this.roomCtx.getRoomManager().getRoom(this.roomId);
       if (room) {
         this.roomName = room.getDisplayName();
         this.roomTopic = room.topic || '';
@@ -58,7 +59,7 @@ struct RoomSettingsPage {
     }
 
     try {
-      await ServiceRegistry.getCurrent().getRoomManager().setRoomName(this.roomId, this.editName.trim());
+      await this.roomCtx.getRoomManager().setRoomName(this.roomId, this.editName.trim());
       this.roomName = this.editName.trim();
       this.isEditingName = false;
       ToastUtils.show('Room name updated');
@@ -70,7 +71,7 @@ struct RoomSettingsPage {
 
   async saveRoomTopic() {
     try {
-      await ServiceRegistry.getCurrent().getRoomManager().setRoomTopic(this.roomId, this.editTopic.trim());
+      await this.roomCtx.getRoomManager().setRoomTopic(this.roomId, this.editTopic.trim());
       this.roomTopic = this.editTopic.trim();
       this.isEditingTopic = false;
       ToastUtils.show('Room topic updated');
@@ -82,7 +83,7 @@ struct RoomSettingsPage {
 
   async leaveRoom() {
     try {
-      await ServiceRegistry.getCurrent().getRoomManager().leaveRoom(this.roomId);
+      await this.roomCtx.getRoomManager().leaveRoom(this.roomId);
       ToastUtils.show('Left room');
       this.pathStack.pop();
     } catch (error) {

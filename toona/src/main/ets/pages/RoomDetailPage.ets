@@ -1,7 +1,6 @@
 import { ToastUtils } from '../utils/ToastUtils';
 import { QuickDialogManager, QuickDialogParams, QuickDialogController } from 'quickdialog';
 import { Message } from '../models/DataModels';
-import { ServiceRegistry } from '../services/ServiceRegistry';
 import { getThemeColors } from '../utils/ThemeManager';
 import { MessageBubble } from './components/MessageBubble';
 import { MessageInputBar } from './components/MessageInputBar';
@@ -19,6 +18,7 @@ import { MemberPresence } from '../services/RoomMetadataLoader';
 import { ReplyQuoteData } from '../services/MessageActionHandler';
 import { media } from '@kit.MediaKit';
 import curves from '@ohos.curves';
+import { MessagingContext } from '../services/facades/MessagingContext';
 
 @Builder
 export function RoomDetailPageBuilder(name: string, param: Object) {
@@ -103,8 +103,8 @@ struct RoomDetailPage {
   private viewModel: RoomDetailViewModel | null = null;
 
   aboutToAppear() {
-    const registry = ServiceRegistry.getCurrent();
-    this.viewModel = new RoomDetailViewModel(this.roomId, this.roomName, registry);
+    const context: MessagingContext = new MessagingContext();
+    this.viewModel = new RoomDetailViewModel(this.roomId, this.roomName, context);
 
     const self = this;
     this.viewModel.setLeaveRoomCallback(() => {

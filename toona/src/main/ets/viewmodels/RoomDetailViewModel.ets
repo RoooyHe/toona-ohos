@@ -1,23 +1,24 @@
 import { Message, MessageStatus } from '../models/DataModels';
-import { ServiceRegistry } from '../services/ServiceRegistry';
+import { ServiceLocator } from '../services/ServiceLocator';
 import { MediaManager } from '../services/MediaManager';
 import { VerificationService } from '../services/VerificationService';
 import { MessageActionHandler, ReplyQuoteData } from '../services/MessageActionHandler';
-import { MediaActionHandler } from '../services/MediaActionHandler';
+import { MediaActionHandler, MediaSendType } from '../services/MediaActionHandler';
 import { RoomMetadataLoader, MemberPresence, RoomTopicResult } from '../services/RoomMetadataLoader';
 import { HarmonyFilePicker } from '../platform/adapters/HarmonyFilePicker';
 import { HarmonyAudioRecorder } from '../platform/adapters/HarmonyAudioRecorder';
 import { HarmonyClipboard } from '../platform/adapters/HarmonyClipboard';
 import { IRoomManager } from '../services/RoomManager';
 import { IAuthManager } from '../services/AuthManager';
+import { ISyncManager } from '../services/SyncManager';
 import { MessageManager } from '../services/MessageManager';
 import { UserManager } from '../services/UserManager';
-import { SyncManager } from '../services/SyncManager';
 import { IClipboard } from '../platform/adapters/IClipboard';
 import { IFilePicker } from '../platform/adapters/IFilePicker';
 import { IAudioRecorder } from '../platform/adapters/IAudioRecorder';
 import { media } from '@kit.MediaKit';
 import { AppLogger } from '../utils/AppLogger';
+import { MessagingContext } from '../services/facades/MessagingContext';
 
 const logger = AppLogger.getLogger('RoomDetailViewModel');
 
@@ -49,7 +50,7 @@ export class RoomDetailViewModel {
   private authManager: IAuthManager;
   private messageManager: MessageManager;
   private userManager: UserManager;
-  private syncManager: SyncManager;
+  private syncManager: ISyncManager;
   private mediaManager: MediaManager;
   private verificationService: VerificationService;
   private messageHandler: MessageActionHandler;
@@ -76,17 +77,17 @@ export class RoomDetailViewModel {
     selectedMessage: null
   };
 
-  constructor(roomId: string, roomName: string, registry: ServiceRegistry) {
+  constructor(roomId: string, roomName: string, context: MessagingContext) {
     this.roomId = roomId;
     this.initialRoomName = roomName;
     this.state.roomName = roomName;
-    this.roomManager = registry.getRoomManager();
-    this.authManager = registry.getAuthManager();
-    this.messageManager = registry.getMessageManager();
-    this.userManager = registry.getUserManager();
-    this.syncManager = registry.getSyncManager();
-    this.mediaManager = registry.getMediaManager();
-    this.verificationService = registry.getVerificationService();
+    this.roomManager = context.getRoomManager();
+    this.authManager = context.getAuthManager();
+    this.messageManager = context.getMessageManager();
+    this.userManager = context.getUserManager();
+    this.syncManager = context.getSyncManager();
+    this.mediaManager = context.getMediaManager();
+    this.verificationService = context.getVerificationService();
 
     const filePicker: IFilePicker = new HarmonyFilePicker();
     const audioRecorder: IAudioRecorder = new HarmonyAudioRecorder();
@@ -97,8 +98,8 @@ export class RoomDetailViewModel {
       this.authManager,
       this.messageManager,
       clipboard,
-      registry.getShareManager(),
-      registry.getDeviceSecurityManager()
+      ServiceLocator.getShareManager(),
+      ServiceLocator.getDeviceSecurityManager()
     );
 
     this.mediaHandler = new MediaActionHandler(
@@ -445,7 +446,7 @@ export class RoomDetailViewModel {
     try {
       const recordingResult = await this.mediaHandler.stopRecording(avRecorder, audioPath, audioFd);
       if (recordingResult) {
-        await this.mediaHandler.uploadAndSendAudio(this.roomId, recordingResult.buffer, recordingResult.fileName, recordingResult.buffer.byteLength);
+        await this.mediaHandler.uploadAndSend(this.roomId, recordingResult.buffer, recordingResult.fileName, recordingResult.buffer.byteLength, MediaSendType.AUDIO);
       }
     } catch (err) {
       const errMsg: string = err instanceof Error ? err.message : String(err);

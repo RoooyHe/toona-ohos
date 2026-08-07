@@ -25,7 +25,8 @@ import { CollaborationSettings } from './components/settings/CollaborationSettin
 import { AboutSection } from './components/settings/AboutSection';
 import { LogoutButton } from './components/settings/LogoutButton';
 import { AppLogger } from '../utils/AppLogger';
-import { ServiceRegistry } from '../services/ServiceRegistry';
+import { UserContext } from '../services/facades/UserContext';
+import { DeviceContext } from '../services/facades/DeviceContext';
 
 @Builder
 export function SettingsPageBuilder(name: string, param: Object) {
@@ -55,18 +56,20 @@ export struct SettingsPage {
   @State colorModeType: ColorModeType = 'light';
   @State isE2EEEnabled: boolean = false;
   @State deviceId: string = '';
-  private collaborationManager: ServiceCollaborationManager = ServiceRegistry.getCurrent().getServiceCollaborationManager();
-  private deviceSecurityManager: DeviceSecurityManager = ServiceRegistry.getCurrent().getDeviceSecurityManager();
-  private scanManager: ScanManager = ServiceRegistry.getCurrent().getScanManager();
-  private userAuthManager: UserAuthManager = ServiceRegistry.getCurrent().getUserAuthManager();
-  private cryptoService: CryptoService = ServiceRegistry.getCurrent().getCryptoService();
-  private verificationService: VerificationService = ServiceRegistry.getCurrent().getVerificationService();
+  private userCtx: UserContext = new UserContext();
+  private deviceCtx: DeviceContext = new DeviceContext();
+  private collaborationManager: ServiceCollaborationManager = this.deviceCtx.getServiceCollaborationManager();
+  private deviceSecurityManager: DeviceSecurityManager = this.deviceCtx.getDeviceSecurityManager();
+  private scanManager: ScanManager = this.deviceCtx.getScanManager();
+  private userAuthManager: UserAuthManager = this.deviceCtx.getUserAuthManager();
+  private cryptoService: CryptoService = this.deviceCtx.getCryptoService();
+  private verificationService: VerificationService = this.deviceCtx.getVerificationService();
   private themeManager: ThemeManager = ThemeManager.getInstance();
   private logger = AppLogger.getLogger(SettingsPage);
   pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
-    const session = ServiceRegistry.getCurrent().getAuthManager().getSession();
+    const session = this.userCtx.getAuthManager().getSession();
     if (session) {
       this.userId = session.userId;
       this.displayName = session.userId;
@@ -92,9 +95,8 @@ export struct SettingsPage {
   async loadProfile() {
     this.isLoadingProfile = true;
     try {
-      const registry = ServiceRegistry.getCurrent();
-      const profilePromise = registry.getUserManager().getUserProfile();
-      const presencePromise = registry.getUserManager().getPresence(this.userId);
+      const profilePromise = this.userCtx.getUserManager().getUserProfile();
+      const presencePromise = this.userCtx.getUserManager().getPresence(this.userId);
       const profile = await profilePromise;
       this.displayName = profile.displayName || '';
       this.avatarUrl = profile.avatarUrl || '';
@@ -112,7 +114,7 @@ export struct SettingsPage {
   async loadDevices() {
     this.isLoadingDevices = true;
     try {
-      const devicesResponse = await ServiceRegistry.getCurrent().getDeviceManager().getDevices();
+      const devicesResponse = await this.deviceCtx.getDeviceManager().getDevices();
       this.devices = devicesResponse.devices || [];
     } catch (e) {
       this.logger.error('Failed to load devices: %{public}s', e.message);
@@ -124,10 +126,9 @@ export struct SettingsPage {
 
   async loadRoomTags() {
     this.isLoadingRoomTags = true;
-    const registry = ServiceRegistry.getCurrent();
-    const roomTagManager = registry.getRoomTagManager();
+    const roomTagManager = this.userCtx.getRoomTagManager();
     try {
-      this.allRooms = await registry.getRoomManager().getRooms();
+      this.allRooms = await this.userCtx.getRoomManager().getRooms();
       this.favoriteRooms = [];
       this.lowPriorityRooms = [];
       for (let i = 0; i < this.allRooms.length; i++) {
@@ -157,7 +158,7 @@ export struct SettingsPage {
       return;
     }
     try {
-      await ServiceRegistry.getCurrent().getUserManager().setDisplayName(this.editName.trim());
+      await this.userCtx.getUserManager().setDisplayName(this.editName.trim());
       this.displayName = this.editName.trim();
       this.isEditingName = false;
       ToastUtils.show('显示名称已更新');
@@ -169,7 +170,7 @@ export struct SettingsPage {
 
   async setPresence(state: PresenceState) {
     try {
-      await ServiceRegistry.getCurrent().getUserManager().setPresence(this.userId, state, this.statusMsg);
+      await this.userCtx.getUserManager().setPresence(this.userId, state, this.statusMsg);
       this.presence = state;
       this.showPresenceMenu = false;
       ToastUtils.show('状态已更新');
@@ -181,7 +182,7 @@ export struct SettingsPage {
 
   async setStatusMessage() {
     try {
-      await ServiceRegistry.getCurrent().getUserManager().setPresence(this.userId, this.presence, this.statusMsg);
+      await this.userCtx.getUserManager().setPresence(this.userId, this.presence, this.statusMsg);
       ToastUtils.show('状态消息已更新');
     } catch (error) {
       this.logger.error('Failed to set status message: %{public}s', error.message);
@@ -204,9 +205,9 @@ export struct SettingsPage {
         fileIo.readSync(file.fd, buffer);
         fileIo.closeSync(file);
         const fileName = 'avatar_' + Date.now() + '.jpg';
-        const mxcUri = await ServiceRegistry.getCurrent().getMediaManager().uploadImage(buffer.buffer as ArrayBuffer, fileName);
-        await ServiceRegistry.getCurrent().getUserManager().setAvatarUrl(mxcUri);
-        this.avatarUrl = ServiceRegistry.getCurrent().getMediaManager().getHttpUrl(mxcUri);
+        const mxcUri = await this.userCtx.getMediaManager().uploadImage(buffer.buffer as ArrayBuffer, fileName);
+        await this.userCtx.getUserManager().setAvatarUrl(mxcUri);
+        this.avatarUrl = this.userCtx.getMediaManager().getHttpUrl(mxcUri);
         ToastUtils.show('头像已更新');
       }
     } catch (error) {
@@ -216,7 +217,7 @@ export struct SettingsPage {
   }
 
   async toggleFavorite(room: Room) {
-    const roomTagManager = ServiceRegistry.getCurrent().getRoomTagManager();
+    const roomTagManager = this.userCtx.getRoomTagManager();
     try {
       const isFav = await roomTagManager.isFavorite(room.id);
       if (isFav) {
@@ -237,7 +238,7 @@ export struct SettingsPage {
   }
 
   async toggleLowPriority(room: Room) {
-    const roomTagManager = ServiceRegistry.getCurrent().getRoomTagManager();
+    const roomTagManager = this.userCtx.getRoomTagManager();
     try {
       const isLow = await roomTagManager.isLowPriority(room.id);
       if (isLow) {
@@ -259,7 +260,7 @@ export struct SettingsPage {
 
   async deleteDevice(deviceId: string) {
     try {
-      await ServiceRegistry.getCurrent().getDeviceManager().deleteDevice(deviceId);
+      await this.deviceCtx.getDeviceManager().deleteDevice(deviceId);
       const index = this.devices.findIndex(d => d.device_id === deviceId);
       if (index >= 0) {
         this.devices.splice(index, 1);
@@ -457,7 +458,7 @@ export struct SettingsPage {
           } else {
             DeviceManagement({
               devices: this.devices,
-              currentDeviceId: ServiceRegistry.getCurrent().getAuthManager().getSession()?.deviceId || '',
+              currentDeviceId: this.userCtx.getAuthManager().getSession()?.deviceId || '',
               onDeleteDevice: (deviceId: string) => {
                 this.deleteDevice(deviceId);
               }
@@ -669,7 +670,7 @@ export struct SettingsPage {
 
   async handleLogout() {
     try {
-      await ServiceRegistry.getCurrent().getAuthManager().logout();
+      await this.userCtx.getAuthManager().logout();
       this.pathStack.clear();
     } catch (error) {
       this.logger.error('Logout failed: %{public}s', error.message);

@@ -2,7 +2,7 @@ import { Room } from '../models/DataModels';
 import { SpaceChild } from '../services/RoomManager';
 import { getThemeColors } from '../utils/ThemeManager';
 import { AppLogger } from '../utils/AppLogger';
-import { ServiceRegistry } from '../services/ServiceRegistry';
+import { RoomContext } from '../services/facades/RoomContext';
 
 const logger = AppLogger.getLogger('SpaceDetailPage');
 
@@ -85,6 +85,7 @@ struct SpaceDetailPage {
   @State spaceId: string = '';
   @State childRooms: Room[] = [];
   @State isLoading: boolean = true;
+  private roomCtx: RoomContext = new RoomContext();
   pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
@@ -94,16 +95,16 @@ struct SpaceDetailPage {
   async loadSpaceDetails() {
     this.isLoading = true;
     try {
-      const space = await ServiceRegistry.getCurrent().getRoomManager().getRoom(this.spaceId);
+      const space = await this.roomCtx.getRoomManager().getRoom(this.spaceId);
       if (space) {
         this.spaceName = space.getDisplayName();
       }
 
-      const children: SpaceChild[] = await ServiceRegistry.getCurrent().getRoomManager().getSpaceChildren(this.spaceId);
+      const children: SpaceChild[] = await this.roomCtx.getRoomManager().getSpaceChildren(this.spaceId);
       const rooms: Room[] = [];
       for (let i = 0; i < children.length; i++) {
         const child = children[i];
-        const room = await ServiceRegistry.getCurrent().getRoomManager().getRoom(child.room_id);
+        const room = await this.roomCtx.getRoomManager().getRoom(child.room_id);
         if (room) {
           rooms.push(room);
         }

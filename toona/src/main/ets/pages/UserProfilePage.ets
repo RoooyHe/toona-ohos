@@ -2,7 +2,7 @@ import { ToastUtils } from '../utils/ToastUtils';
 import { getThemeColors } from '../utils/ThemeManager';
 import { PresenceState } from '../models/MatrixTypes';
 import { AppLogger } from '../utils/AppLogger';
-import { ServiceRegistry } from '../services/ServiceRegistry';
+import { UserContext } from '../services/facades/UserContext';
 
 const logger = AppLogger.getLogger('UserProfilePage');
 
@@ -21,6 +21,7 @@ struct UserProfilePage {
   @State presence: PresenceState = 'offline';
   @State statusMsg: string = '';
   @State isLoading: boolean = true;
+  private userCtx: UserContext = new UserContext();
   pathStack: NavPathStack = new NavPathStack();
   private logger = AppLogger.getLogger('UserProfilePage');
 
@@ -31,9 +32,8 @@ struct UserProfilePage {
   async loadUserProfile() {
     this.isLoading = true;
     try {
-      const registry = ServiceRegistry.getCurrent();
-      const profilePromise = registry.getUserManager().getUserProfile(this.userId);
-      const presencePromise = registry.getUserManager().getPresence(this.userId);
+      const profilePromise = this.userCtx.getUserManager().getUserProfile(this.userId);
+      const presencePromise = this.userCtx.getUserManager().getPresence(this.userId);
       const profile = await profilePromise;
       this.displayName = profile.displayName || '';
       this.avatarUrl = profile.avatarUrl || '';
@@ -125,7 +125,7 @@ struct UserProfilePage {
                 // Avatar
                 Stack() {
                   if (this.avatarUrl) {
-                    Image(ServiceRegistry.getCurrent().getMediaManager().getHttpUrl(this.avatarUrl))
+                    Image(this.userCtx.getMediaManager().getHttpUrl(this.avatarUrl))
                       .width(80)
                       .height(80)
                       .borderRadius(40);

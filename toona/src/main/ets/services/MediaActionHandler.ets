@@ -7,6 +7,23 @@ import { ToastUtils } from '../utils/ToastUtils';
 
 const logger = AppLogger.getLogger('MediaActionHandler');
 
+export enum MediaSendType {
+  IMAGE = 'm.image',
+  AUDIO = 'm.audio',
+  VIDEO = 'm.video',
+  FILE = 'm.file'
+}
+
+interface MediaUploadConfig {
+  uploadMethod: (data: ArrayBuffer, fileName: string) => Promise<string>;
+  msgtype: string;
+  mimetype: string;
+  body: string;
+  extraFields?: Record<string, object>;
+  successToast: string;
+  failureToast: string;
+}
+
 export class MediaActionHandler {
   private filePicker: IFilePicker;
   private audioRecorder: IAudioRecorder;
@@ -25,11 +42,60 @@ export class MediaActionHandler {
     this.messageManager = messageManager;
   }
 
+  private getUploadConfig(mediaType: MediaSendType): MediaUploadConfig {
+    switch (mediaType) {
+      case MediaSendType.AUDIO: {
+        const voiceFlag: Record<string, object> = {} as Record<string, object>;
+        const audioExtraFields: Record<string, object> = {
+          'org.matrix.msc3245.voice': voiceFlag as object,
+          'm.voice': voiceFlag as object
+        };
+        return {
+          uploadMethod: (data: ArrayBuffer, fileName: string): Promise<string> => this.mediaManager.uploadAudio(data, fileName),
+          msgtype: 'm.audio',
+          mimetype: 'audio/mp4',
+          body: '语音消息',
+          extraFields: audioExtraFields as Record<string, object>,
+          successToast: '语音发送成功',
+          failureToast: '语音发送失败'
+        };
+      }
+      case MediaSendType.VIDEO:
+        return {
+          uploadMethod: (data: ArrayBuffer, fileName: string): Promise<string> => this.mediaManager.uploadVideo(data, fileName),
+          msgtype: 'm.video',
+          mimetype: 'video/mp4',
+          body: '',
+          successToast: '视频发送成功',
+          failureToast: '视频发送失败'
+        };
+      case MediaSendType.FILE:
+        return {
+          uploadMethod: (data: ArrayBuffer, fileName: string): Promise<string> => this.mediaManager.uploadFile(data, fileName),
+          msgtype: 'm.file',
+          mimetype: 'application/octet-stream',
+          body: '',
+          successToast: '文件发送成功',
+          failureToast: '文件发送失败'
+        };
+      case MediaSendType.IMAGE:
+      default:
+        return {
+          uploadMethod: (data: ArrayBuffer, fileName: string): Promise<string> => this.mediaManager.uploadImage(data, fileName),
+          msgtype: 'm.image',
+          mimetype: 'image/jpeg',
+          body: '',
+          successToast: '图片发送成功',
+          failureToast: '图片发送失败'
+        };
+    }
+  }
+
   async selectAndUploadImage(roomId: string): Promise<void> {
     try {
       const selected: SelectedFile | null = await this.filePicker.selectImage();
       if (selected) {
-        await this.uploadAndSendImage(roomId, selected.buffer, selected.fileName, selected.fileSize);
+        await this.uploadAndSend(roomId, selected.buffer, selected.fileName, selected.fileSize, MediaSendType.IMAGE);
       }
     } catch (error) {
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -43,7 +109,7 @@ export class MediaActionHandler {
       const selectedFiles: SelectedFile[] = await this.filePicker.selectMultipleImages(maxCount);
       for (let i = 0; i < selectedFiles.length; i++) {
         const file: SelectedFile = selectedFiles[i];
-        await this.uploadAndSendImage(roomId, file.buffer, file.fileName, file.fileSize);
+        await this.uploadAndSend(roomId, file.buffer, file.fileName, file.fileSize, MediaSendType.IMAGE);
       }
       if (selectedFiles.length > 1) {
         ToastUtils.show('已发送 ' + selectedFiles.length + ' 张图片');
@@ -55,67 +121,43 @@ export class MediaActionHandler {
     }
   }
 
-  async uploadAndSendImage(roomId: string, imageBuffer: ArrayBuffer, fileName: string, fileSize: number): Promise<void> {
+  async uploadAndSend(
+    roomId: string,
+    buffer: ArrayBuffer,
+    fileName: string,
+    fileSize: number,
+    mediaType: MediaSendType
+  ): Promise<void> {
+    const config: MediaUploadConfig = this.getUploadConfig(mediaType);
     try {
-      const uploadResult: Object = await this.mediaManager.uploadImage(imageBuffer, fileName) as Object;
-      let mxcUrl: string = '';
-      if (typeof uploadResult === 'string') {
-        mxcUrl = uploadResult as string;
-      } else {
-        mxcUrl = (uploadResult as Record<string, string>)['content_uri'];
-      }
+      const mxcUrl: string = await config.uploadMethod(buffer, fileName);
 
       if (mxcUrl) {
-        const imageInfo: Record<string, Object> = {
+        const mediaInfo: Record<string, Object> = {
           'size': fileSize as Object,
-          'mimetype': 'image/jpeg' as Object
+          'mimetype': config.mimetype as Object
         };
-        const imageMessageContent: Record<string, string | object> = {
-          'msgtype': 'm.image',
-          'body': fileName,
+        const bodyText: string = config.body || fileName;
+        const messageContent: Record<string, string | object> = {
+          'msgtype': config.msgtype,
+          'body': bodyText,
           'url': mxcUrl,
-          'info': imageInfo as object
+          'info': mediaInfo as object
         };
-        await this.messageManager.sendMessage(roomId, 'm.room.message', imageMessageContent);
-        ToastUtils.show('图片发送成功');
+        if (config.extraFields) {
+          const extraKeys: string[] = Object.keys(config.extraFields);
+          for (let i = 0; i < extraKeys.length; i++) {
+            const key: string = extraKeys[i];
+            messageContent[key] = config.extraFields[key];
+          }
+        }
+        await this.messageManager.sendMessage(roomId, 'm.room.message', messageContent);
+        ToastUtils.show(config.successToast);
       }
     } catch (error) {
       const errMsg: string = error instanceof Error ? error.message : String(error);
-      logger.error('Failed to send image: ' + errMsg);
-      ToastUtils.show('图片发送失败');
-    }
-  }
-
-  async uploadAndSendAudio(roomId: string, audioBuffer: ArrayBuffer, fileName: string, fileSize: number): Promise<void> {
-    try {
-      const uploadResult: Object = await this.mediaManager.uploadImage(audioBuffer, fileName) as Object;
-      let mxcUrl: string = '';
-      if (typeof uploadResult === 'string') {
-        mxcUrl = uploadResult as string;
-      } else {
-        mxcUrl = (uploadResult as Record<string, string>)['content_uri'];
-      }
-
-      if (mxcUrl) {
-        const audioInfo: Record<string, Object> = {
-          'size': fileSize as Object,
-          'mimetype': 'audio/mp4' as Object
-        };
-        const voiceFlag: Record<string, Object> = {};
-        const audioMessageContent: Record<string, string | object> = {
-          'msgtype': 'm.audio',
-          'body': '语音消息',
-          'url': mxcUrl,
-          'info': audioInfo as object,
-          'org.matrix.msc3245.voice': voiceFlag as object,
-          'm.voice': voiceFlag as object
-        };
-        await this.messageManager.sendMessage(roomId, 'm.room.message', audioMessageContent);
-      }
-    } catch (error) {
-      const errMsg: string = error instanceof Error ? error.message : String(error);
-      logger.error('Failed to send audio: ' + errMsg);
-      ToastUtils.show('语音发送失败');
+      logger.error('Failed to send media: ' + errMsg);
+      ToastUtils.show(config.failureToast);
     }
   }
 

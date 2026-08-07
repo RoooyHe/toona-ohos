@@ -2,7 +2,7 @@ import { ToastUtils } from '../utils/ToastUtils';
 import { getThemeColors } from '../utils/ThemeManager';
 import { AppLogger } from '../utils/AppLogger';
 import { PushRule } from '../models/types/PushTypes';
-import { ServiceRegistry } from '../services/ServiceRegistry';
+import { ServiceLocator } from '../services/ServiceLocator';
 
 const logger = AppLogger.getLogger('NotificationSettingsPage');
 
@@ -30,7 +30,7 @@ struct NotificationSettingsPage {
     this.isLoading = true;
     try {
       // Load push rules from server
-      const pushRules = await ServiceRegistry.getCurrent().getPushManager().getPushRules();
+      const pushRules = await ServiceLocator.getPushManager().getPushRules();
       
       // Check if notifications are enabled globally
       if (pushRules?.global?.underride) {

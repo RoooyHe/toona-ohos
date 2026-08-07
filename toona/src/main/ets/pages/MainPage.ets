@@ -4,10 +4,10 @@ import { RoomListPage } from './RoomListPage';
 import { getThemeColors } from '../utils/ThemeManager';
 import { SpacePage } from './SpacePage';
 import { AppLogger } from '../utils/AppLogger';
-import { ServiceRegistry } from '../services/ServiceRegistry';
 import { ISyncManager } from '../services/SyncManager';
 import { IRoomManager } from '../services/RoomManager';
 import { RoomTagManager } from '../services/RoomTagManager';
+import { MainContext } from '../services/facades/MainContext';
 
 const logger = AppLogger.getLogger('MainPage');
 
@@ -43,10 +43,11 @@ struct MainPage {
   // ⚠️ 严禁使用 @State 修饰 NavPathStack 系统对象，否则会引起底层指针丢失导致闪退
   pathStack: NavPathStack = new NavPathStack();
 
+  private mainCtx: MainContext = new MainContext();
   private isNavigating: boolean = false;
-  private syncManager: ISyncManager = ServiceRegistry.getCurrent().getSyncManager();
-  private roomManager: IRoomManager = ServiceRegistry.getCurrent().getRoomManager();
-  private roomTagManager: RoomTagManager = ServiceRegistry.getCurrent().getRoomTagManager();
+  private syncManager: ISyncManager = this.mainCtx.getSyncManager();
+  private roomManager: IRoomManager = this.mainCtx.getRoomManager();
+  private roomTagManager: RoomTagManager = this.mainCtx.getRoomTagManager();
 
   aboutToAppear() {
       this.syncStatus = 'syncing';
@@ -71,7 +72,7 @@ struct MainPage {
     try {
       await this.syncManager.init(getContext());
       await this.syncManager.start();
-      const session = ServiceRegistry.getCurrent().getAuthManager().getSession();
+      const session = this.mainCtx.getAuthManager().getSession();
       if (session) {
         const userId = session.userId;
         const colonIndex = userId.indexOf(':');
@@ -121,7 +122,7 @@ ToastUtils.show('同步初始化失败', 3000);
 
   async loadUserProfile() {
     try {
-      const userManager = ServiceRegistry.getCurrent().getUserManager();
+      const userManager = this.mainCtx.getUserManager();
       const profile = await userManager.getUserProfile();
       this.userDisplayName = profile.displayName || '';
       this.userAvatarUrl = profile.avatarUrl || '';
@@ -142,7 +143,7 @@ ToastUtils.show('用户信息加载失败', 2000);
 
   async handleLogout() {
     try {
-      await ServiceRegistry.getCurrent().getAuthManager().logout();
+      await this.mainCtx.getAuthManager().logout();
       this.pathStack?.clear();
     } catch (error) {
       logger.error('Logout failed:', error);

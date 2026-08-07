@@ -2,7 +2,8 @@ import { ToastUtils } from '../utils/ToastUtils';
 import { Message } from '../models/DataModels';
 import { getThemeColors } from '../utils/ThemeManager';
 import { AppLogger } from '../utils/AppLogger';
-import { ServiceRegistry } from '../services/ServiceRegistry';
+import { RoomContext } from '../services/facades/RoomContext';
+import { ServiceLocator } from '../services/ServiceLocator';
 
 const logger = AppLogger.getLogger('MessageSearchPage');
 
@@ -30,6 +31,7 @@ struct MessageSearchPage {
   @State searchResults: SearchResult[] = [];
   @State isSearching: boolean = false;
   @State hasSearched: boolean = false;
+  private roomCtx: RoomContext = new RoomContext();
   pathStack: NavPathStack = new NavPathStack();
   private logger = AppLogger.getLogger('MessageSearchPage');
 
@@ -42,10 +44,7 @@ struct MessageSearchPage {
     this.hasSearched = true;
 
     try {
-      // In a real implementation, this would call the Matrix search API
-      // POST /_matrix/client/v3/search
-      // For now, we'll search through local messages
-      const rooms = await ServiceRegistry.getCurrent().getRoomManager().getRooms();
+      const rooms = await this.roomCtx.getRoomManager().getRooms();
       const results: SearchResult[] = [];
 
       for (const room of rooms) {
@@ -54,7 +53,7 @@ struct MessageSearchPage {
         }
 
         try {
-          const messages: Message[] = await ServiceRegistry.getCurrent().getMessageManager().getMessages(room.id, 50);
+          const messages: Message[] = await ServiceLocator.getMessageManager().getMessages(room.id, 50);
           const matchingMessages: Message[] = messages.filter((msg: Message): boolean => {
             const body: string = msg.getMessageBody().toLowerCase();
             return body.includes(this.searchQuery.toLowerCase());

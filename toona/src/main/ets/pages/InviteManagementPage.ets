@@ -1,7 +1,8 @@
 import { ToastUtils } from '../utils/ToastUtils';
 import { getThemeColors } from '../utils/ThemeManager';
 import { AppLogger } from '../utils/AppLogger';
-import { ServiceRegistry } from '../services/ServiceRegistry';
+import { RoomContext } from '../services/facades/RoomContext';
+import { ServiceLocator } from '../services/ServiceLocator';
 
 const logger = AppLogger.getLogger('InviteManagementPage');
 
@@ -24,6 +25,7 @@ struct InviteManagementPage {
   @State invites: RoomInvite[] = [];
   @State isLoading: boolean = true;
   @State processingInvite: string = '';
+  private roomCtx: RoomContext = new RoomContext();
   pathStack: NavPathStack = new NavPathStack();
   private logger = AppLogger.getLogger('InviteManagementPage');
 
@@ -34,8 +36,6 @@ struct InviteManagementPage {
   async loadInvites() {
     this.isLoading = true;
     try {
-      // In a real implementation, this would fetch invites from the sync response
-      // For now, we'll use an empty array
       this.invites = [];
     } catch (error) {
       this.logger.error('Failed to load invites:', error);
@@ -48,7 +48,7 @@ struct InviteManagementPage {
   async acceptInvite(invite: RoomInvite) {
     this.processingInvite = invite.roomId;
     try {
-      await ServiceRegistry.getCurrent().getRoomManager().joinRoom(invite.roomId);
+      await this.roomCtx.getRoomManager().joinRoom(invite.roomId);
       ToastUtils.show('Joined room');
       this.invites = this.invites.filter(i => i.roomId !== invite.roomId);
       this.pathStack.pop();
@@ -63,7 +63,7 @@ struct InviteManagementPage {
   async declineInvite(invite: RoomInvite) {
     this.processingInvite = invite.roomId;
     try {
-      await ServiceRegistry.getCurrent().getRoomManager().leaveRoom(invite.roomId);
+      await this.roomCtx.getRoomManager().leaveRoom(invite.roomId);
       ToastUtils.show('Invite declined');
       this.invites = this.invites.filter(i => i.roomId !== invite.roomId);
     } catch (error) {
@@ -138,7 +138,7 @@ struct InviteManagementPage {
                     // Room Avatar
                     Stack() {
                       if (invite.avatarUrl) {
-                        Image(ServiceRegistry.getCurrent().getMediaManager().getHttpUrl(invite.avatarUrl))
+                        Image(ServiceLocator.getMediaManager().getHttpUrl(invite.avatarUrl))
                           .width(48)
                           .height(48)
                           .borderRadius(24);

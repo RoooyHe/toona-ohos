@@ -1,6 +1,6 @@
 import { AuthManager } from '../services/AuthManager';
 import { ConfigurationConstant } from '@kit.AbilityKit';
-import { ServiceRegistry } from '../services/ServiceRegistry';
+import { ServiceLocator } from '../services/ServiceLocator';
 import { LocalDatabase } from '../database/LocalDatabase';
 import { EventProcessor } from '../services/EventProcessor';
 import { CryptoService } from '../services/CryptoService';
@@ -73,27 +73,25 @@ struct AppNavigation {
     const shareManager = new ShareManager();
     const serviceCollaborationManager = new ServiceCollaborationManager();
 
-    const registry = new ServiceRegistry();
-    registry.registerConnectionConfig(config);
-    registry.registerAuthManager(authManager);
-    registry.registerLocalDatabase(localDatabase);
-    registry.registerSyncManager(syncManager);
-    registry.registerRoomManager(roomManager);
-    registry.registerMessageManager(messageManager);
-    registry.registerCryptoService(cryptoService);
-    registry.registerVerificationService(verificationService);
-    registry.registerDeviceManager(deviceManager);
-    registry.registerMediaManager(mediaManager);
-    registry.registerPushManager(pushManager);
-    registry.registerRoomTagManager(roomTagManager);
-    registry.registerUserManager(userManager);
-    registry.registerEventProcessor(eventProcessor);
-    registry.registerUserAuthManager(userAuthManager);
-    registry.registerDeviceSecurityManager(deviceSecurityManager);
-    registry.registerScanManager(scanManager);
-    registry.registerShareManager(shareManager);
-    registry.registerServiceCollaborationManager(serviceCollaborationManager);
-    ServiceRegistry.init(registry);
+    ServiceLocator.setConnectionConfig(config);
+    ServiceLocator.setAuthManager(authManager);
+    ServiceLocator.setLocalDatabase(localDatabase);
+    ServiceLocator.setSyncManager(syncManager);
+    ServiceLocator.setRoomManager(roomManager);
+    ServiceLocator.setMessageManager(messageManager);
+    ServiceLocator.setCryptoService(cryptoService);
+    ServiceLocator.setVerificationService(verificationService);
+    ServiceLocator.setDeviceManager(deviceManager);
+    ServiceLocator.setMediaManager(mediaManager);
+    ServiceLocator.setPushManager(pushManager);
+    ServiceLocator.setRoomTagManager(roomTagManager);
+    ServiceLocator.setUserManager(userManager);
+    ServiceLocator.setEventProcessor(eventProcessor);
+    ServiceLocator.setUserAuthManager(userAuthManager);
+    ServiceLocator.setDeviceSecurityManager(deviceSecurityManager);
+    ServiceLocator.setScanManager(scanManager);
+    ServiceLocator.setShareManager(shareManager);
+    ServiceLocator.setServiceCollaborationManager(serviceCollaborationManager);
   }
 
   onPageShow() {
@@ -101,7 +99,7 @@ struct AppNavigation {
       return;
     }
     this.hasNavigated = true;
-    const session = ServiceRegistry.getCurrent().getAuthManager().getSession();
+    const session = ServiceLocator.getAuthManager().getSession();
     if (session !== null) {
       this.pathStack.clear();
       const param: Record<string, Object> = {};
