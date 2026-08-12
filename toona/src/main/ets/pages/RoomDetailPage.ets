@@ -18,7 +18,6 @@ import { MemberPresence } from '../services/RoomMetadataLoader';
 import { ReplyQuoteData } from '../services/MessageActionHandler';
 import { media } from '@kit.MediaKit';
 import curves from '@ohos.curves';
-import { MessagingContext } from '../services/facades/MessagingContext';
 
 @Builder
 export function RoomDetailPageBuilder(name: string, param: Object) {
@@ -103,8 +102,7 @@ struct RoomDetailPage {
   private viewModel: RoomDetailViewModel | null = null;
 
   aboutToAppear() {
-    const context: MessagingContext = new MessagingContext();
-    this.viewModel = new RoomDetailViewModel(this.roomId, this.roomName, context);
+    this.viewModel = new RoomDetailViewModel(this.roomId, this.roomName);
 
     const self = this;
     this.viewModel.setLeaveRoomCallback(() => {

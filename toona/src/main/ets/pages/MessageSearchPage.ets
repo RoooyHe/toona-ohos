@@ -2,7 +2,6 @@ import { ToastUtils } from '../utils/ToastUtils';
 import { Message } from '../models/DataModels';
 import { getThemeColors } from '../utils/ThemeManager';
 import { AppLogger } from '../utils/AppLogger';
-import { RoomContext } from '../services/facades/RoomContext';
 import { ServiceLocator } from '../services/ServiceLocator';
 
 const logger = AppLogger.getLogger('MessageSearchPage');
@@ -31,7 +30,7 @@ struct MessageSearchPage {
   @State searchResults: SearchResult[] = [];
   @State isSearching: boolean = false;
   @State hasSearched: boolean = false;
-  private roomCtx: RoomContext = new RoomContext();
+  private roomManager = ServiceLocator.getRoomManager();
   pathStack: NavPathStack = new NavPathStack();
   private logger = AppLogger.getLogger('MessageSearchPage');
 
@@ -44,7 +43,7 @@ struct MessageSearchPage {
     this.hasSearched = true;
 
     try {
-      const rooms = await this.roomCtx.getRoomManager().getRooms();
+      const rooms = await this.roomManager.getRooms();
       const results: SearchResult[] = [];
 
       for (const room of rooms) {

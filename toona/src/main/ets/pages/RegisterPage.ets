@@ -1,7 +1,7 @@
 import { ThemeColors, getThemeColors } from '../utils/ThemeManager';
 import { ToastUtils } from '../utils/ToastUtils';
 import { AppLogger } from '../utils/AppLogger';
-import { SessionContext } from '../services/facades/SessionContext';
+import { ServiceLocator } from '../services/ServiceLocator';
 
 const logger = AppLogger.getLogger('RegisterPage');
 
@@ -45,10 +45,8 @@ struct RegisterPage {
   @State errorMessage: string = '';
   pathStack: NavPathStack = new NavPathStack();
 
-  private sessionCtx: SessionContext = new SessionContext();
-
   aboutToAppear() {
-    this.homeserver = this.sessionCtx.getHomeserver() || '';
+    this.homeserver = ServiceLocator.getAuthManager().getHomeserver() || '';
   }
 
   getThemeColors(): RegisterThemeColors {
@@ -124,7 +122,7 @@ struct RegisterPage {
   }
 
   async doRegister(serverUrl: string): Promise<void> {
-    const authManager = this.sessionCtx.getAuthManager();
+    const authManager = ServiceLocator.getAuthManager();
     if (serverUrl !== authManager.getHomeserver()) {
       await authManager.setHomeserver(serverUrl);
     }

@@ -346,4 +346,9 @@ export class Message {
   }
 }
 
+export interface UserProfile {
+  displayName: string | null;
+  avatarUrl: string | null;
+}
+
 export { MessageStatus };

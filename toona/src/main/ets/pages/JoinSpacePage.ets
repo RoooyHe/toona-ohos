@@ -3,7 +3,7 @@ import { QuickDialogManager, QuickDialogParams, QuickDialogController, QuickDial
 import { getThemeColors } from '../utils/ThemeManager';
 import { common } from '@kit.AbilityKit';
 import { AppLogger } from '../utils/AppLogger';
-import { RoomContext } from '../services/facades/RoomContext';
+import { ServiceLocator } from '../services/ServiceLocator';
 
 interface CreateSpaceDialogData {
   spaceName: string;
@@ -125,7 +125,8 @@ struct JoinSpacePage {
   @State isSearching: boolean = false;
   @State spaceAddress: string = '';
   @State isJoining: boolean = false;
-  private roomCtx: RoomContext = new RoomContext();
+  private roomManager = ServiceLocator.getRoomManager();
+  private authManager = ServiceLocator.getAuthManager();
   private createSpaceDialogController: QuickDialogController | undefined = undefined;
   pathStack: NavPathStack = new NavPathStack();
 
@@ -140,7 +141,7 @@ struct JoinSpacePage {
 
     this.isSearching = true;
     try {
-      const response = await this.roomCtx.getRoomManager().searchPublicRooms(undefined, this.searchQuery.trim(), 20);
+      const response = await this.roomManager.searchPublicRooms(undefined, this.searchQuery.trim(), 20);
       this.searchResults = response.chunk || [];
     } catch (error) {
       logger.error('Search spaces failed:', error);
@@ -162,9 +163,9 @@ struct JoinSpacePage {
     try {
       let spaceId = spaceIdOrAlias.trim();
       if (!spaceId.startsWith('#') && !spaceId.includes(':')) {
-        spaceId = `#${spaceId}:${this.roomCtx.getHomeserver()}`;
+        spaceId = `#${spaceId}:${this.authManager.getHomeserver()}`;
       }
-      await this.roomCtx.getRoomManager().joinRoom(spaceId);
+      await this.roomManager.joinRoom(spaceId);
       ToastUtils.show('加入成功');
 this.pathStack.pop();
     } catch (error) {
@@ -195,7 +196,7 @@ this.pathStack.pop();
   }
 
   async doCreateSpace(spaceName: string): Promise<void> {
-    await this.roomCtx.getRoomManager().createSpace(spaceName.trim());
+    await this.roomManager.createSpace(spaceName.trim());
     ToastUtils.show('创建成功');
     this.pathStack.pop();
   }

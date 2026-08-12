@@ -2,7 +2,7 @@ import { scanCore, scanBarcode } from '@kit.ScanKit';
 import { ToastUtils } from '../utils/ToastUtils';
 import { AppLogger } from '../utils/AppLogger';
 
-interface GeneratedTypeLiteralInterface_1 {
+interface ParsedMatrixLink {
   type: string;
   roomId?: string;
   userId?: string;
@@ -10,7 +10,7 @@ interface GeneratedTypeLiteralInterface_1 {
   via?: string[];
 }
 
-interface GeneratedTypeLiteralInterface_2 {
+interface MatrixLinkResult {
   type: string;
   roomId?: string;
   userId?: string;
@@ -55,7 +55,7 @@ export class ScanManager {
     }
   }
 
-  parseMatrixToLink(url: string): GeneratedTypeLiteralInterface_1 | null {
+  parseMatrixToLink(url: string): ParsedMatrixLink | null {
     const matrixToRegex = /^https?:\/\/matrix\.to\/((#|!)([^\?]+))(\?.*)?$/;
     const match = url.match(matrixToRegex);
 
@@ -67,7 +67,7 @@ export class ScanManager {
     const identifier = match[3];
     const queryString = match[4] || '';
 
-    const result: GeneratedTypeLiteralInterface_2 = {
+    const result: MatrixLinkResult = {
       type: type === '#' ? 'room' : 'room-or-space'
     };
 

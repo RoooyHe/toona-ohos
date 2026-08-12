@@ -1,7 +1,6 @@
 import { ToastUtils } from '../utils/ToastUtils';
 import { getThemeColors } from '../utils/ThemeManager';
 import { AppLogger } from '../utils/AppLogger';
-import { RoomContext } from '../services/facades/RoomContext';
 import { ServiceLocator } from '../services/ServiceLocator';
 
 const logger = AppLogger.getLogger('InviteManagementPage');
@@ -25,7 +24,7 @@ struct InviteManagementPage {
   @State invites: RoomInvite[] = [];
   @State isLoading: boolean = true;
   @State processingInvite: string = '';
-  private roomCtx: RoomContext = new RoomContext();
+  private roomManager = ServiceLocator.getRoomManager();
   pathStack: NavPathStack = new NavPathStack();
   private logger = AppLogger.getLogger('InviteManagementPage');
 
@@ -48,7 +47,7 @@ struct InviteManagementPage {
   async acceptInvite(invite: RoomInvite) {
     this.processingInvite = invite.roomId;
     try {
-      await this.roomCtx.getRoomManager().joinRoom(invite.roomId);
+      await this.roomManager.joinRoom(invite.roomId);
       ToastUtils.show('Joined room');
       this.invites = this.invites.filter(i => i.roomId !== invite.roomId);
       this.pathStack.pop();
@@ -63,7 +62,7 @@ struct InviteManagementPage {
   async declineInvite(invite: RoomInvite) {
     this.processingInvite = invite.roomId;
     try {
-      await this.roomCtx.getRoomManager().leaveRoom(invite.roomId);
+      await this.roomManager.leaveRoom(invite.roomId);
       ToastUtils.show('Invite declined');
       this.invites = this.invites.filter(i => i.roomId !== invite.roomId);
     } catch (error) {

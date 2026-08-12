@@ -1,19 +1,9 @@
 import { ToastUtils } from '../utils/ToastUtils';
-import { SPHelper } from '@wondertek/wdkitlib';
 import { UserAuthManager } from '../services/UserAuthManager';
 import { getThemeColors } from '../utils/ThemeManager';
-import http from '@ohos.net.http';
 import { AppLogger } from '../utils/AppLogger';
-import { SessionContext } from '../services/facades/SessionContext';
-
-function extractHomeServerUrl(jsonString: string): string | null {
-  const regex = /"m\.homeserver"\s*:\s*\{\s*"base_url"\s*:\s*"([^"]+)"/;
-  const match = jsonString.match(regex);
-  if (match !== null && match[1] !== undefined) {
-    return match[1];
-  }
-  return null;
-}
+import { ServiceLocator } from '../services/ServiceLocator';
+import { IAuthManager, SavedCredentials } from '../services/AuthManager';
 
 @Builder
 export function LoginPageBuilder(name: string, param: Object) {
@@ -30,8 +20,8 @@ struct LoginPage {
   @State errorMessage: string = '';
   @State rememberMe: boolean = true;
   @State isDiscovering: boolean = false;
-  private sessionCtx: SessionContext = new SessionContext();
-  private userAuthManager: UserAuthManager = this.sessionCtx.getUserAuthManager();
+  private authManager: IAuthManager = ServiceLocator.getAuthManager();
+  private userAuthManager: UserAuthManager = ServiceLocator.getUserAuthManager();
   private logger = AppLogger.getLogger(LoginPage);
   pathStack: NavPathStack = new NavPathStack();
 
@@ -41,66 +31,15 @@ struct LoginPage {
 
   async loadSavedCredentials() {
     try {
-      const savedHomeserver = await SPHelper.default.get('saved_homeserver', '') as string;
-      const savedUserId = await SPHelper.default.get('saved_user_id', '') as string;
-      const savedRemember = await SPHelper.default.get('remember_me', 'false') as string;
-
-      if (savedRemember === 'true' && savedHomeserver) {
-        this.homeserver = savedHomeserver;
-        this.rememberMe = true;
-      }
-      if (savedRemember === 'true' && savedUserId) {
-        this.userId = savedUserId;
+      const creds = await this.authManager.loadSavedCredentials();
+      if (creds && creds.rememberMe) {
+        this.homeserver = creds.homeserver;
+        this.userId = creds.userId;
         this.rememberMe = true;
       }
     } catch (error) {
       this.logger.error('Failed to load saved credentials:', error);
     }
-  }
-
-  async saveCredentials() {
-    if (this.rememberMe) {
-      await SPHelper.default.saveAndFlush('saved_homeserver', this.homeserver);
-      await SPHelper.default.saveAndFlush('saved_user_id', this.userId);
-      await SPHelper.default.saveAndFlush('remember_me', 'true');
-    } else {
-      await SPHelper.default.delete('saved_homeserver');
-      await SPHelper.default.delete('saved_user_id');
-      await SPHelper.default.saveAndFlush('remember_me', 'false');
-    }
-  }
-
-  async discoverHomeserver(domain: string): Promise<string | null> {
-    const cleanDomain = domain.trim().toLowerCase();
-    let serverUrl = cleanDomain;
-    if (!serverUrl.startsWith('http://') && !serverUrl.startsWith('https://')) {
-      serverUrl = 'https://' + serverUrl;
-    }
-    serverUrl = serverUrl.replace(/\/$/, '');
-
-    try {
-      const wellKnownUrl = serverUrl + '/.well-known/matrix/client';
-      const httpClient = http.createHttp();
-      const response = await httpClient.request(wellKnownUrl, {
-        method: http.RequestMethod.GET,
-        header: {
-          'Accept': 'application/json'
-        }
-      });
-
-      if (response.responseCode === 200) {
-        const responseData = response.result as string;
-        const baseUrl = extractHomeServerUrl(responseData);
-        if (baseUrl) {
-          httpClient.destroy();
-          return baseUrl.replace(/\/$/, '');
-        }
-      }
-      httpClient.destroy();
-    } catch (error) {
-      this.logger.warn('Well-known discovery failed, using direct connection:', error);
-    }
-    return serverUrl;
   }
 
   async handleLogin() {
@@ -116,7 +55,8 @@ struct LoginPage {
     try {
       let serverUrl: string;
       if (this.homeserver.includes('.')) {
-        serverUrl = await this.discoverHomeserver(this.homeserver) || this.homeserver;
+        const discovered = await this.authManager.discoverHomeserverUrl(this.homeserver);
+        serverUrl = discovered || this.homeserver;
       } else {
         serverUrl = this.homeserver.trim();
         if (!serverUrl.startsWith('http://') && !serverUrl.startsWith('https://')) {
@@ -125,9 +65,9 @@ struct LoginPage {
         serverUrl = serverUrl.replace(/\/$/, '');
       }
 
-      await this.sessionCtx.setHomeserver(serverUrl);
+      await this.authManager.setHomeserver(serverUrl);
 
-      const isValidServer = await this.sessionCtx.checkHomeserverVersion();
+      const isValidServer = await this.authManager.checkHomeserverVersion();
       if (!isValidServer) {
         this.errorMessage = '无法连接到服务器';
         this.isLoading = false;
@@ -135,9 +75,9 @@ struct LoginPage {
         return;
       }
 
-      const session = await this.sessionCtx.login(this.userId, this.password);
+      await this.authManager.login(this.userId, this.password);
 
-      await this.saveCredentials();
+      await this.authManager.saveCredentials(this.homeserver, this.userId, this.rememberMe);
 
       ToastUtils.show('登录成功', 2000);
 
@@ -184,18 +124,6 @@ struct LoginPage {
     try {
       const success = await this.userAuthManager.authenticateWithFace();
       if (success) {
-        await this.tryAutoLogin();
-      }
-    } catch (error) {
-      this.logger.error('Biometric login failed: %{public}s', error.message);
-      ToastUtils.show('生物识别登录失败');
-    }
-  }
-
-  async tryAutoLogin() {
-    try {
-      const savedToken = await SPHelper.default.get('saved_access_token', '') as string;
-      if (savedToken) {
         ToastUtils.show('验证成功，正在登录...');
         try {
           if (this.pathStack) {
@@ -206,12 +134,10 @@ struct LoginPage {
         } catch (e) {
           this.logger.error('Navigation failed:', e);
         }
-      } else {
-        ToastUtils.show('请先使用密码登录以启用生物识别');
       }
     } catch (error) {
-      this.logger.error('Auto login failed: %{public}s', error.message);
-      ToastUtils.show('自动登录失败');
+      this.logger.error('Biometric login failed: %{public}s', error.message);
+      ToastUtils.show('生物识别登录失败');
     }
   }
 

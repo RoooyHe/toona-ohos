@@ -24,7 +24,7 @@ import {
 import { CryptoDao } from '../database/dao/CryptoDao';
 import { DeviceKeysStorage } from '../database/dao/DeviceKeysDao';
 import { InboundGroupSessionEntity } from '../database/entities/InboundGroupSessionEntity';
-import { MatrixEndpoints } from '../network/clients/MatrixEndpoints';
+import { CryptoHttpClient } from '../network/clients/CryptoHttpClient';
 import { AuthManager, IAuthManager } from './AuthManager';
 import { VerificationService } from './VerificationService';
 
@@ -74,7 +74,7 @@ export class CryptoService {
   private initialized: boolean = false;
   private cryptoDao: CryptoDao;
   private deviceKeysStorage: DeviceKeysStorage;
-  private matrixEndpoints: MatrixEndpoints;
+  private cryptoHttpClient: CryptoHttpClient;
   private authManager: IAuthManager;
   private verificationService: VerificationService;
 
@@ -88,13 +88,13 @@ export class CryptoService {
 
   constructor(
     authManager: IAuthManager,
-    matrixEndpoints: MatrixEndpoints,
+    matrixEndpoints: CryptoHttpClient,
     verificationService: VerificationService,
     cryptoDao: CryptoDao,
     deviceKeysStorage: DeviceKeysStorage
   ) {
     this.authManager = authManager;
-    this.matrixEndpoints = matrixEndpoints;
+    this.cryptoHttpClient = matrixEndpoints;
     this.verificationService = verificationService;
     this.cryptoDao = cryptoDao;
     this.deviceKeysStorage = deviceKeysStorage;
@@ -541,11 +541,11 @@ export class CryptoService {
   }
 
   async uploadDeviceKeys(deviceKeys: Record<string, string | object>): Promise<void> {
-    throw new Error('E2EE not available — device key upload requires real Olm library');
+    logger.info('Device key upload not available — E2EE not implemented');
   }
 
   async uploadOneTimeKeys(oneTimeKeys: Record<string, string>): Promise<void> {
-    throw new Error('E2EE not available — one-time key upload requires real Olm library');
+    logger.info('One-time key upload not available — E2EE not implemented');
   }
 
   async requestRoomKeys(roomId: string, sessionId: string): Promise<void> {

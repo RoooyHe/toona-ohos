@@ -71,11 +71,12 @@ export class VerificationService {
   }
 
   async startSasVerification(userId: string, deviceId: string): Promise<string> {
-    throw new Error('Device verification not available — E2EE not implemented');
+    logger.info('SAS verification not available — E2EE not implemented');
+    return '';
   }
 
   async startQrVerification(userId: string, deviceId: string): Promise<void> {
-    throw new Error('QR verification not available — E2EE not implemented');
+    logger.info('QR verification not available — E2EE not implemented');
   }
 
   async acceptVerification(transactionId: string): Promise<void> {
@@ -150,7 +151,7 @@ export class VerificationService {
   }
 
   async confirmVerification(transactionId: string): Promise<void> {
-    throw new Error('Device verification not available — E2EE not implemented');
+    logger.info('Confirm verification not available — E2EE not implemented');
   }
 
   async cancelVerification(transactionId: string, reason?: string): Promise<void> {

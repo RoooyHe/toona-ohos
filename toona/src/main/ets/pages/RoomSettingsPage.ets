@@ -1,9 +1,6 @@
 import { ToastUtils } from '../utils/ToastUtils';
 import { getThemeColors } from '../utils/ThemeManager';
-import { AppLogger } from '../utils/AppLogger';
-import { RoomContext } from '../services/facades/RoomContext';
-
-const logger = AppLogger.getLogger('RoomSettingsPage');
+import { RoomSettingsViewModel, RoomSettingsState } from '../viewmodels/RoomSettingsViewModel';
 
 @Builder
 export function RoomSettingsPageBuilder(name: string, param: Object) {
@@ -25,71 +22,30 @@ struct RoomSettingsPage {
   @State memberCount: number = 0;
   @State isPublic: boolean = false;
   @State isLoading: boolean = true;
-  private roomCtx: RoomContext = new RoomContext();
   pathStack: NavPathStack = new NavPathStack();
-  private logger = AppLogger.getLogger('RoomSettingsPage');
+  private vm: RoomSettingsViewModel = new RoomSettingsViewModel(this.roomId, this.roomName);
+
+  private syncState(state: RoomSettingsState): void {
+    this.roomId = state.roomId;
+    this.roomName = state.roomName;
+    this.roomTopic = state.roomTopic;
+    this.editName = state.editName;
+    this.editTopic = state.editTopic;
+    this.isEditingName = state.isEditingName;
+    this.isEditingTopic = state.isEditingTopic;
+    this.memberCount = state.memberCount;
+    this.isPublic = state.isPublic;
+    this.isLoading = state.isLoading;
+  }
 
   aboutToAppear() {
-    this.loadRoomSettings();
-  }
-
-  async loadRoomSettings() {
-    this.isLoading = true;
-    try {
-      const room = await this.roomCtx.getRoomManager().getRoom(this.roomId);
-      if (room) {
-        this.roomName = room.getDisplayName();
-        this.roomTopic = room.topic || '';
-        this.editName = this.roomName;
-        this.editTopic = this.roomTopic;
-        this.memberCount = room.memberCount || 0;
-      }
-    } catch (error) {
-      this.logger.error('Failed to load room settings:', error);
-      ToastUtils.show('Failed to load room settings');
-    } finally {
-      this.isLoading = false;
-    }
-  }
-
-  async saveRoomName() {
-    if (!this.editName.trim()) {
-      ToastUtils.show('Room name cannot be empty');
-      return;
-    }
-
-    try {
-      await this.roomCtx.getRoomManager().setRoomName(this.roomId, this.editName.trim());
-      this.roomName = this.editName.trim();
-      this.isEditingName = false;
-      ToastUtils.show('Room name updated');
-    } catch (error) {
-      this.logger.error('Failed to update room name:', error);
-      ToastUtils.show('Failed to update room name');
-    }
-  }
-
-  async saveRoomTopic() {
-    try {
-      await this.roomCtx.getRoomManager().setRoomTopic(this.roomId, this.editTopic.trim());
-      this.roomTopic = this.editTopic.trim();
-      this.isEditingTopic = false;
-      ToastUtils.show('Room topic updated');
-    } catch (error) {
-      this.logger.error('Failed to update room topic:', error);
-      ToastUtils.show('Failed to update room topic');
-    }
-  }
-
-  async leaveRoom() {
-    try {
-      await this.roomCtx.getRoomManager().leaveRoom(this.roomId);
-      ToastUtils.show('Left room');
+    this.vm.setOnStateChanged((state: RoomSettingsState) => {
+      this.syncState(state);
+    });
+    this.vm.setPopCallback(() => {
       this.pathStack.pop();
-    } catch (error) {
-      this.logger.error('Failed to leave room:', error);
-      ToastUtils.show('Failed to leave room');
-    }
+    });
+    this.vm.initialize();
   }
 
   build() {
@@ -150,7 +106,7 @@ struct RoomSettingsPage {
                       .borderRadius(6)
                       .padding({ left: 12, right: 12, top: 6, bottom: 6 })
                       .onClick(() => {
-                        this.saveRoomName();
+                        this.vm.saveRoomName();
                       });
                   } else {
                     Button('Edit')
@@ -162,7 +118,7 @@ struct RoomSettingsPage {
                       .borderRadius(6)
                       .padding({ left: 12, right: 12, top: 6, bottom: 6 })
                       .onClick(() => {
-                        this.isEditingName = true;
+                        this.vm.setEditingName(true);
                       });
                   }
                 }
@@ -178,7 +134,7 @@ struct RoomSettingsPage {
                     .borderRadius(6)
                     .margin({ left: 20, right: 20, bottom: 15 })
                     .onChange((value: string) => {
-                      this.editName = value;
+                      this.vm.setEditName(value);
                     });
                 } else {
                   Text(this.roomName)
@@ -208,7 +164,7 @@ struct RoomSettingsPage {
                       .borderRadius(6)
                       .padding({ left: 12, right: 12, top: 6, bottom: 6 })
                       .onClick(() => {
-                        this.saveRoomTopic();
+                        this.vm.saveRoomTopic();
                       });
                   } else {
                     Button('Edit')
@@ -220,7 +176,7 @@ struct RoomSettingsPage {
                       .borderRadius(6)
                       .padding({ left: 12, right: 12, top: 6, bottom: 6 })
                       .onClick(() => {
-                        this.isEditingTopic = true;
+                        this.vm.setEditingTopic(true);
                       });
                   }
                 }
@@ -236,7 +192,7 @@ struct RoomSettingsPage {
                     .borderRadius(6)
                     .margin({ left: 20, right: 20, bottom: 15 })
                     .onChange((value: string) => {
-                      this.editTopic = value;
+                      this.vm.setEditTopic(value);
                     });
                 } else {
                   Text(this.roomTopic || 'No topic set')
@@ -283,7 +239,7 @@ struct RoomSettingsPage {
                   .height(44)
                   .margin({ left: 20, right: 20, top: 20, bottom: 20 })
                   .onClick(() => {
-                    this.leaveRoom();
+                    this.vm.leaveRoom();
                   });
               }
               .width('100%')

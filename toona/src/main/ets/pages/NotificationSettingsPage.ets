@@ -1,10 +1,6 @@
 import { ToastUtils } from '../utils/ToastUtils';
 import { getThemeColors } from '../utils/ThemeManager';
-import { AppLogger } from '../utils/AppLogger';
-import { PushRule } from '../models/types/PushTypes';
-import { ServiceLocator } from '../services/ServiceLocator';
-
-const logger = AppLogger.getLogger('NotificationSettingsPage');
+import { NotificationSettingsViewModel, NotificationSettingsState } from '../viewmodels/NotificationSettingsViewModel';
 
 @Builder
 export function NotificationSettingsPageBuilder(name: string, param: Object) {
@@ -20,58 +16,18 @@ struct NotificationSettingsPage {
   @State mutedRooms: string[] = [];
   @State isLoading: boolean = true;
   pathStack: NavPathStack = new NavPathStack();
-  private logger = AppLogger.getLogger('NotificationSettingsPage');
+  private vm: NotificationSettingsViewModel = new NotificationSettingsViewModel();
 
   aboutToAppear() {
-    this.loadNotificationSettings();
-  }
-
-  async loadNotificationSettings() {
-    this.isLoading = true;
-    try {
-      // Load push rules from server
-      const pushRules = await ServiceLocator.getPushManager().getPushRules();
-      
-      // Check if notifications are enabled globally
-      if (pushRules?.global?.underride) {
-        const rule = pushRules.global.underride.find(r => r.rule_id === '.m.rule.master');
-        this.enableNotifications = rule?.enabled !== false;
-      }
-
-      // Load muted rooms
-      if (pushRules?.global?.room) {
-        const roomRules: PushRule[] = pushRules.global.room;
-        this.mutedRooms = roomRules.filter((r: PushRule): boolean => {
-          return r.enabled === false;
-        }).map((r: PushRule): string => r.rule_id);
-      }
-    } catch (error) {
-      this.logger.error('Failed to load notification settings:', error);
-      ToastUtils.show('Failed to load settings');
-    } finally {
-      this.isLoading = false;
-    }
-  }
-
-  async toggleNotifications(enable: boolean) {
-    try {
-      this.enableNotifications = enable;
-      // In a real implementation, this would update the master push rule
-      ToastUtils.show(enable ? 'Notifications enabled' : 'Notifications disabled');
-    } catch (error) {
-      this.logger.error('Failed to toggle notifications:', error);
-      ToastUtils.show('Failed to update settings');
-    }
-  }
-
-  async toggleSound(enable: boolean) {
-    this.enableSound = enable;
-    ToastUtils.show(enable ? 'Sound enabled' : 'Sound disabled');
-  }
-
-  async toggleVibration(enable: boolean) {
-    this.enableVibration = enable;
-    ToastUtils.show(enable ? 'Vibration enabled' : 'Vibration disabled');
+    this.vm.setOnStateChanged((state: NotificationSettingsState) => {
+      this.enableNotifications = state.enableNotifications;
+      this.enableSound = state.enableSound;
+      this.enableVibration = state.enableVibration;
+      this.showMutedRooms = state.showMutedRooms;
+      this.mutedRooms = state.mutedRooms;
+      this.isLoading = state.isLoading;
+    });
+    this.vm.initialize();
   }
 
   build() {
@@ -127,7 +83,7 @@ struct NotificationSettingsPage {
                   Toggle({ type: ToggleType.Switch, isOn: this.enableNotifications })
                     .selectedColor(getThemeColors().primary)
                     .onChange((isOn: boolean) => {
-                      this.toggleNotifications(isOn);
+                      this.vm.toggleNotifications(isOn);
                     });
                 }
                 .width('100%')
@@ -148,7 +104,7 @@ struct NotificationSettingsPage {
                   Toggle({ type: ToggleType.Switch, isOn: this.enableSound })
                     .selectedColor(getThemeColors().primary)
                     .onChange((isOn: boolean) => {
-                      this.toggleSound(isOn);
+                      this.vm.toggleSound(isOn);
                     });
                 }
                 .width('100%')
@@ -169,7 +125,7 @@ struct NotificationSettingsPage {
                   Toggle({ type: ToggleType.Switch, isOn: this.enableVibration })
                     .selectedColor(getThemeColors().primary)
                     .onChange((isOn: boolean) => {
-                      this.toggleVibration(isOn);
+                      this.vm.toggleVibration(isOn);
                     });
                 }
                 .width('100%')
@@ -194,7 +150,7 @@ struct NotificationSettingsPage {
                 .width('100%')
                 .padding({ left: 20, right: 20, top: 15, bottom: 15 })
                 .onClick(() => {
-                  this.showMutedRooms = !this.showMutedRooms;
+                  this.vm.toggleMutedRooms();
                 });
 
                 if (this.showMutedRooms && this.mutedRooms.length > 0) {

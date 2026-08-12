@@ -8,19 +8,19 @@ import {
   NotificationsResponse,
   SetNotificationMarkerRequest
 } from '../models/MatrixTypes';
-import { MatrixEndpoints } from '../network/clients/MatrixEndpoints';
+import { PushHttpClient } from '../network/clients/PushHttpClient';
 
 export class PushManager {
-  private matrixEndpoints: MatrixEndpoints;
+  private pushHttpClient: PushHttpClient;
   private logger = AppLogger.getLogger(PushManager);
 
-  constructor(matrixEndpoints: MatrixEndpoints) {
-    this.matrixEndpoints = matrixEndpoints;
+  constructor(pushHttpClient: PushHttpClient) {
+    this.pushHttpClient = pushHttpClient;
   }
 
   async getPushRules(): Promise<PushRules> {
     try {
-      return await this.matrixEndpoints.getPushRules();
+      return await this.pushHttpClient.getPushRules();
     } catch (error) {
       this.logger.error('Failed to get push rules:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -30,7 +30,7 @@ export class PushManager {
 
   async getPushRule(scope: PushRuleScope, kind: PushRuleKind, ruleId: string): Promise<PushRule> {
     try {
-      return await this.matrixEndpoints.getPushRule(scope, kind, ruleId);
+      return await this.pushHttpClient.getPushRule(scope, kind, ruleId);
     } catch (error) {
       this.logger.error('Failed to get push rule:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -45,7 +45,7 @@ export class PushManager {
     rule: Partial<PushRule>
   ): Promise<void> {
     try {
-      await this.matrixEndpoints.setPushRule(scope, kind, ruleId, rule);
+      await this.pushHttpClient.setPushRule(scope, kind, ruleId, rule);
     } catch (error) {
       this.logger.error('Failed to add push rule:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -60,7 +60,7 @@ export class PushManager {
     rule: Partial<PushRule>
   ): Promise<void> {
     try {
-      await this.matrixEndpoints.setPushRule(scope, kind, ruleId, rule);
+      await this.pushHttpClient.setPushRule(scope, kind, ruleId, rule);
     } catch (error) {
       this.logger.error('Failed to update push rule:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -70,7 +70,7 @@ export class PushManager {
 
   async deletePushRule(scope: PushRuleScope, kind: PushRuleKind, ruleId: string): Promise<void> {
     try {
-      await this.matrixEndpoints.deletePushRule(scope, kind, ruleId);
+      await this.pushHttpClient.deletePushRule(scope, kind, ruleId);
     } catch (error) {
       this.logger.error('Failed to delete push rule:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -85,7 +85,7 @@ export class PushManager {
     actions: PushRuleAction[]
   ): Promise<void> {
     try {
-      await this.matrixEndpoints.setPushRuleActions(scope, kind, ruleId, actions);
+      await this.pushHttpClient.setPushRuleActions(scope, kind, ruleId, actions);
     } catch (error) {
       this.logger.error('Failed to set push rule actions:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -95,7 +95,7 @@ export class PushManager {
 
   async getNotifications(limit?: number, since?: string): Promise<NotificationsResponse> {
     try {
-      return await this.matrixEndpoints.getNotifications(limit, since);
+      return await this.pushHttpClient.getNotifications(limit, since);
     } catch (error) {
       this.logger.error('Failed to get notifications:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -106,7 +106,7 @@ export class PushManager {
   async setNotificationMarker(notificationKey: string): Promise<void> {
     try {
       const request: SetNotificationMarkerRequest = { notification_key: notificationKey };
-      await this.matrixEndpoints.setNotificationMarker(request);
+      await this.pushHttpClient.setNotificationMarker(request);
     } catch (error) {
       this.logger.error('Failed to set notification marker:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);

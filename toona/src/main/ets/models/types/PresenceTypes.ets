@@ -23,7 +23,7 @@ export interface PresenceListRequest {
   nodes: string[];
 }
 
-interface GeneratedTypeLiteralInterface_1 {
+interface PresenceUser {
   user_id: string;
   presence: PresenceState;
   last_active_ago?: number;
@@ -31,5 +31,5 @@ interface GeneratedTypeLiteralInterface_1 {
 }
 
 export interface PresenceListResponse {
-  aggregated_users: Array<GeneratedTypeLiteralInterface_1>;
+  aggregated_users: Array<PresenceUser>;
 }

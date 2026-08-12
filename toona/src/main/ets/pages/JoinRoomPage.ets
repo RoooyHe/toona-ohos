@@ -1,18 +1,18 @@
 import { ToastUtils } from '../utils/ToastUtils';
 import { QuickDialogManager, QuickDialogParams, QuickDialogController, QuickDialogDecoratorParams } from 'quickdialog';
-import { RoomManager, CreateRoomOptions } from '../services/RoomManager';
-import { ScanManager } from '../services/ScanManager';
 import { getThemeColors } from '../utils/ThemeManager';
-import { AppLogger } from '../utils/AppLogger';
-import { RoomContext } from '../services/facades/RoomContext';
-import { ServiceLocator } from '../services/ServiceLocator';
+import { JoinRoomViewModel, JoinRoomState } from '../viewmodels/JoinRoomViewModel';
+
+interface DirectoryUser {
+  user_id: string;
+  display_name?: string;
+  avatar_url?: string;
+}
 
 interface CreateRoomDialogData {
   roomName: string;
   isPublic: boolean;
 }
-
-const logger = AppLogger.getLogger('JoinRoomPage');
 
 // 创建聊天室弹窗 - 内容组件
 @Component
@@ -117,16 +117,6 @@ function CreateRoomDialogDecorator(decoratorParams: QuickDialogDecoratorParams) 
   }
 }
 
-interface DirectoryUser {
-  user_id: string;
-  display_name?: string;
-  avatar_url?: string;
-}
-
-interface DirectorySearchResponse {
-  results: DirectoryUser[];
-}
-
 @Builder
 export function JoinRoomPageBuilder(name: string, param: Object) {
   JoinRoomPage()
@@ -139,101 +129,40 @@ struct JoinRoomPage {
   @State isSearching: boolean = false;
   @State roomAddress: string = '';
   @State isJoining: boolean = false;
-  private roomCtx: RoomContext = new RoomContext();
+  private vm: JoinRoomViewModel = new JoinRoomViewModel();
   private createRoomDialogController: QuickDialogController | undefined = undefined;
-  private scanManager: ScanManager = ServiceLocator.getScanManager();
   pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
+    this.vm.setOnStateChanged((state: JoinRoomState) => {
+      this.searchQuery = state.searchQuery;
+      this.searchResults = state.searchResults as DirectoryUser[];
+      this.isSearching = state.isSearching;
+      this.roomAddress = state.roomAddress;
+      this.isJoining = state.isJoining;
+    });
+    this.vm.setNavigateCallback((pageName: string, param: Record<string, Object>) => {
+      this.pathStack.pushPathByName(pageName, param);
+    });
+    this.vm.setPopCallback(() => {
+      this.pathStack.pop();
+    });
   }
 
-  async searchUsers() {
-    if (!this.searchQuery.trim()) {
-      return;
-    }
-
-    this.isSearching = true;
-    try {
-      const results = await this.roomCtx.getRoomManager().searchUsers(this.searchQuery.trim());
-      const resultObj: Record<string, string | object> = results;
-      const userId: string = (resultObj['user_id'] as string) || '';
-      const mapped: DirectoryUser[] = [{
-        user_id: userId,
-        display_name: (resultObj['display_name'] as string) || userId,
-        avatar_url: (resultObj['avatar_url'] as string) || ''
-      }];
-      this.searchResults = mapped;
-    } catch (error) {
-      logger.error('Search users failed:', error);
-      this.searchResults = [];
-    } finally {
-      this.isSearching = false;
-    }
+  searchUsers() {
+    this.vm.searchUsers();
   }
 
   startDirectChat(userId: string) {
-    this.doStartDirectChat(userId).catch((error: Error) => {
-      logger.error('Failed to start direct chat:', error);
-      ToastUtils.show('创建私聊失败');
-    });
+    this.vm.startDirectChat(userId);
   }
 
-  async doStartDirectChat(userId: string): Promise<void> {
-    const options: CreateRoomOptions = {
-      isDirect: true,
-      inviteUsers: [userId]
-    };
-    const roomId = await this.roomCtx.getRoomManager().createRoom(options);
-    const param: Record<string, Object> = {
-      "roomId": roomId,
-      "roomName": userId
-    };
-    this.pathStack.pushPathByName('RoomDetailPage', param);
-  }
-
-  async onScanQRCode() {
-    try {
-      const result = await this.scanManager.startScan();
-      if (result) {
-        const parsed = this.scanManager.parseMatrixToLink(result);
-        if (parsed && parsed.roomId) {
-          this.roomAddress = parsed.roomId;
-          ToastUtils.show('已识别房间，可点击加入');
-        } else {
-          this.roomAddress = result;
-          ToastUtils.show('已扫描内容');
-        }
-      }
-    } catch (error) {
-      logger.error('Scan error: %{public}s', error.message);
-      ToastUtils.show('扫码失败');
-    }
+  onScanQRCode() {
+    this.vm.onScanQRCode();
   }
 
   joinRoom() {
-    if (!this.roomAddress.trim()) {
-      ToastUtils.show('请输入房间地址');
-      return;
-    }
-
-    this.isJoining = true;
-    const self = this;
-    this.doJoinRoom().catch((error: Error) => {
-      logger.error('Failed to join room:', error);
-      ToastUtils.show('加入失败');
-    }).finally(() => {
-      self.isJoining = false;
-    });
-  }
-
-  async doJoinRoom(): Promise<void> {
-    let roomId = this.roomAddress.trim();
-    if (!roomId.startsWith('#') && !roomId.includes(':')) {
-      roomId = `#${roomId}:${this.roomCtx.getHomeserver()}`;
-    }
-    await this.roomCtx.getRoomManager().joinRoom(roomId);
-    ToastUtils.show('加入成功');
-    this.pathStack.pop();
+    this.vm.joinRoom();
   }
 
   createRoom() {
@@ -248,23 +177,10 @@ struct JoinRoomPage {
         const roomName = param?.['roomName'] as string || '';
         const isPublic = param?.['isPublic'] as boolean || false;
         controller.dismiss();
-        self.doCreateRoom(roomName, isPublic).catch((error: Error) => {
-          logger.error('Failed to create room:', error);
-          ToastUtils.show('创建失败');
-        });
+        self.vm.createRoom(roomName, isPublic);
       })
       .build();
     this.createRoomDialogController.show();
-  }
-
-  async doCreateRoom(roomName: string, isPublic: boolean): Promise<void> {
-    const options: CreateRoomOptions = {
-      name: roomName.trim(),
-      visibility: isPublic ? 'public' : 'private'
-    };
-    await this.roomCtx.getRoomManager().createRoom(options);
-    ToastUtils.show('创建成功');
-    this.pathStack.pop();
   }
 
   build() {
@@ -291,7 +207,7 @@ struct JoinRoomPage {
               .borderRadius(6)
               .margin({ bottom: 10 })
               .onChange((value: string) => {
-                this.searchQuery = value;
+                this.vm.setSearchQuery(value);
               })
               .onSubmit(() => {
                 this.searchUsers();
@@ -394,7 +310,7 @@ struct JoinRoomPage {
               .backgroundColor(getThemeColors().inputBg)
               .borderRadius(6)
               .onChange((value: string) => {
-                this.roomAddress = value;
+                this.vm.setRoomAddress(value);
               });
 
             Button('Scan')

@@ -1,34 +1,30 @@
 import { AppLogger } from '../utils/AppLogger';
-import { RoomTags } from '../models/MatrixTypes';
+import { RoomTags, TagContent } from '../models/MatrixTypes';
 import { AuthManager, IAuthManager } from './AuthManager';
 import { LocalDatabase } from '../database/LocalDatabase';
-import { MatrixEndpoints } from '../network/clients/MatrixEndpoints';
-
-interface GeneratedTypeLiteralInterface_1 {
-  order?: number;
-}
+import { UserHttpClient } from '../network/clients/UserHttpClient';
 
 export class RoomTagManager {
   private logger = AppLogger.getLogger(RoomTagManager);
-  private matrixEndpoints: MatrixEndpoints;
+  private userHttpClient: UserHttpClient;
   private authManager: IAuthManager;
   private localDatabase: LocalDatabase;
 
   constructor(
     authManager: IAuthManager,
     localDatabase: LocalDatabase,
-    matrixEndpoints: MatrixEndpoints
+    userHttpClient: UserHttpClient
   ) {
     this.authManager = authManager;
     this.localDatabase = localDatabase;
-    this.matrixEndpoints = matrixEndpoints;
+    this.userHttpClient = userHttpClient;
   }
 
   async getRoomTags(roomId: string): Promise<RoomTags> {
     try {
       const room = await this.localDatabase.getRoom(roomId);
       if (room && room.tags) {
-        return { tags: room.tags as Record<string, GeneratedTypeLiteralInterface_1> };
+        return { tags: room.tags as Record<string, TagContent> };
       }
       return { tags: {} };
     } catch (error) {
@@ -43,7 +39,7 @@ export class RoomTagManager {
       throw new Error('Not logged in');
     }
     try {
-      await this.matrixEndpoints.addRoomTag(userId, roomId, tag, order);
+      await this.userHttpClient.addRoomTag(userId, roomId, tag, order);
     } catch (error) {
       this.logger.error('Failed to add room tag:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -57,7 +53,7 @@ export class RoomTagManager {
       throw new Error('Not logged in');
     }
     try {
-      await this.matrixEndpoints.removeRoomTag(userId, roomId, tag);
+      await this.userHttpClient.removeRoomTag(userId, roomId, tag);
     } catch (error) {
       this.logger.error('Failed to remove room tag:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);

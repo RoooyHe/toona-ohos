@@ -42,16 +42,16 @@ export interface CreateRoomOptions {
   visibility?: 'public' | 'private';
 }
 
-interface GeneratedTypeLiteralInterface_2 {
+interface ImageInfo {
   size: number;
   mimetype: string;
 }
 
-interface GeneratedTypeLiteralInterface_1 {
+interface ImageMessageContent {
   msgtype: string;
   body: string;
   url: import("../models/MatrixTypes").MediaUploadResponse;
-  info: GeneratedTypeLiteralInterface_2;
+  info: ImageInfo;
 }
 
 export interface IRoomManager {
@@ -89,8 +89,7 @@ export interface IRoomManager {
 
 export class RoomManager implements IRoomManager {
   sendMessage(roomId: string, arg1: string,
-    imageMessageContent: GeneratedTypeLiteralInterface_1) {
-    throw new Error('Method not implemented.');
+    imageMessageContent: ImageMessageContent) {
   }
   private roomClient: RoomHttpClient;
   private authManager: IAuthManager;

@@ -18,7 +18,6 @@ import { IFilePicker } from '../platform/adapters/IFilePicker';
 import { IAudioRecorder } from '../platform/adapters/IAudioRecorder';
 import { media } from '@kit.MediaKit';
 import { AppLogger } from '../utils/AppLogger';
-import { MessagingContext } from '../services/facades/MessagingContext';
 
 const logger = AppLogger.getLogger('RoomDetailViewModel');
 
@@ -46,13 +45,13 @@ export type LeaveRoomCallback = () => void;
 export class RoomDetailViewModel {
   private roomId: string;
   private initialRoomName: string;
-  private roomManager: IRoomManager;
-  private authManager: IAuthManager;
-  private messageManager: MessageManager;
-  private userManager: UserManager;
-  private syncManager: ISyncManager;
-  private mediaManager: MediaManager;
-  private verificationService: VerificationService;
+  private roomManager: IRoomManager = ServiceLocator.getRoomManager();
+  private authManager: IAuthManager = ServiceLocator.getAuthManager();
+  private messageManager: MessageManager = ServiceLocator.getMessageManager();
+  private userManager: UserManager = ServiceLocator.getUserManager();
+  private syncManager: ISyncManager = ServiceLocator.getSyncManager();
+  private mediaManager: MediaManager = ServiceLocator.getMediaManager();
+  private verificationService: VerificationService = ServiceLocator.getVerificationService();
   private messageHandler: MessageActionHandler;
   private mediaHandler: MediaActionHandler;
   private metadataLoader: RoomMetadataLoader;
@@ -77,17 +76,10 @@ export class RoomDetailViewModel {
     selectedMessage: null
   };
 
-  constructor(roomId: string, roomName: string, context: MessagingContext) {
+  constructor(roomId: string, roomName: string) {
     this.roomId = roomId;
     this.initialRoomName = roomName;
     this.state.roomName = roomName;
-    this.roomManager = context.getRoomManager();
-    this.authManager = context.getAuthManager();
-    this.messageManager = context.getMessageManager();
-    this.userManager = context.getUserManager();
-    this.syncManager = context.getSyncManager();
-    this.mediaManager = context.getMediaManager();
-    this.verificationService = context.getVerificationService();
 
     const filePicker: IFilePicker = new HarmonyFilePicker();
     const audioRecorder: IAudioRecorder = new HarmonyAudioRecorder();

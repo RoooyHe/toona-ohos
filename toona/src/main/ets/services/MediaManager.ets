@@ -3,7 +3,7 @@ import { MediaUploadResponse, MediaConfig as MediaConfigResponse, UrlPreviewResp
 import { MxcUtils } from '../utils/MxcUtils';
 import { MediaHttpClient } from '../network/clients/MediaHttpClient';
 
-interface GeneratedTypeLiteralInterface_1 {
+interface ParsedMxcUri {
   serverName: string;
   mediaId: string;
 }
@@ -127,7 +127,7 @@ export class MediaManager {
     return MxcUtils.getThumbnailHttpUri(mxcUri, homeserver, width, height, method);
   }
 
-  parseMxcUri(mxcUri: string): GeneratedTypeLiteralInterface_1 | null {
+  parseMxcUri(mxcUri: string): ParsedMxcUri | null {
     return MxcUtils.parseMxcUri(mxcUri);
   }
 

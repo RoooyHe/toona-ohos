@@ -1,3 +1,4 @@
+import http from '@ohos.net.http';
 
 import {
   LoginResponse, RegisterResponse, WhoAmIResponse, VersionsResponse
@@ -16,10 +17,17 @@ enum TokenValidationResult {
   NETWORK_ERROR = 'network_error'
 }
 
+export interface SavedCredentials {
+  homeserver: string;
+  userId: string;
+  rememberMe: boolean;
+}
+
 export interface IAuthManager {
   init(context: Context): Promise<void>;
   setHomeserver(homeserverUrl: string): Promise<void>;
   getHomeserver(): string;
+  discoverHomeserverUrl(domain: string): Promise<string | null>;
   checkHomeserverVersion(): Promise<boolean>;
   login(userId: string, password: string, deviceName?: string): Promise<Session>;
   register(username: string, password: string, deviceName?: string): Promise<Session>;
@@ -29,6 +37,9 @@ export interface IAuthManager {
   getUserId(): string;
   isLoggedIn(): boolean;
   updateNextBatch(nextBatch: string): Promise<void>;
+  loadSavedCredentials(): Promise<SavedCredentials | null>;
+  saveCredentials(homeserver: string, userId: string, rememberMe: boolean): Promise<void>;
+  clearSavedCredentials(): Promise<void>;
 }
 
 export class AuthManager implements IAuthManager {
@@ -56,6 +67,40 @@ export class AuthManager implements IAuthManager {
 
   getHomeserver(): string {
     return this.config.getHomeserver();
+  }
+
+  async discoverHomeserverUrl(domain: string): Promise<string | null> {
+    const cleanDomain = domain.trim().toLowerCase();
+    let serverUrl = cleanDomain;
+    if (!serverUrl.startsWith('http://') && !serverUrl.startsWith('https://')) {
+      serverUrl = 'https://' + serverUrl;
+    }
+    serverUrl = serverUrl.replace(/\/$/, '');
+
+    try {
+      const wellKnownUrl = serverUrl + '/.well-known/matrix/client';
+      const httpClient = http.createHttp();
+      const response = await httpClient.request(wellKnownUrl, {
+        method: http.RequestMethod.GET,
+        header: {
+          'Accept': 'application/json'
+        }
+      });
+
+      if (response.responseCode === 200) {
+        const responseData = response.result as string;
+        const regex = new RegExp('"m\\.homeserver"\\s*:\\s*\\{\\s*"base_url"\\s*:\\s*"([^"]+)"');
+        const match = regex.exec(responseData);
+        if (match !== null && match[1] !== undefined) {
+          httpClient.destroy();
+          return match[1].replace(/\/$/, '');
+        }
+      }
+      httpClient.destroy();
+    } catch (error) {
+      AuthManager.logger.warn('Well-known discovery failed, using direct connection:', error);
+    }
+    return serverUrl;
   }
 
   async checkHomeserverVersion(): Promise<boolean> {
@@ -277,5 +322,48 @@ export class AuthManager implements IAuthManager {
   reset(): void {
     this.session = null;
     this.isInitialized = false;
+  }
+
+  async loadSavedCredentials(): Promise<SavedCredentials | null> {
+    try {
+      const savedHomeserver = await SPHelper.default.get('saved_homeserver', '') as string;
+      const savedUserId = await SPHelper.default.get('saved_user_id', '') as string;
+      const savedRemember = await SPHelper.default.get('remember_me', 'false') as string;
+
+      if (savedRemember === 'true' && savedHomeserver) {
+        const creds: SavedCredentials = {
+          homeserver: savedHomeserver,
+          userId: savedUserId,
+          rememberMe: true
+        };
+        return creds;
+      }
+      return null;
+    } catch (error) {
+      AuthManager.logger.error('Failed to load saved credentials:', error);
+      return null;
+    }
+  }
+
+  async saveCredentials(homeserver: string, userId: string, rememberMe: boolean): Promise<void> {
+    if (rememberMe) {
+      await SPHelper.default.saveAndFlush('saved_homeserver', homeserver);
+      await SPHelper.default.saveAndFlush('saved_user_id', userId);
+      await SPHelper.default.saveAndFlush('remember_me', 'true');
+    } else {
+      await SPHelper.default.delete('saved_homeserver');
+      await SPHelper.default.delete('saved_user_id');
+      await SPHelper.default.saveAndFlush('remember_me', 'false');
+    }
+  }
+
+  async clearSavedCredentials(): Promise<void> {
+    try {
+      await SPHelper.default.delete('saved_homeserver');
+      await SPHelper.default.delete('saved_user_id');
+      await SPHelper.default.delete('remember_me');
+    } catch (error) {
+      AuthManager.logger.error('Failed to clear saved credentials:', error);
+    }
   }
 }

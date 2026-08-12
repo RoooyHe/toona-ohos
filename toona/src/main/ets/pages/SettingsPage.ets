@@ -1,16 +1,4 @@
 import { ToastUtils } from '../utils/ToastUtils';
-import { ServiceCollaborationManager } from '../services/ServiceCollaborationManager';
-import { DeviceSecurityManager } from '../services/DeviceSecurityManager';
-import { ScanManager } from '../services/ScanManager';
-import { UserAuthManager } from '../services/UserAuthManager';
-import { CryptoService } from '../services/CryptoService';
-import { VerificationService } from '../services/VerificationService';
-import { VerificationState } from '../crypto/types/CryptoTypes';
-import { Room } from '../models/DataModels';
-import { Device } from '../models/MatrixTypes';
-import { PresenceState } from '../models/MatrixTypes';
-import { fileIo } from '@kit.CoreFileKit';
-import { picker } from '@kit.CoreFileKit';
 import { ThemeManager, getThemeColors, ColorModeType } from '../utils/ThemeManager';
 import { SettingsHeader } from './components/settings/SettingsHeader';
 import { UserProfileCard } from './components/settings/UserProfileCard';
@@ -24,9 +12,10 @@ import { BiometricSettings } from './components/settings/BiometricSettings';
 import { CollaborationSettings } from './components/settings/CollaborationSettings';
 import { AboutSection } from './components/settings/AboutSection';
 import { LogoutButton } from './components/settings/LogoutButton';
-import { AppLogger } from '../utils/AppLogger';
-import { UserContext } from '../services/facades/UserContext';
-import { DeviceContext } from '../services/facades/DeviceContext';
+import { SettingsViewModel, SettingsState } from '../viewmodels/SettingsViewModel';
+import { Room } from '../models/DataModels';
+import { Device } from '../models/MatrixTypes';
+import { PresenceState } from '../models/MatrixTypes';
 
 @Builder
 export function SettingsPageBuilder(name: string, param: Object) {
@@ -51,225 +40,105 @@ export struct SettingsPage {
   @State editName: string = '';
   @State showPresenceMenu: boolean = false;
   @State showRoomTagsMenu: boolean = false;
-  @State selectedRoomForTags: Room | null = null;
-  @State showAboutPage: boolean = false;
   @State colorModeType: ColorModeType = 'light';
   @State isE2EEEnabled: boolean = false;
-  @State deviceId: string = '';
-  private userCtx: UserContext = new UserContext();
-  private deviceCtx: DeviceContext = new DeviceContext();
-  private collaborationManager: ServiceCollaborationManager = this.deviceCtx.getServiceCollaborationManager();
-  private deviceSecurityManager: DeviceSecurityManager = this.deviceCtx.getDeviceSecurityManager();
-  private scanManager: ScanManager = this.deviceCtx.getScanManager();
-  private userAuthManager: UserAuthManager = this.deviceCtx.getUserAuthManager();
-  private cryptoService: CryptoService = this.deviceCtx.getCryptoService();
-  private verificationService: VerificationService = this.deviceCtx.getVerificationService();
-  private themeManager: ThemeManager = ThemeManager.getInstance();
-  private logger = AppLogger.getLogger(SettingsPage);
+  @State currentDeviceId: string = '';
+
+  private vm: SettingsViewModel = new SettingsViewModel();
   pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
-    const session = this.userCtx.getAuthManager().getSession();
-    if (session) {
-      this.userId = session.userId;
-      this.displayName = session.userId;
-    }
-    this.colorModeType = this.themeManager.getColorModeType();
-    this.loadEncryptionStatus();
-    this.loadProfile();
-    this.loadDevices();
-    this.loadRoomTags();
+    this.vm.setOnStateChanged((state: SettingsState) => {
+      this.userId = state.userId;
+      this.displayName = state.displayName;
+      this.avatarUrl = state.avatarUrl;
+      this.presence = state.presence;
+      this.statusMsg = state.statusMsg;
+      this.devices = state.devices;
+      this.favoriteRooms = state.favoriteRooms;
+      this.lowPriorityRooms = state.lowPriorityRooms;
+      this.allRooms = state.allRooms;
+      this.isLoadingProfile = state.isLoadingProfile;
+      this.isLoadingDevices = state.isLoadingDevices;
+      this.isLoadingRoomTags = state.isLoadingRoomTags;
+      this.isEditingName = state.isEditingName;
+      this.editName = state.editName;
+      this.showPresenceMenu = state.showPresenceMenu;
+      this.showRoomTagsMenu = state.showRoomTagsMenu;
+      this.colorModeType = state.colorModeType;
+      this.isE2EEEnabled = state.isE2EEEnabled;
+      this.currentDeviceId = state.currentDeviceId;
+    });
+    this.vm.setLogoutCallback(() => {
+      this.pathStack.clear();
+    });
+    this.vm.initialize();
   }
 
   setColorMode(mode: ColorModeType) {
-    this.colorModeType = mode;
-    this.themeManager.setColorMode(mode);
-    const messages: Record<ColorModeType, string> = {
-      'light': '日间模式',
-      'dark': '夜间模式',
-      'system': '跟随系统'
-    };
-    ToastUtils.show(`已切换至${messages[mode]}`);
+    this.vm.setColorMode(mode);
   }
 
-  async loadProfile() {
-    this.isLoadingProfile = true;
-    try {
-      const profilePromise = this.userCtx.getUserManager().getUserProfile();
-      const presencePromise = this.userCtx.getUserManager().getPresence(this.userId);
-      const profile = await profilePromise;
-      this.displayName = profile.displayName || '';
-      this.avatarUrl = profile.avatarUrl || '';
-      this.editName = this.displayName;
-      const presenceResponse = await presencePromise;
-      this.presence = presenceResponse.presence as PresenceState;
-      this.statusMsg = presenceResponse.status_msg || '';
-    } catch (error) {
-      this.logger.error('Failed to load profile: %{public}s', error.message);
-    } finally {
-      this.isLoadingProfile = false;
-    }
+  pickAndUploadAvatar() {
+    this.vm.pickAndUploadAvatar();
   }
 
-  async loadDevices() {
-    this.isLoadingDevices = true;
-    try {
-      const devicesResponse = await this.deviceCtx.getDeviceManager().getDevices();
-      this.devices = devicesResponse.devices || [];
-    } catch (e) {
-      this.logger.error('Failed to load devices: %{public}s', e.message);
-      this.devices = [];
-    } finally {
-      this.isLoadingDevices = false;
-    }
+  saveDisplayName() {
+    this.vm.saveDisplayName();
   }
 
-  async loadRoomTags() {
-    this.isLoadingRoomTags = true;
-    const roomTagManager = this.userCtx.getRoomTagManager();
-    try {
-      this.allRooms = await this.userCtx.getRoomManager().getRooms();
-      this.favoriteRooms = [];
-      this.lowPriorityRooms = [];
-      for (let i = 0; i < this.allRooms.length; i++) {
-        const room = this.allRooms[i];
-        try {
-          const isFav = await roomTagManager.isFavorite(room.id);
-          if (isFav) {
-            this.favoriteRooms.push(room);
-          }
-          const isLow = await roomTagManager.isLowPriority(room.id);
-          if (isLow) {
-            this.lowPriorityRooms.push(room);
-          }
-        } catch (e) {
-          this.logger.error('Failed to check room tags: %{public}s', e.message);
-        }
-      }
-    } catch (error) {
-      this.logger.error('Failed to load room tags: %{public}s', error.message);
-    } finally {
-      this.isLoadingRoomTags = false;
-    }
+  setPresence(state: PresenceState) {
+    this.vm.setPresence(state);
   }
 
-  async saveDisplayName() {
-    if (!this.editName.trim()) {
-      return;
-    }
-    try {
-      await this.userCtx.getUserManager().setDisplayName(this.editName.trim());
-      this.displayName = this.editName.trim();
-      this.isEditingName = false;
-      ToastUtils.show('显示名称已更新');
-    } catch (error) {
-      this.logger.error('Failed to save display name: %{public}s', error.message);
-      ToastUtils.show('更新失败');
-    }
+  setStatusMessage() {
+    this.vm.setStatusMessage();
   }
 
-  async setPresence(state: PresenceState) {
-    try {
-      await this.userCtx.getUserManager().setPresence(this.userId, state, this.statusMsg);
-      this.presence = state;
-      this.showPresenceMenu = false;
-      ToastUtils.show('状态已更新');
-    } catch (error) {
-      this.logger.error('Failed to set presence: %{public}s', error.message);
-      ToastUtils.show('更新失败');
-    }
+  toggleFavorite(room: Room) {
+    this.vm.toggleFavorite(room);
   }
 
-  async setStatusMessage() {
-    try {
-      await this.userCtx.getUserManager().setPresence(this.userId, this.presence, this.statusMsg);
-      ToastUtils.show('状态消息已更新');
-    } catch (error) {
-      this.logger.error('Failed to set status message: %{public}s', error.message);
-      ToastUtils.show('更新失败');
-    }
+  toggleLowPriority(room: Room) {
+    this.vm.toggleLowPriority(room);
   }
 
-  async pickAndUploadAvatar() {
-    try {
-      const photoPicker = new picker.PhotoViewPicker();
-      const result = await photoPicker.select({
-        MIMEType: picker.PhotoViewMIMETypes.IMAGE_TYPE,
-        maxSelectNumber: 1
-      });
-      if (result && result.photoUris && result.photoUris.length > 0) {
-        const photoUri = result.photoUris[0];
-        const file = fileIo.openSync(photoUri, fileIo.OpenMode.READ_ONLY);
-        const fileInfo = fileIo.statSync(photoUri);
-        const buffer = new Uint8Array(fileInfo.size);
-        fileIo.readSync(file.fd, buffer);
-        fileIo.closeSync(file);
-        const fileName = 'avatar_' + Date.now() + '.jpg';
-        const mxcUri = await this.userCtx.getMediaManager().uploadImage(buffer.buffer as ArrayBuffer, fileName);
-        await this.userCtx.getUserManager().setAvatarUrl(mxcUri);
-        this.avatarUrl = this.userCtx.getMediaManager().getHttpUrl(mxcUri);
-        ToastUtils.show('头像已更新');
-      }
-    } catch (error) {
-      this.logger.error('Failed to upload avatar: %{public}s', error.message);
-      ToastUtils.show('头像上传失败');
-    }
+  deleteDevice(deviceId: string) {
+    this.vm.deleteDevice(deviceId);
   }
 
-  async toggleFavorite(room: Room) {
-    const roomTagManager = this.userCtx.getRoomTagManager();
-    try {
-      const isFav = await roomTagManager.isFavorite(room.id);
-      if (isFav) {
-        await roomTagManager.removeFavorite(room.id);
-        const index = this.favoriteRooms.findIndex(r => r.id === room.id);
-        if (index >= 0) {
-          this.favoriteRooms.splice(index, 1);
-        }
-      } else {
-        await roomTagManager.addFavorite(room.id);
-        this.favoriteRooms.push(room);
-      }
-      ToastUtils.show(isFav ? '已取消收藏' : '已添加收藏');
-    } catch (error) {
-      this.logger.error('Failed to toggle favorite: %{public}s', error.message);
-      ToastUtils.show('操作失败');
-    }
+  handleLogout() {
+    this.vm.handleLogout();
   }
 
-  async toggleLowPriority(room: Room) {
-    const roomTagManager = this.userCtx.getRoomTagManager();
-    try {
-      const isLow = await roomTagManager.isLowPriority(room.id);
-      if (isLow) {
-        await roomTagManager.removeLowPriority(room.id);
-        const index = this.lowPriorityRooms.findIndex(r => r.id === room.id);
-        if (index >= 0) {
-          this.lowPriorityRooms.splice(index, 1);
-        }
-      } else {
-        await roomTagManager.addLowPriority(room.id);
-        this.lowPriorityRooms.push(room);
-      }
-      ToastUtils.show(isLow ? '已取消低优先级' : '已设为低优先级');
-    } catch (error) {
-      this.logger.error('Failed to toggle low priority: %{public}s', error.message);
-      ToastUtils.show('操作失败');
-    }
+  onCheckDeviceSecurity() {
+    this.vm.onCheckDeviceSecurity();
   }
 
-  async deleteDevice(deviceId: string) {
-    try {
-      await this.deviceCtx.getDeviceManager().deleteDevice(deviceId);
-      const index = this.devices.findIndex(d => d.device_id === deviceId);
-      if (index >= 0) {
-        this.devices.splice(index, 1);
-      }
-      ToastUtils.show('设备已删除');
-    } catch (error) {
-      this.logger.error('Failed to delete device: %{public}s', error.message);
-      ToastUtils.show('删除失败');
-    }
+  onScanQRCode() {
+    this.vm.onScanQRCode();
+  }
+
+  onToggleBiometric(enable: boolean) {
+    this.vm.onToggleBiometric(enable);
+  }
+
+  onVerifyBiometric() {
+    this.vm.onVerifyBiometric();
+  }
+
+  onFindCollaborativeDevices() {
+    this.vm.onFindCollaborativeDevices();
+  }
+
+  navigateToInviteManagement() {
+    const param: Record<string, Object> = {};
+    this.pathStack.pushPathByName('InviteManagementPage', param);
+  }
+
+  navigateToNotificationSettings() {
+    const param: Record<string, Object> = {};
+    this.pathStack.pushPathByName('NotificationSettingsPage', param);
   }
 
   build() {
@@ -320,17 +189,16 @@ export struct SettingsPage {
                 this.pickAndUploadAvatar();
               },
               onStartEditName: () => {
-                this.isEditingName = true;
+                this.vm.setEditingName(true);
               },
               onSaveDisplayName: () => {
                 this.saveDisplayName();
               },
               onCancelEditName: () => {
-                this.isEditingName = false;
-                this.editName = this.displayName;
+                this.vm.setEditingName(false);
               },
               onEditNameChange: (name: string) => {
-                this.editName = name;
+                this.vm.setEditName(name);
               }
             });
           }
@@ -372,10 +240,10 @@ export struct SettingsPage {
                 this.setPresence(state);
               },
               onTogglePresenceMenu: () => {
-                this.showPresenceMenu = !this.showPresenceMenu;
+                this.vm.togglePresenceMenu();
               },
               onStatusMsgChange: (msg: string) => {
-                this.statusMsg = msg;
+                this.vm.setStatusMsg(msg);
               },
               onSaveStatusMessage: () => {
                 this.setStatusMessage();
@@ -423,7 +291,7 @@ export struct SettingsPage {
                 this.toggleLowPriority(room);
               },
               onToggleRoomTagsMenu: () => {
-                this.showRoomTagsMenu = !this.showRoomTagsMenu;
+                this.vm.toggleRoomTagsMenu();
               }
             });
           }
@@ -458,7 +326,7 @@ export struct SettingsPage {
           } else {
             DeviceManagement({
               devices: this.devices,
-              currentDeviceId: this.userCtx.getAuthManager().getSession()?.deviceId || '',
+              currentDeviceId: this.currentDeviceId,
               onDeleteDevice: (deviceId: string) => {
                 this.deleteDevice(deviceId);
               }
@@ -654,109 +522,5 @@ export struct SettingsPage {
       this.pathStack = ctx.pathStack;
     })
     .hideTitleBar(true);
-  }
-
-  async toggleE2EE(enable: boolean) {
-    ToastUtils.show('端到端加密暂不可用');
-  }
-
-  loadEncryptionStatus() {
-    this.isE2EEEnabled = false;
-  }
-
-  async startDeviceVerification() {
-    ToastUtils.show('设备验证暂不可用');
-  }
-
-  async handleLogout() {
-    try {
-      await this.userCtx.getAuthManager().logout();
-      this.pathStack.clear();
-    } catch (error) {
-      this.logger.error('Logout failed: %{public}s', error.message);
-      ToastUtils.show('退出失败');
-    }
-  }
-
-  async onFindCollaborativeDevices() {
-    const isSupported = await this.collaborationManager.isCollaborationSupported();
-    if (!isSupported) {
-      ToastUtils.show('当前设备不支持跨设备协作');
-      return;
-    }
-
-    const devices = await this.collaborationManager.getCollaborationDevices();
-    if (devices.length === 0) {
-      ToastUtils.show('未发现可协作设备');
-      return;
-    }
-
-    ToastUtils.show(`发现 ${devices.length} 个可协作设备`);
-  }
-
-  async onCheckDeviceSecurity() {
-    const status = await this.deviceSecurityManager.checkDeviceSecurityStatus();
-
-    let message = '';
-    if (status.isTrusted) {
-      message = '设备安全: 安全芯片已启用';
-    } else if (status.hasSecurityChip) {
-      message = '设备安全: 部分安全功能可用';
-    } else {
-      message = '设备安全: 使用软件级安全保护';
-    }
-
-    ToastUtils.show(message, 3000);
-  }
-
-  async onScanQRCode() {
-    try {
-      const result = await this.scanManager.startScan();
-      if (result) {
-        const parsed = this.scanManager.parseMatrixToLink(result);
-        if (parsed && parsed.roomId) {
-          ToastUtils.show(`识别房间: ${parsed.roomId}`);
-        } else {
-          ToastUtils.show('扫描成功，请在加入房间页面使用');
-        }
-      }
-    } catch (error) {
-      this.logger.error('Scan error: %{public}s', error.message);
-      ToastUtils.show('扫码失败');
-    }
-  }
-
-  async onToggleBiometric(enable: boolean) {
-    if (enable) {
-      const success = await this.userAuthManager.authenticateWithFace();
-      if (success) {
-        this.userAuthManager.setBiometricEnabled(true);
-        ToastUtils.show('生物识别登录已启用');
-      } else {
-        ToastUtils.show('生物识别验证失败');
-      }
-    } else {
-      this.userAuthManager.setBiometricEnabled(false);
-      ToastUtils.show('生物识别登录已关闭');
-    }
-  }
-
-  async onVerifyBiometric() {
-    const success = await this.userAuthManager.authenticateWithFace();
-    if (success) {
-      ToastUtils.show('生物识别验证成功');
-    } else {
-      ToastUtils.show('生物识别验证失败');
-    }
-  }
-
-  navigateToInviteManagement() {
-    const param: Record<string, Object> = {};
-    this.pathStack.pushPathByName('InviteManagementPage', param);
-  }
-
-  navigateToNotificationSettings() {
-    const param: Record<string, Object> = {};
-    this.pathStack.pushPathByName('NotificationSettingsPage', param);
   }
 }

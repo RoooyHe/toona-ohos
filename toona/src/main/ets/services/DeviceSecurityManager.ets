@@ -22,7 +22,7 @@ export enum SecurityComponentType {
   SECURITY_COMPONENT_TYPE_COTA = 5
 }
 
-interface GeneratedTypeLiteralInterface_1 {
+interface KeywordPattern {
   pattern: RegExp;
   warning: string;
 }
@@ -77,7 +77,7 @@ export class DeviceSecurityManager {
       isSuspicious = true;
     }
 
-    const keywordPatterns: Array<GeneratedTypeLiteralInterface_1> = [
+    const keywordPatterns: Array<KeywordPattern> = [
       { pattern: /转账|汇款|支付宝|微信红包|中奖|抽奖|退款/i, warning: '涉及金钱交易，请谨慎' },
       { pattern: /验证码|登录|密码.*确认|账户.*异常/i, warning: '可能涉及诈骗，请核实对方身份' },
       { pattern: /投资理财|高回报|稳赚|内幕消息/i, warning: '涉及投资诈骗，请谨慎' },

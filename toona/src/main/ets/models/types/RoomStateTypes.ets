@@ -42,7 +42,7 @@ export interface PublicRoom {
   num_joined_members?: number;
 }
 
-interface GeneratedTypeLiteralInterface_2 {
+interface RoomMemberEntry {
   room_id: string;
   user_id: string;
   display_name?: string;
@@ -50,7 +50,7 @@ interface GeneratedTypeLiteralInterface_2 {
 }
 
 export interface RoomMembersResponse {
-  members: Array<GeneratedTypeLiteralInterface_2>;
+  members: Array<RoomMemberEntry>;
   start: string;
   end: string;
 }

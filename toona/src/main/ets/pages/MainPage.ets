@@ -4,10 +4,7 @@ import { RoomListPage } from './RoomListPage';
 import { getThemeColors } from '../utils/ThemeManager';
 import { SpacePage } from './SpacePage';
 import { AppLogger } from '../utils/AppLogger';
-import { ISyncManager } from '../services/SyncManager';
-import { IRoomManager } from '../services/RoomManager';
-import { RoomTagManager } from '../services/RoomTagManager';
-import { MainContext } from '../services/facades/MainContext';
+import { MainViewModel, MainState } from '../viewmodels/MainViewModel';
 
 const logger = AppLogger.getLogger('MainPage');
 
@@ -43,112 +40,38 @@ struct MainPage {
   // ⚠️ 严禁使用 @State 修饰 NavPathStack 系统对象，否则会引起底层指针丢失导致闪退
   pathStack: NavPathStack = new NavPathStack();
 
-  private mainCtx: MainContext = new MainContext();
   private isNavigating: boolean = false;
-  private syncManager: ISyncManager = this.mainCtx.getSyncManager();
-  private roomManager: IRoomManager = this.mainCtx.getRoomManager();
-  private roomTagManager: RoomTagManager = this.mainCtx.getRoomTagManager();
+  private vm: MainViewModel = new MainViewModel();
 
   aboutToAppear() {
-      this.syncStatus = 'syncing';
-      const self = this;
+    const self = this;
 
-      this.syncManager.setSyncSuccessCallback(() => {
-            logger.info('Sync success callback triggered, status: ' + self.syncStatus);
-            self.syncStatus = 'synced';
-            logger.info('syncStatus updated to synced');
-            self.loadUnreadCounts();
-          });
+    this.vm.setOnStateChanged((state: MainState) => {
+      self.userInitial = state.userInitial;
+      self.userDisplayName = state.userDisplayName;
+      self.userAvatarUrl = state.userAvatarUrl;
+      self.currentFilter = state.currentFilter as FilterType;
+      self.unreadCountAll = state.unreadCountAll;
+      self.unreadCountUnread = state.unreadCountUnread;
+      self.unreadCountDm = state.unreadCountDm;
+      self.unreadCountRoom = state.unreadCountRoom;
+      self.unreadCountInvite = state.unreadCountInvite;
+      self.syncStatus = state.syncStatus;
+    });
 
-      this.syncManager.setSyncErrorCallback(() => {
-        logger.info('Sync error callback triggered');
-        self.syncStatus = 'error';
-      });
+    this.vm.setLogoutCallback(() => {
+      self.pathStack?.clear();
+    });
 
-      this.tryInitSync();
-    }
-
-  async tryInitSync() {
-    try {
-      await this.syncManager.init(getContext());
-      await this.syncManager.start();
-      const session = this.mainCtx.getAuthManager().getSession();
-      if (session) {
-        const userId = session.userId;
-        const colonIndex = userId.indexOf(':');
-        this.userInitial = colonIndex > 0 ? userId.charAt(1).toUpperCase() : userId.charAt(0).toUpperCase();
-      }
-      await this.loadUserProfile();
-    } catch (error) {
-      logger.error('Failed to init sync: ' + error);
-      this.syncStatus = 'error';
-ToastUtils.show('同步初始化失败', 3000);
-    }
-  }
-
-  async loadUnreadCounts() {
-    try {
-      const rooms = await this.roomManager.getRooms();
-      let totalUnread = 0;
-      let totalDm = 0;
-      let totalRoom = 0;
-      let totalInvite = 0;
-
-      for (let i = 0; i < rooms.length; i++) {
-        const room = rooms[i];
-        if (room.isSpace) {
-          continue;
-        }
-        if (room.unreadCount && room.unreadCount > 0) {
-          totalUnread = totalUnread + room.unreadCount;
-        }
-        if (room.isDirect === true && room.unreadCount && room.unreadCount > 0) {
-          totalDm = totalDm + room.unreadCount;
-        }
-        if (room.isDirect !== true && room.unreadCount && room.unreadCount > 0) {
-          totalRoom = totalRoom + room.unreadCount;
-        }
-      }
-
-      this.unreadCountAll = totalUnread;
-      this.unreadCountUnread = totalUnread;
-      this.unreadCountDm = totalDm;
-      this.unreadCountRoom = totalRoom;
-      this.unreadCountInvite = totalInvite;
-    } catch (error) {
-      logger.error('Failed to load unread counts:', error);
-    }
-  }
-
-  async loadUserProfile() {
-    try {
-      const userManager = this.mainCtx.getUserManager();
-      const profile = await userManager.getUserProfile();
-      this.userDisplayName = profile.displayName || '';
-      this.userAvatarUrl = profile.avatarUrl || '';
-      if (this.userDisplayName && !this.userInitial) {
-        this.userInitial = this.userDisplayName.charAt(0).toUpperCase();
-      }
-    } catch (error) {
-      logger.error('Failed to load user profile:', error);
-ToastUtils.show('用户信息加载失败', 2000);
-    }
+    this.vm.initialize();
   }
 
   aboutToDisappear() {
-    this.syncManager.stop().catch((error: Error) => {
-      logger.error('Failed to stop sync:', error);
-    });
+    this.vm.destroy();
   }
 
   async handleLogout() {
-    try {
-      await this.mainCtx.getAuthManager().logout();
-      this.pathStack?.clear();
-    } catch (error) {
-      logger.error('Logout failed:', error);
-ToastUtils.show('退出登录失败', 3000);
-    }
+    await this.vm.handleLogout();
   }
 
   navigateToSearch() {
@@ -196,7 +119,7 @@ ToastUtils.show('退出登录失败', 3000);
   }
 
   setFilter(filter: FilterType) {
-    this.currentFilter = filter;
+    this.vm.setFilter(filter as string);
   }
 
   @Builder
@@ -423,7 +346,7 @@ ToastUtils.show('退出登录失败', 3000);
           }
           .margin({ right: 12 })
           .onClick(() => {
-            this.tryInitSync();
+            this.vm.tryInitSync();
           });
         }
 
@@ -452,9 +375,9 @@ ToastUtils.show('退出登录失败', 3000);
       if (this.currentIndex === 0) {
         RoomListPage({
           filterType: this.currentFilter,
-          syncManager: this.syncManager,
-          roomManager: this.roomManager,
-          roomTagManager: this.roomTagManager,
+          syncManager: this.vm.getSyncManager(),
+          roomManager: this.vm.getRoomManager(),
+          roomTagManager: this.vm.getRoomTagManager(),
           onNavigateToRoom: (room: Room) => {
             if (room.isSpace === true) {
               const param: Record<string, Object> = {
@@ -472,7 +395,7 @@ ToastUtils.show('退出登录失败', 3000);
           }
         });
       } else {
-        SpacePage({ pathStack: this.pathStack, roomManager: this.roomManager });
+        SpacePage({ pathStack: this.pathStack, roomManager: this.vm.getRoomManager() });
       }
     }
     .width('100%')

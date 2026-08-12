@@ -22,9 +22,13 @@ import { ShareManager } from '../services/ShareManager';
 import { ServiceCollaborationManager } from '../services/ServiceCollaborationManager';
 import { ConnectionConfig } from '../network/ConnectionConfig';
 import { BaseHttpClient } from '../network/clients/BaseHttpClient';
-import { MatrixEndpoints } from '../network/clients/MatrixEndpoints';
 import { RoomHttpClient } from '../network/clients/RoomHttpClient';
 import { MediaHttpClient } from '../network/clients/MediaHttpClient';
+import { UserHttpClient } from '../network/clients/UserHttpClient';
+import { PushHttpClient } from '../network/clients/PushHttpClient';
+import { DeviceHttpClient } from '../network/clients/DeviceHttpClient';
+import { CryptoHttpClient } from '../network/clients/CryptoHttpClient';
+import { MessageHttpClient } from '../network/clients/MessageHttpClient';
 
 @Builder
 export function AppNavigationBuilder(name: string, param: Object) {
@@ -48,25 +52,29 @@ struct AppNavigation {
     const config = new ConnectionConfig();
 
     const baseClient = new BaseHttpClient(config);
-    const matrixEndpoints = new MatrixEndpoints(config);
     const roomClient = new RoomHttpClient(config);
     const mediaClient = new MediaHttpClient(config);
+    const userClient = new UserHttpClient(config);
+    const pushClient = new PushHttpClient(config);
+    const deviceClient = new DeviceHttpClient(config);
+    const cryptoClient = new CryptoHttpClient(config);
+    const messageClient = new MessageHttpClient(config);
 
     const authManager = new AuthManager(config, baseClient);
     const localDatabase = new LocalDatabase();
     const cryptoDao = CryptoDao.getInstance();
     const deviceKeysStorage = DeviceKeysStorage.getInstance();
     const verificationService = new VerificationService(authManager, deviceKeysStorage);
-    const cryptoService = new CryptoService(authManager, matrixEndpoints, verificationService, cryptoDao, deviceKeysStorage);
+    const cryptoService = new CryptoService(authManager, cryptoClient, verificationService, cryptoDao, deviceKeysStorage);
     const eventProcessor = new EventProcessor(localDatabase, cryptoService);
     const syncManager = new SyncManager(authManager, localDatabase, eventProcessor, cryptoService, baseClient);
     const roomManager = new RoomManager(authManager, localDatabase, roomClient);
-    const messageManager = new MessageManager(authManager, localDatabase, matrixEndpoints);
-    const deviceManager = new DeviceManager(authManager, matrixEndpoints);
+    const messageManager = new MessageManager(authManager, localDatabase, messageClient);
+    const deviceManager = new DeviceManager(authManager, deviceClient);
     const mediaManager = new MediaManager(mediaClient);
-    const pushManager = new PushManager(matrixEndpoints);
-    const roomTagManager = new RoomTagManager(authManager, localDatabase, matrixEndpoints);
-    const userManager = new UserManager(authManager, matrixEndpoints);
+    const pushManager = new PushManager(pushClient);
+    const roomTagManager = new RoomTagManager(authManager, localDatabase, userClient);
+    const userManager = new UserManager(authManager, userClient);
     const userAuthManager = new UserAuthManager();
     const deviceSecurityManager = new DeviceSecurityManager();
     const scanManager = new ScanManager();
