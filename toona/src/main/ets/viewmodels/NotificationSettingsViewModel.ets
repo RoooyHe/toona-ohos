@@ -1,7 +1,7 @@
 import { ToastUtils } from '../utils/ToastUtils';
 import { AppLogger } from '../utils/AppLogger';
 import { PushRule } from '../models/types/PushTypes';
-import { ServiceLocator } from '../services/ServiceLocator';
+import { IPushManager } from '../services/PushManager';
 
 const logger = AppLogger.getLogger('NotificationSettingsViewModel');
 
@@ -17,6 +17,7 @@ export interface NotificationSettingsState {
 export type NotificationSettingsStateCallback = (state: NotificationSettingsState) => void;
 
 export class NotificationSettingsViewModel {
+  private pushManager: IPushManager;
   private onStateChanged: NotificationSettingsStateCallback | null = null;
 
   private state: NotificationSettingsState = {
@@ -27,6 +28,10 @@ export class NotificationSettingsViewModel {
     mutedRooms: [],
     isLoading: true
   };
+
+  constructor(pushManager: IPushManager) {
+    this.pushManager = pushManager;
+  }
 
   setOnStateChanged(callback: NotificationSettingsStateCallback): void {
     this.onStateChanged = callback;
@@ -50,7 +55,7 @@ export class NotificationSettingsViewModel {
     this.state.isLoading = true;
     this.notifyStateChanged();
     try {
-      const pushRules = await ServiceLocator.getPushManager().getPushRules();
+      const pushRules = await this.pushManager.getPushRules();
       if (pushRules?.global?.underride) {
         const rule = pushRules.global.underride.find(r => r.rule_id === '.m.rule.master');
         this.state.enableNotifications = rule?.enabled !== false;

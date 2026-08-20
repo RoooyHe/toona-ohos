@@ -13,9 +13,14 @@ import { StickerPicker } from './components/StickerPicker';
 import { MessageSourceDialog } from './components/MessageSourceDialog';
 import { MessageReportDialog } from './components/MessageReportDialog';
 import { getTimeGroupLabel, shouldShowTimeGroup } from '../utils/MessageFormatter';
-import { RoomDetailViewModel, RoomDetailState } from '../viewmodels/RoomDetailViewModel';
+import { RoomDetailViewModel, RoomDetailState, RoomDetailDeps } from '../viewmodels/RoomDetailViewModel';
 import { MemberPresence } from '../services/RoomMetadataLoader';
-import { ReplyQuoteData } from '../services/MessageActionHandler';
+import { MediaActionHandler } from '../services/MediaActionHandler';
+import { RoomMetadataLoader } from '../services/RoomMetadataLoader';
+import { ReplyQuoteData } from '../services/MessageSender';
+import { ServiceLocator } from '../services/ServiceLocator';
+import { IDeviceSecurityManager } from '../services/DeviceSecurityManager';
+import { IClipboard } from '../platform/adapters/IClipboard';
 import { media } from '@kit.MediaKit';
 import curves from '@ohos.curves';
 
@@ -102,7 +107,38 @@ struct RoomDetailPage {
   private viewModel: RoomDetailViewModel | null = null;
 
   aboutToAppear() {
-    this.viewModel = new RoomDetailViewModel(this.roomId, this.roomName);
+    const authManager = ServiceLocator.getAuthManager();
+    const roomManager = ServiceLocator.getRoomManager();
+    const messageSender = ServiceLocator.getMessageSender();
+    const mediaManager = ServiceLocator.getMediaManager();
+    const userManager = ServiceLocator.getUserManager();
+
+    const userId: string = authManager.getUserId();
+    const homeserver: string = authManager.getHomeserver() || '';
+
+    const mediaActionHandler = new MediaActionHandler(
+      ServiceLocator.getFilePicker(),
+      ServiceLocator.getAudioRecorder(),
+      mediaManager,
+      messageSender
+    );
+
+    const metadataLoader = new RoomMetadataLoader(
+      roomManager,
+      authManager,
+      userManager
+    );
+
+    const deps: RoomDetailDeps = {
+      roomManager: roomManager,
+      messageSender: messageSender,
+      messageManager: ServiceLocator.getMessageManager(),
+      syncManager: ServiceLocator.getSyncManager(),
+      shareManager: ServiceLocator.getShareManager(),
+      mediaActionHandler: mediaActionHandler,
+      metadataLoader: metadataLoader
+    };
+    this.viewModel = new RoomDetailViewModel(this.roomId, this.roomName, userId, homeserver, deps);
 
     const self = this;
     this.viewModel.setLeaveRoomCallback(() => {
@@ -125,6 +161,11 @@ struct RoomDetailPage {
       self.editText = state.editText;
       self.inputText = state.inputText;
       self.selectedMessage = state.selectedMessage;
+    });
+
+    const clipboard: IClipboard = ServiceLocator.getClipboard();
+    this.viewModel.setOnCopyMessage((text: string) => {
+      clipboard.copyText(text);
     });
 
     this.viewModel.initialize();
@@ -214,8 +255,13 @@ struct RoomDetailPage {
   }
 
   checkMessageSecurity(message: Message) {
-    if (!this.viewModel) return;
-    this.viewModel.checkMessageSecurity(message);
+    const deviceSecurityManager: IDeviceSecurityManager = ServiceLocator.getDeviceSecurityManager();
+    const result = deviceSecurityManager.analyzeMessageSecurity(message.getMessageBody(), message.sender);
+    if (result.isSuspicious) {
+      ToastUtils.show('安全提醒: ' + result.warnings.join(', '), 4000);
+    } else {
+      ToastUtils.show('消息安全检测通过', 2000);
+    }
     this.showReplyMenu = false;
   }
 
@@ -506,8 +552,8 @@ struct RoomDetailPage {
                   MessageBubble({
                     message: message,
                     isOutgoing: message.sender === (this.viewModel?.getUserId() || ''),
-                    mediaManager: this.viewModel?.getMediaManager()!,
-                    verificationService: this.viewModel?.getVerificationService()!,
+                    mediaManager: ServiceLocator.getMediaManager(),
+                    verificationService: ServiceLocator.getVerificationService(),
                     onLongPress: () => {
                       this.onMessageLongPress(message);
                     }

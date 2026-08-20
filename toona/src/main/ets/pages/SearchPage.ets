@@ -1,9 +1,7 @@
 import { Room } from '../models/DataModels';
 import { getThemeColors } from '../utils/ThemeManager';
-import { AppLogger } from '../utils/AppLogger';
+import { SearchViewModel, SearchState } from '../viewmodels/SearchViewModel';
 import { ServiceLocator } from '../services/ServiceLocator';
-
-const logger = AppLogger.getLogger('SearchPage');
 
 @Builder
 export function SearchPageBuilder(name: string, param: Object) {
@@ -15,40 +13,26 @@ struct SearchPage {
   @State searchQuery: string = '';
   @State searchResults: Room[] = [];
   @State isSearching: boolean = false;
-  private roomManager = ServiceLocator.getRoomManager();
+  private viewModel: SearchViewModel | null = null;
   pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
-  }
+    this.viewModel = new SearchViewModel(ServiceLocator.getRoomManager());
 
-  async onSearch() {
-    if (!this.searchQuery.trim()) {
-      return;
-    }
+    const self = this;
+    this.viewModel.setOnStateChanged((state: SearchState) => {
+      self.searchQuery = state.searchQuery;
+      self.searchResults = state.searchResults;
+      self.isSearching = state.isSearching;
+    });
 
-    this.isSearching = true;
-    try {
-      const roomId = await this.roomManager.resolveRoomAlias(this.searchQuery.trim());
-      const room = await this.roomManager.getRoom(roomId);
-      if (room) {
-        this.searchResults = [room];
-      } else {
-        this.searchResults = [];
-      }
-    } catch (error) {
-logger.error('Search failed:', error);
-      this.searchResults = [];
-    } finally {
-      this.isSearching = false;
-    }
-  }
-
-  navigateToRoom(room: Room) {
-    const param: Record<string, Object> = {
-      "roomId": room.id,
-      "roomName": room.getDisplayName()
-    };
-    this.pathStack.pushPathByName('RoomDetailPage', param);
+    this.viewModel.setOnNavigateToRoom((roomId: string, roomName: string) => {
+      const param: Record<string, Object> = {
+        "roomId": roomId,
+        "roomName": roomName
+      };
+      self.pathStack.pushPathByName('RoomDetailPage', param);
+    });
   }
 
   build() {
@@ -64,10 +48,10 @@ logger.error('Search failed:', error);
             .fontColor(getThemeColors().text)
             .placeholderColor(getThemeColors().textSecondary)
             .onChange((value: string) => {
-              this.searchQuery = value;
+              this.viewModel?.setSearchQuery(value);
             })
             .onSubmit(() => {
-              this.onSearch();
+              this.viewModel?.search();
             });
 
           Button('搜索')
@@ -79,7 +63,7 @@ logger.error('Search failed:', error);
             .borderRadius(6)
             .margin({ left: 10 })
             .onClick(() => {
-              this.onSearch();
+              this.viewModel?.search();
             });
         }
         .width('100%')
@@ -176,7 +160,7 @@ logger.error('Search failed:', error);
                 })
                 .backgroundColor(getThemeColors().bg)
                 .onClick(() => {
-                  this.navigateToRoom(room);
+                  this.viewModel?.navigateToRoom(room);
                 });
               };
             });

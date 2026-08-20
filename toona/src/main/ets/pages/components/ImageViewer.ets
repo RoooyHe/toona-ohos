@@ -1,6 +1,6 @@
 import { getThemeColors } from '../../utils/ThemeManager';
 import { ToastUtils } from '../../utils/ToastUtils';
-import { MediaManager } from '../../services/MediaManager';
+import { IMediaManager } from '../../services/MediaManager';
 
 /**
  * Image Viewer Component
@@ -13,7 +13,7 @@ export struct ImageViewer {
   @Prop imageInfo: Record<string, string | object> = {};
   @Prop sender: string = '';
   @Prop timestamp: number = 0;
-  mediaManager: MediaManager | null = null;
+  mediaManager: IMediaManager | null = null;
   onClose: () => void = () => {};
 
   @State imageScale: number = 1;

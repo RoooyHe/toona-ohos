@@ -1,6 +1,6 @@
 import { ToastUtils } from '../utils/ToastUtils';
 import { AppLogger } from '../utils/AppLogger';
-import { ServiceLocator } from '../services/ServiceLocator';
+import { IRoomManager } from '../services/RoomManager';
 
 const logger = AppLogger.getLogger('RoomSettingsViewModel');
 
@@ -22,7 +22,7 @@ export type RoomSettingsStateCallback = (state: RoomSettingsState) => void;
 export type PopCallback = () => void;
 
 export class RoomSettingsViewModel {
-  private roomManager = ServiceLocator.getRoomManager();
+  private roomManager: IRoomManager;
   private onStateChanged: RoomSettingsStateCallback | null = null;
   private popCallback: PopCallback | null = null;
 
@@ -39,9 +39,10 @@ export class RoomSettingsViewModel {
     isLoading: true
   };
 
-  constructor(roomId: string, roomName: string) {
+  constructor(roomId: string, roomName: string, roomManager: IRoomManager) {
     this.state.roomId = roomId;
     this.state.roomName = roomName;
+    this.roomManager = roomManager;
   }
 
   setOnStateChanged(callback: RoomSettingsStateCallback): void {

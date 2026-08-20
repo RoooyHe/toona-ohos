@@ -4,7 +4,8 @@ import { RoomListPage } from './RoomListPage';
 import { getThemeColors } from '../utils/ThemeManager';
 import { SpacePage } from './SpacePage';
 import { AppLogger } from '../utils/AppLogger';
-import { MainViewModel, MainState } from '../viewmodels/MainViewModel';
+import { MainViewModel, MainState, MainDeps } from '../viewmodels/MainViewModel';
+import { ServiceLocator } from '../services/ServiceLocator';
 
 const logger = AppLogger.getLogger('MainPage');
 
@@ -41,7 +42,13 @@ struct MainPage {
   pathStack: NavPathStack = new NavPathStack();
 
   private isNavigating: boolean = false;
-  private vm: MainViewModel = new MainViewModel();
+  private vm: MainViewModel = new MainViewModel({
+    syncManager: ServiceLocator.getSyncManager(),
+    roomManager: ServiceLocator.getRoomManager(),
+    authManager: ServiceLocator.getAuthManager(),
+    userManager: ServiceLocator.getUserManager(),
+    roomTagManager: ServiceLocator.getRoomTagManager()
+  } as MainDeps);
 
   aboutToAppear() {
     const self = this;

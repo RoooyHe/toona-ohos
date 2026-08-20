@@ -4,7 +4,17 @@ import { AuthManager, IAuthManager } from './AuthManager';
 import { GetPresenceResponse, PresenceState, SetPresenceRequest } from '../models/MatrixTypes';
 import { UserProfile } from '../models/DataModels';
 
-export class UserManager {
+export interface IUserManager {
+  getUserProfile(userId?: string): Promise<UserProfile>;
+  setDisplayName(displayName: string): Promise<void>;
+  setAvatarUrl(avatarUrl: string): Promise<void>;
+  getPresence(userId: string): Promise<GetPresenceResponse>;
+  setPresence(userId: string, presence: PresenceState, statusMsg?: string): Promise<void>;
+  getDisplayName(userId?: string): Promise<string | null>;
+  getAvatarUrl(userId?: string): Promise<string | null>;
+}
+
+export class UserManager implements IUserManager {
   private userHttpClient: UserHttpClient;
   private logger = AppLogger.getLogger(UserManager);
   private authManager: IAuthManager;

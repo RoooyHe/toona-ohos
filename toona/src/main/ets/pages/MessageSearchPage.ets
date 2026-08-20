@@ -1,23 +1,6 @@
-import { ToastUtils } from '../utils/ToastUtils';
-import { Message } from '../models/DataModels';
 import { getThemeColors } from '../utils/ThemeManager';
-import { AppLogger } from '../utils/AppLogger';
+import { MessageSearchViewModel, MessageSearchState, SearchResult, SearchResultMessage } from '../viewmodels/MessageSearchViewModel';
 import { ServiceLocator } from '../services/ServiceLocator';
-
-const logger = AppLogger.getLogger('MessageSearchPage');
-
-interface SearchResult {
-  roomId: string;
-  roomName: string;
-  messages: SearchResultMessage[];
-}
-
-interface SearchResultMessage {
-  eventId: string;
-  sender: string;
-  body: string;
-  timestamp: number;
-}
 
 @Builder
 export function MessageSearchPageBuilder(name: string, param: Object) {
@@ -30,73 +13,31 @@ struct MessageSearchPage {
   @State searchResults: SearchResult[] = [];
   @State isSearching: boolean = false;
   @State hasSearched: boolean = false;
-  private roomManager = ServiceLocator.getRoomManager();
+  private viewModel: MessageSearchViewModel | null = null;
   pathStack: NavPathStack = new NavPathStack();
-  private logger = AppLogger.getLogger('MessageSearchPage');
 
-  async onSearch(): Promise<void> {
-    if (!this.searchQuery.trim()) {
-      return;
-    }
+  aboutToAppear() {
+    this.viewModel = new MessageSearchViewModel(
+      ServiceLocator.getRoomManager(),
+      ServiceLocator.getMessageManager()
+    );
 
-    this.isSearching = true;
-    this.hasSearched = true;
+    const self = this;
+    this.viewModel.setOnStateChanged((state: MessageSearchState) => {
+      self.searchQuery = state.searchQuery;
+      self.searchResults = state.searchResults;
+      self.isSearching = state.isSearching;
+      self.hasSearched = state.hasSearched;
+    });
 
-    try {
-      const rooms = await this.roomManager.getRooms();
-      const results: SearchResult[] = [];
-
-      for (const room of rooms) {
-        if (room.isSpace) {
-          continue;
-        }
-
-        try {
-          const messages: Message[] = await ServiceLocator.getMessageManager().getMessages(room.id, 50);
-          const matchingMessages: Message[] = messages.filter((msg: Message): boolean => {
-            const body: string = msg.getMessageBody().toLowerCase();
-            return body.includes(this.searchQuery.toLowerCase());
-          });
-
-          if (matchingMessages.length > 0) {
-            const searchMsgs: SearchResultMessage[] = matchingMessages.map((msg: Message): SearchResultMessage => {
-              const result: SearchResultMessage = {
-                eventId: msg.eventId,
-                sender: msg.sender,
-                body: msg.getMessageBody(),
-                timestamp: msg.timestamp
-              };
-              return result;
-            });
-            const item: SearchResult = {
-              roomId: room.id,
-              roomName: room.getDisplayName(),
-              messages: searchMsgs
-            };
-            results.push(item);
-          }
-        } catch (error) {
-          this.logger.error(`Failed to search in room ${room.id}:`, error);
-        }
-      }
-
-      this.searchResults = results;
-    } catch (error) {
-      this.logger.error('Search failed:', error);
-      ToastUtils.show('Search failed');
-    } finally {
-      this.isSearching = false;
-    }
-  }
-
-  navigateToMessage(roomId: string, eventId: string): void {
-    // Navigate to the room and highlight the message
-    const param: Record<string, Object> = {
-      "roomId": roomId,
-      "roomName": '',
-      "highlightEventId": eventId
-    };
-    this.pathStack.pushPathByName('RoomDetailPage', param);
+    this.viewModel.setOnNavigateToMessage((roomId: string, eventId: string) => {
+      const param: Record<string, Object> = {
+        "roomId": roomId,
+        "roomName": '',
+        "highlightEventId": eventId
+      };
+      self.pathStack.pushPathByName('RoomDetailPage', param);
+    });
   }
 
   formatTimestamp(timestamp: number): string {
@@ -112,7 +53,6 @@ struct MessageSearchPage {
   build() {
     NavDestination() {
       Column() {
-        // Header
         Row() {
           Button('←')
             .fontSize(18)
@@ -134,7 +74,6 @@ struct MessageSearchPage {
         .padding({ left: 10, right: 10, top: 10, bottom: 10 })
         .backgroundColor(getThemeColors().bg);
 
-        // Search Input
         Row() {
           TextInput({ placeholder: 'Search messages...', text: this.searchQuery })
             .fontSize(16)
@@ -143,10 +82,10 @@ struct MessageSearchPage {
             .layoutWeight(1)
             .height(40)
             .onChange((value: string) => {
-              this.searchQuery = value;
+              this.viewModel?.setSearchQuery(value);
             })
             .onSubmit(() => {
-              this.onSearch();
+              this.viewModel?.search();
             });
 
           Button('Search')
@@ -158,7 +97,7 @@ struct MessageSearchPage {
             .margin({ left: 8 })
             .enabled(!this.isSearching)
             .onClick(() => {
-              this.onSearch();
+              this.viewModel?.search();
             });
         }
         .width('100%')
@@ -167,7 +106,6 @@ struct MessageSearchPage {
 
         Divider().color(getThemeColors().divider);
 
-        // Search Results
         if (this.isSearching) {
           Column() {
             LoadingProgress()
@@ -214,7 +152,6 @@ struct MessageSearchPage {
             ForEach(this.searchResults, (result: SearchResult) => {
               ListItem() {
                 Column() {
-                  // Room Header
                   Row() {
                     Text(result.roomName)
                       .fontSize(14)
@@ -228,7 +165,6 @@ struct MessageSearchPage {
                   .width('100%')
                   .padding({ left: 16, right: 16, top: 12, bottom: 8 });
 
-                  // Messages
                   ForEach(result.messages, (msg: SearchResultMessage) => {
                     Column() {
                       Row() {
@@ -256,7 +192,7 @@ struct MessageSearchPage {
                     .margin({ left: 16, right: 16, bottom: 4 })
                     .borderRadius(6)
                     .onClick(() => {
-                      this.navigateToMessage(result.roomId, msg.eventId);
+                      this.viewModel?.navigateToMessage(result.roomId, msg.eventId);
                     });
                   });
                 }

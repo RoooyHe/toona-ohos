@@ -3,7 +3,13 @@ import { ToastUtils } from '../utils/ToastUtils';
 import { common, Want } from '@kit.AbilityKit';
 import { AppLogger } from '../utils/AppLogger';
 
-export class ShareManager {
+export interface IShareManager {
+  shareRoomLink(roomId: string, roomName: string, homeserver: string): void;
+  shareMessage(content: string, senderName: string): void;
+  shareText(title: string, content: string): void;
+}
+
+export class ShareManager implements IShareManager {
   private logger = AppLogger.getLogger(ShareManager);
 
   shareText(title: string, content: string): void {

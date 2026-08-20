@@ -1,6 +1,6 @@
 import { IRoomManager } from './RoomManager';
 import { IAuthManager } from './AuthManager';
-import { UserManager } from './UserManager';
+import { IUserManager } from './UserManager';
 import { PresenceState } from '../models/MatrixTypes';
 import { AppLogger } from '../utils/AppLogger';
 
@@ -17,10 +17,19 @@ export interface RoomTopicResult {
   roomName: string;
 }
 
-export class RoomMetadataLoader {
+export interface IRoomMetadataLoader {
+  loadMemberPresences(roomId: string): Promise<MemberPresence[]>;
+  loadRoomTopic(roomId: string): Promise<RoomTopicResult>;
+  checkTypingUsers(roomId: string): Promise<string[]>;
+  onInputChange(text: string, roomId: string): void;
+  stopTyping(roomId: string): void;
+  cleanup(roomId: string): Promise<void>;
+}
+
+export class RoomMetadataLoader implements IRoomMetadataLoader {
   private roomManager: IRoomManager;
   private authManager: IAuthManager;
-  private userManager: UserManager;
+  private userManager: IUserManager;
 
   private typingTimeout: number = 0;
   private typingStopTimeout: number = 0;
@@ -28,7 +37,7 @@ export class RoomMetadataLoader {
   constructor(
     roomManager: IRoomManager,
     authManager: IAuthManager,
-    userManager: UserManager
+    userManager: IUserManager
   ) {
     this.roomManager = roomManager;
     this.authManager = authManager;

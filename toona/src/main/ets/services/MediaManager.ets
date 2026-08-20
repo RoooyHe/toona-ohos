@@ -8,7 +8,16 @@ interface ParsedMxcUri {
   mediaId: string;
 }
 
-export class MediaManager {
+export interface IMediaManager {
+  uploadImage(data: ArrayBuffer, fileName: string): Promise<string>;
+  uploadAudio(data: ArrayBuffer, fileName: string): Promise<string>;
+  uploadVideo(data: ArrayBuffer, fileName: string): Promise<string>;
+  uploadFile(data: ArrayBuffer, fileName: string, mimeType?: string): Promise<string>;
+  getHttpUrl(mxcUri: string): string;
+  getThumbnailUrl(mxcUri: string, width: number, height: number, method?: 'crop' | 'scale'): string;
+}
+
+export class MediaManager implements IMediaManager {
   private mediaClient: MediaHttpClient;
   private logger = AppLogger.getLogger(MediaManager);
 

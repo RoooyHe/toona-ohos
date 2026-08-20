@@ -1,11 +1,8 @@
 import { ToastUtils } from '../utils/ToastUtils';
 import { getThemeColors } from '../utils/ThemeManager';
 import { PresenceState } from '../models/MatrixTypes';
-import { AppLogger } from '../utils/AppLogger';
+import { UserProfileViewModel, UserProfileState } from '../viewmodels/UserProfileViewModel';
 import { ServiceLocator } from '../services/ServiceLocator';
-import { UserProfile } from '../models/DataModels';
-
-const logger = AppLogger.getLogger('UserProfilePage');
 
 @Builder
 export function UserProfilePageBuilder(name: string, param: Object) {
@@ -22,43 +19,28 @@ struct UserProfilePage {
   @State presence: PresenceState = 'offline';
   @State statusMsg: string = '';
   @State isLoading: boolean = true;
-  private userManager = ServiceLocator.getUserManager();
+  private viewModel: UserProfileViewModel | null = null;
   private mediaManager = ServiceLocator.getMediaManager();
   pathStack: NavPathStack = new NavPathStack();
-  private logger = AppLogger.getLogger('UserProfilePage');
 
   aboutToAppear() {
-    this.loadUserProfile();
-  }
+    this.viewModel = new UserProfileViewModel(this.userId, ServiceLocator.getUserManager());
 
-  async loadUserProfile() {
-    this.isLoading = true;
-    try {
-      const profilePromise = this.userManager.getUserProfile(this.userId);
-      const presencePromise = this.userManager.getPresence(this.userId);
-      const profile: UserProfile = await profilePromise;
-      this.displayName = profile.displayName || '';
-      this.avatarUrl = profile.avatarUrl || '';
-      const presenceResponse = await presencePromise;
-      this.presence = presenceResponse.presence as PresenceState;
-      this.statusMsg = presenceResponse.status_msg || '';
-    } catch (error) {
-      this.logger.error('Failed to load user profile:', error);
-      ToastUtils.show('Failed to load profile');
-    } finally {
-      this.isLoading = false;
-    }
-  }
+    const self = this;
+    this.viewModel.setOnStateChanged((state: UserProfileState) => {
+      self.userId = state.userId;
+      self.displayName = state.displayName;
+      self.avatarUrl = state.avatarUrl;
+      self.presence = state.presence;
+      self.statusMsg = state.statusMsg;
+      self.isLoading = state.isLoading;
+    });
 
-  async startDirectChat() {
-    try {
-      // In a real implementation, this would create a direct chat with the user
-      ToastUtils.show('Starting direct chat...');
-      this.pathStack.pop();
-    } catch (error) {
-      this.logger.error('Failed to start direct chat:', error);
-      ToastUtils.show('Failed to start chat');
-    }
+    this.viewModel.setOnStartDirectChat(() => {
+      self.pathStack.pop();
+    });
+
+    this.viewModel.loadUserProfile();
   }
 
   getPresenceText(state: PresenceState): string {
@@ -82,7 +64,6 @@ struct UserProfilePage {
   build() {
     NavDestination() {
       Column() {
-        // Header
         Row() {
           Button('←')
             .fontSize(18)
@@ -122,9 +103,7 @@ struct UserProfilePage {
         } else {
           Scroll() {
             Column() {
-              // Avatar and Name Section
               Column() {
-                // Avatar
                 Stack() {
                   if (this.avatarUrl) {
                     Image(this.mediaManager.getHttpUrl(this.avatarUrl))
@@ -143,7 +122,6 @@ struct UserProfilePage {
                       .textAlign(TextAlign.Center);
                   }
 
-                  // Presence indicator
                   Circle()
                     .width(16)
                     .height(16)
@@ -156,20 +134,17 @@ struct UserProfilePage {
                 .height(80)
                 .margin({ bottom: 16 });
 
-                // Display Name
                 Text(this.displayName || 'Unknown User')
                   .fontSize(20)
                   .fontWeight(FontWeight.Bold)
                   .fontColor(getThemeColors().text)
                   .margin({ bottom: 8 });
 
-                // User ID
                 Text(this.userId)
                   .fontSize(14)
                   .fontColor(getThemeColors().textSecondary)
                   .margin({ bottom: 8 });
 
-                // Presence Status
                 Row() {
                   Circle()
                     .width(8)
@@ -182,7 +157,6 @@ struct UserProfilePage {
                 }
                 .margin({ bottom: 8 });
 
-                // Status Message
                 if (this.statusMsg) {
                   Text(this.statusMsg)
                     .fontSize(14)
@@ -196,7 +170,6 @@ struct UserProfilePage {
 
               Divider().color(getThemeColors().divider);
 
-              // Actions Section
               Column() {
                 Button('Start Direct Chat')
                   .fontSize(16)
@@ -207,7 +180,7 @@ struct UserProfilePage {
                   .height(44)
                   .margin({ left: 20, right: 20, top: 20, bottom: 10 })
                   .onClick(() => {
-                    this.startDirectChat();
+                    this.viewModel?.startDirectChat();
                   });
 
                 Button('Block User')

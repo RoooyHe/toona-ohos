@@ -1,22 +1,26 @@
 import { AuthManager, IAuthManager } from './AuthManager';
 import { SyncManager, ISyncManager } from './SyncManager';
 import { RoomManager, IRoomManager } from './RoomManager';
-import { MessageManager } from './MessageManager';
+import { MessageManager, IMessageManager } from './MessageManager';
+import { MessageSender, IMessageSender } from './MessageSender';
 import { CryptoService } from './CryptoService';
-import { VerificationService } from './VerificationService';
-import { DeviceManager } from './DeviceManager';
-import { MediaManager } from './MediaManager';
-import { PushManager } from './PushManager';
-import { RoomTagManager } from './RoomTagManager';
-import { UserManager } from './UserManager';
+import { VerificationService, IVerificationService } from './VerificationService';
+import { DeviceManager, IDeviceManager } from './DeviceManager';
+import { MediaManager, IMediaManager } from './MediaManager';
+import { PushManager, IPushManager } from './PushManager';
+import { RoomTagManager, IRoomTagManager } from './RoomTagManager';
+import { UserManager, IUserManager } from './UserManager';
 import { UserAuthManager } from './UserAuthManager';
-import { DeviceSecurityManager } from './DeviceSecurityManager';
-import { ScanManager } from './ScanManager';
-import { ShareManager } from './ShareManager';
+import { DeviceSecurityManager, IDeviceSecurityManager } from './DeviceSecurityManager';
+import { ScanManager, IScanManager } from './ScanManager';
+import { ShareManager, IShareManager } from './ShareManager';
 import { ServiceCollaborationManager } from './ServiceCollaborationManager';
 import { EventProcessor } from './EventProcessor';
 import { LocalDatabase } from '../database/LocalDatabase';
 import { ConnectionConfig } from '../network/ConnectionConfig';
+import { IFilePicker } from '../platform/adapters/IFilePicker';
+import { IClipboard } from '../platform/adapters/IClipboard';
+import { IAudioRecorder } from '../platform/adapters/IAudioRecorder';
 import { AppLogger } from '../utils/AppLogger';
 
 const logger = AppLogger.getLogger('ServiceLocator');
@@ -41,6 +45,10 @@ export class ServiceLocator {
   private static readonly COLLABORATION_KEY: string = 'svc_serviceCollaborationManager';
   private static readonly EVENT_PROCESSOR_KEY: string = 'svc_eventProcessor';
   private static readonly CONNECTION_CONFIG_KEY: string = 'svc_connectionConfig';
+  private static readonly MESSAGE_SENDER_KEY: string = 'svc_messageSender';
+  private static readonly FILE_PICKER_KEY: string = 'svc_filePicker';
+  private static readonly CLIPBOARD_KEY: string = 'svc_clipboard';
+  private static readonly AUDIO_RECORDER_KEY: string = 'svc_audioRecorder';
 
   static setAuthManager(mgr: AuthManager): void {
     AppStorage.setOrCreate<AuthManager>(ServiceLocator.AUTH_KEY, mgr);
@@ -86,12 +94,25 @@ export class ServiceLocator {
     logger.info('MessageManager registered');
   }
 
-  static getMessageManager(): MessageManager {
+  static getMessageManager(): IMessageManager {
     const mgr: MessageManager | undefined = AppStorage.get<MessageManager>(ServiceLocator.MESSAGE_KEY);
     if (!mgr) {
       throw new Error('MessageManager not initialized');
     }
     return mgr;
+  }
+
+  static setMessageSender(sender: MessageSender): void {
+    AppStorage.setOrCreate<MessageSender>(ServiceLocator.MESSAGE_SENDER_KEY, sender);
+    logger.info('MessageSender registered');
+  }
+
+  static getMessageSender(): IMessageSender {
+    const sender: MessageSender | undefined = AppStorage.get<MessageSender>(ServiceLocator.MESSAGE_SENDER_KEY);
+    if (!sender) {
+      throw new Error('MessageSender not initialized');
+    }
+    return sender;
   }
 
   static setCryptoService(svc: CryptoService): void {
@@ -112,7 +133,7 @@ export class ServiceLocator {
     logger.info('VerificationService registered');
   }
 
-  static getVerificationService(): VerificationService {
+  static getVerificationService(): IVerificationService {
     const svc: VerificationService | undefined = AppStorage.get<VerificationService>(ServiceLocator.VERIFICATION_KEY);
     if (!svc) {
       throw new Error('VerificationService not initialized');
@@ -125,7 +146,7 @@ export class ServiceLocator {
     logger.info('DeviceManager registered');
   }
 
-  static getDeviceManager(): DeviceManager {
+  static getDeviceManager(): IDeviceManager {
     const mgr: DeviceManager | undefined = AppStorage.get<DeviceManager>(ServiceLocator.DEVICE_KEY);
     if (!mgr) {
       throw new Error('DeviceManager not initialized');
@@ -138,7 +159,7 @@ export class ServiceLocator {
     logger.info('MediaManager registered');
   }
 
-  static getMediaManager(): MediaManager {
+  static getMediaManager(): IMediaManager {
     const mgr: MediaManager | undefined = AppStorage.get<MediaManager>(ServiceLocator.MEDIA_KEY);
     if (!mgr) {
       throw new Error('MediaManager not initialized');
@@ -151,7 +172,7 @@ export class ServiceLocator {
     logger.info('PushManager registered');
   }
 
-  static getPushManager(): PushManager {
+  static getPushManager(): IPushManager {
     const mgr: PushManager | undefined = AppStorage.get<PushManager>(ServiceLocator.PUSH_KEY);
     if (!mgr) {
       throw new Error('PushManager not initialized');
@@ -164,7 +185,7 @@ export class ServiceLocator {
     logger.info('RoomTagManager registered');
   }
 
-  static getRoomTagManager(): RoomTagManager {
+  static getRoomTagManager(): IRoomTagManager {
     const mgr: RoomTagManager | undefined = AppStorage.get<RoomTagManager>(ServiceLocator.ROOM_TAG_KEY);
     if (!mgr) {
       throw new Error('RoomTagManager not initialized');
@@ -177,7 +198,7 @@ export class ServiceLocator {
     logger.info('UserManager registered');
   }
 
-  static getUserManager(): UserManager {
+  static getUserManager(): IUserManager {
     const mgr: UserManager | undefined = AppStorage.get<UserManager>(ServiceLocator.USER_KEY);
     if (!mgr) {
       throw new Error('UserManager not initialized');
@@ -216,7 +237,7 @@ export class ServiceLocator {
     logger.info('DeviceSecurityManager registered');
   }
 
-  static getDeviceSecurityManager(): DeviceSecurityManager {
+  static getDeviceSecurityManager(): IDeviceSecurityManager {
     const mgr: DeviceSecurityManager | undefined = AppStorage.get<DeviceSecurityManager>(ServiceLocator.DEVICE_SECURITY_KEY);
     if (!mgr) {
       throw new Error('DeviceSecurityManager not initialized');
@@ -229,7 +250,7 @@ export class ServiceLocator {
     logger.info('ScanManager registered');
   }
 
-  static getScanManager(): ScanManager {
+  static getScanManager(): IScanManager {
     const mgr: ScanManager | undefined = AppStorage.get<ScanManager>(ServiceLocator.SCAN_KEY);
     if (!mgr) {
       throw new Error('ScanManager not initialized');
@@ -242,7 +263,7 @@ export class ServiceLocator {
     logger.info('ShareManager registered');
   }
 
-  static getShareManager(): ShareManager {
+  static getShareManager(): IShareManager {
     const mgr: ShareManager | undefined = AppStorage.get<ShareManager>(ServiceLocator.SHARE_KEY);
     if (!mgr) {
       throw new Error('ShareManager not initialized');
@@ -289,6 +310,45 @@ export class ServiceLocator {
     return config;
   }
 
+  static setFilePicker(picker: IFilePicker): void {
+    AppStorage.setOrCreate<Object>(ServiceLocator.FILE_PICKER_KEY, picker);
+    logger.info('FilePicker registered');
+  }
+
+  static getFilePicker(): IFilePicker {
+    const picker: Object | undefined = AppStorage.get<Object>(ServiceLocator.FILE_PICKER_KEY);
+    if (!picker) {
+      throw new Error('FilePicker not initialized');
+    }
+    return picker as IFilePicker;
+  }
+
+  static setClipboard(clipboard: IClipboard): void {
+    AppStorage.setOrCreate<Object>(ServiceLocator.CLIPBOARD_KEY, clipboard);
+    logger.info('Clipboard registered');
+  }
+
+  static getClipboard(): IClipboard {
+    const clipboard: Object | undefined = AppStorage.get<Object>(ServiceLocator.CLIPBOARD_KEY);
+    if (!clipboard) {
+      throw new Error('Clipboard not initialized');
+    }
+    return clipboard as IClipboard;
+  }
+
+  static setAudioRecorder(recorder: IAudioRecorder): void {
+    AppStorage.setOrCreate<Object>(ServiceLocator.AUDIO_RECORDER_KEY, recorder);
+    logger.info('AudioRecorder registered');
+  }
+
+  static getAudioRecorder(): IAudioRecorder {
+    const recorder: Object | undefined = AppStorage.get<Object>(ServiceLocator.AUDIO_RECORDER_KEY);
+    if (!recorder) {
+      throw new Error('AudioRecorder not initialized');
+    }
+    return recorder as IAudioRecorder;
+  }
+
   static reset(): void {
     AppStorage.set<AuthManager | undefined>(ServiceLocator.AUTH_KEY, undefined);
     AppStorage.set<SyncManager | undefined>(ServiceLocator.SYNC_KEY, undefined);
@@ -309,6 +369,10 @@ export class ServiceLocator {
     AppStorage.set<ServiceCollaborationManager | undefined>(ServiceLocator.COLLABORATION_KEY, undefined);
     AppStorage.set<EventProcessor | undefined>(ServiceLocator.EVENT_PROCESSOR_KEY, undefined);
     AppStorage.set<ConnectionConfig | undefined>(ServiceLocator.CONNECTION_CONFIG_KEY, undefined);
+    AppStorage.set<MessageSender | undefined>(ServiceLocator.MESSAGE_SENDER_KEY, undefined);
+    AppStorage.set<Object | undefined>(ServiceLocator.FILE_PICKER_KEY, undefined);
+    AppStorage.set<Object | undefined>(ServiceLocator.CLIPBOARD_KEY, undefined);
+    AppStorage.set<Object | undefined>(ServiceLocator.AUDIO_RECORDER_KEY, undefined);
     logger.info('ServiceLocator reset');
   }
 }

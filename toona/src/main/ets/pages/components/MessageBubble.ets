@@ -1,8 +1,8 @@
 import { ToastUtils } from '../../utils/ToastUtils';
 import { Message, MessageStatus } from '../../models/DataModels';
 import { getThemeColors } from '../../utils/ThemeManager';
-import { VerificationService } from '../../services/VerificationService';
-import { MediaManager } from '../../services/MediaManager';
+import { IVerificationService } from '../../services/VerificationService';
+import { IMediaManager } from '../../services/MediaManager';
 import { VerificationState } from '../../crypto/types/CryptoTypes';
 import { ImageViewer } from './ImageViewer';
 import { FilePreview } from './FilePreview';
@@ -53,8 +53,8 @@ export struct MessageBubble {
   isOutgoing: boolean = false;
   onLongPress: (message: Message) => void = () => {
   };
-  verificationService: VerificationService | null = null;
-  mediaManager: MediaManager | null = null;
+  verificationService: IVerificationService | null = null;
+  mediaManager: IMediaManager | null = null;
   @State deviceTrustLevel: VerificationState = VerificationState.UNVERIFIED;
   @State showImageViewer: boolean = false;
   @State showFilePreview: boolean = false;

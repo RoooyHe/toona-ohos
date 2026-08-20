@@ -1,13 +1,13 @@
 import { ToastUtils } from '../utils/ToastUtils';
 import { AppLogger } from '../utils/AppLogger';
 
-interface MessageSecurityResult {
+export interface MessageSecurityResult {
   isSuspicious: boolean;
   riskLevel: string;
   warnings: string[];
 }
 
-interface DeviceSecurityStatus {
+export interface DeviceSecurityStatus {
   isSecure: boolean;
   hasSecurityChip: boolean;
   isEncrypted: boolean;
@@ -27,7 +27,12 @@ interface KeywordPattern {
   warning: string;
 }
 
-export class DeviceSecurityManager {
+export interface IDeviceSecurityManager {
+  analyzeMessageSecurity(message: string, senderId: string): MessageSecurityResult;
+  checkDeviceSecurityStatus(): Promise<DeviceSecurityStatus>;
+}
+
+export class DeviceSecurityManager implements IDeviceSecurityManager {
   private logger = AppLogger.getLogger(DeviceSecurityManager);
 
   async isSecurityChipSupported(): Promise<boolean> {

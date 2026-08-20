@@ -1,19 +1,39 @@
 import { ToastUtils } from '../utils/ToastUtils';
 import { AppLogger } from '../utils/AppLogger';
 import { ServiceCollaborationManager } from '../services/ServiceCollaborationManager';
-import { DeviceSecurityManager } from '../services/DeviceSecurityManager';
-import { ScanManager } from '../services/ScanManager';
 import { UserAuthManager } from '../services/UserAuthManager';
-import { ServiceLocator } from '../services/ServiceLocator';
+import { IAuthManager } from '../services/AuthManager';
+import { IRoomManager } from '../services/RoomManager';
+import { IUserManager } from '../services/UserManager';
+import { IMediaManager } from '../services/MediaManager';
+import { IRoomTagManager } from '../services/RoomTagManager';
+import { IDeviceManager } from '../services/DeviceManager';
+import { IShareManager } from '../services/ShareManager';
+import { IDeviceSecurityManager } from '../services/DeviceSecurityManager';
+import { IScanManager } from '../services/ScanManager';
+import { IFilePicker, SelectedFile } from '../platform/adapters/IFilePicker';
 import { Room } from '../models/DataModels';
 import { UserProfile } from '../models/DataModels';
 import { Device } from '../models/MatrixTypes';
 import { PresenceState } from '../models/MatrixTypes';
 import { ThemeManager, ColorModeType } from '../utils/ThemeManager';
-import { fileIo } from '@kit.CoreFileKit';
-import { picker } from '@kit.CoreFileKit';
 
 const logger = AppLogger.getLogger('SettingsViewModel');
+
+export interface SettingsDeps {
+  authManager: IAuthManager;
+  roomManager: IRoomManager;
+  userManager: IUserManager;
+  mediaManager: IMediaManager;
+  roomTagManager: IRoomTagManager;
+  deviceManager: IDeviceManager;
+  shareManager: IShareManager;
+  deviceSecurityManager: IDeviceSecurityManager;
+  scanManager: IScanManager;
+  userAuthManager: UserAuthManager;
+  serviceCollaborationManager: ServiceCollaborationManager;
+  filePicker: IFilePicker;
+}
 
 export interface SettingsState {
   userId: string;
@@ -42,16 +62,18 @@ export type SettingsStateCallback = (state: SettingsState) => void;
 export type LogoutCallback = () => void;
 
 export class SettingsViewModel {
-  private userManager = ServiceLocator.getUserManager();
-  private mediaManager = ServiceLocator.getMediaManager();
-  private authManager = ServiceLocator.getAuthManager();
-  private roomManager = ServiceLocator.getRoomManager();
-  private roomTagManager = ServiceLocator.getRoomTagManager();
-  private deviceManager = ServiceLocator.getDeviceManager();
-  private collaborationManager: ServiceCollaborationManager = ServiceLocator.getServiceCollaborationManager();
-  private deviceSecurityManager: DeviceSecurityManager = ServiceLocator.getDeviceSecurityManager();
-  private scanManager: ScanManager = ServiceLocator.getScanManager();
-  private userAuthManager: UserAuthManager = ServiceLocator.getUserAuthManager();
+  private authManager: IAuthManager;
+  private roomManager: IRoomManager;
+  private userManager: IUserManager;
+  private mediaManager: IMediaManager;
+  private roomTagManager: IRoomTagManager;
+  private deviceManager: IDeviceManager;
+  private shareManager: IShareManager;
+  private deviceSecurityManager: IDeviceSecurityManager;
+  private scanManager: IScanManager;
+  private userAuthManager: UserAuthManager;
+  private collaborationManager: ServiceCollaborationManager;
+  private filePicker: IFilePicker;
   private themeManager: ThemeManager = ThemeManager.getInstance();
   private onStateChanged: SettingsStateCallback | null = null;
   private logoutCallback: LogoutCallback | null = null;
@@ -77,6 +99,21 @@ export class SettingsViewModel {
     isE2EEEnabled: false,
     currentDeviceId: ''
   };
+
+  constructor(deps: SettingsDeps) {
+    this.authManager = deps.authManager;
+    this.roomManager = deps.roomManager;
+    this.userManager = deps.userManager;
+    this.mediaManager = deps.mediaManager;
+    this.roomTagManager = deps.roomTagManager;
+    this.deviceManager = deps.deviceManager;
+    this.shareManager = deps.shareManager;
+    this.deviceSecurityManager = deps.deviceSecurityManager;
+    this.scanManager = deps.scanManager;
+    this.userAuthManager = deps.userAuthManager;
+    this.collaborationManager = deps.serviceCollaborationManager;
+    this.filePicker = deps.filePicker;
+  }
 
   setOnStateChanged(callback: SettingsStateCallback): void {
     this.onStateChanged = callback;
@@ -230,20 +267,10 @@ export class SettingsViewModel {
 
   async pickAndUploadAvatar(): Promise<void> {
     try {
-      const photoPicker = new picker.PhotoViewPicker();
-      const result = await photoPicker.select({
-        MIMEType: picker.PhotoViewMIMETypes.IMAGE_TYPE,
-        maxSelectNumber: 1
-      });
-      if (result && result.photoUris && result.photoUris.length > 0) {
-        const photoUri = result.photoUris[0];
-        const file = fileIo.openSync(photoUri, fileIo.OpenMode.READ_ONLY);
-        const fileInfo = fileIo.statSync(photoUri);
-        const buffer = new Uint8Array(fileInfo.size);
-        fileIo.readSync(file.fd, buffer);
-        fileIo.closeSync(file);
-        const fileName = 'avatar_' + Date.now() + '.jpg';
-        const mxcUri = await this.mediaManager.uploadImage(buffer.buffer as ArrayBuffer, fileName);
+      const selected: SelectedFile | null = await this.filePicker.selectImage();
+      if (selected) {
+        const fileName: string = 'avatar_' + Date.now() + '.jpg';
+        const mxcUri: string = await this.mediaManager.uploadImage(selected.buffer, fileName);
         await this.userManager.setAvatarUrl(mxcUri);
         this.state.avatarUrl = this.mediaManager.getHttpUrl(mxcUri);
         ToastUtils.show('头像已更新');

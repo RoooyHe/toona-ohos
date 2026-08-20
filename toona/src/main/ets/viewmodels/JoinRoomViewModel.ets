@@ -1,7 +1,8 @@
 import { ToastUtils } from '../utils/ToastUtils';
 import { AppLogger } from '../utils/AppLogger';
-import { ScanManager } from '../services/ScanManager';
-import { ServiceLocator } from '../services/ServiceLocator';
+import { IScanManager } from '../services/ScanManager';
+import { IRoomManager } from '../services/RoomManager';
+import { IAuthManager } from '../services/AuthManager';
 import { CreateRoomOptions } from '../services/RoomManager';
 
 const logger = AppLogger.getLogger('JoinRoomViewModel');
@@ -10,6 +11,12 @@ interface DirectoryUser {
   user_id: string;
   display_name?: string;
   avatar_url?: string;
+}
+
+export interface JoinRoomDeps {
+  roomManager: IRoomManager;
+  authManager: IAuthManager;
+  scanManager: IScanManager;
 }
 
 export interface JoinRoomState {
@@ -27,9 +34,9 @@ export type NavigateCallback = (pageName: string, param: Record<string, Object>)
 export type PopCallback = () => void;
 
 export class JoinRoomViewModel {
-  private roomManager = ServiceLocator.getRoomManager();
-  private authManager = ServiceLocator.getAuthManager();
-  private scanManager: ScanManager = ServiceLocator.getScanManager();
+  private roomManager: IRoomManager;
+  private authManager: IAuthManager;
+  private scanManager: IScanManager;
   private onStateChanged: JoinRoomStateCallback | null = null;
   private navigateCallback: NavigateCallback | null = null;
   private popCallback: PopCallback | null = null;
@@ -41,6 +48,12 @@ export class JoinRoomViewModel {
     roomAddress: '',
     isJoining: false
   };
+
+  constructor(deps: JoinRoomDeps) {
+    this.roomManager = deps.roomManager;
+    this.authManager = deps.authManager;
+    this.scanManager = deps.scanManager;
+  }
 
   setOnStateChanged(callback: JoinRoomStateCallback): void {
     this.onStateChanged = callback;

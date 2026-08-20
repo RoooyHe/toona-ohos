@@ -25,7 +25,23 @@ import { AuthManager, IAuthManager } from './AuthManager';
 
 const logger = AppLogger.getLogger('VerificationService');
 
-export class VerificationService {
+export interface IVerificationService {
+  onVerificationUpdate(callback: (session: VerificationSession) => void): void;
+  onVerificationComplete(callback: (userId: string, deviceId: string, verified: boolean) => void): void;
+  startSasVerification(userId: string, deviceId: string): Promise<string>;
+  startQrVerification(userId: string, deviceId: string): Promise<void>;
+  acceptVerification(transactionId: string): Promise<void>;
+  confirmVerification(transactionId: string): Promise<void>;
+  cancelVerification(transactionId: string, reason?: string): Promise<void>;
+  getDeviceTrustLevel(userId: string, deviceId: string): Promise<VerificationState>;
+  setDeviceTrustLevel(userId: string, deviceId: string, level: VerificationState): Promise<void>;
+  getSession(transactionId: string): VerificationSession | null;
+  getActiveSessions(): VerificationSession[];
+  getSessionForDevice(userId: string, deviceId: string): VerificationSession | null;
+  getSasDigits(sasBytes: number[]): SasDigits;
+}
+
+export class VerificationService implements IVerificationService {
   private deviceKeysStorage: DeviceKeysStorage;
   private authManager: IAuthManager;
 

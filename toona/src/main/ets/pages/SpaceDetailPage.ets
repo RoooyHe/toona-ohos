@@ -1,29 +1,12 @@
 import { Room } from '../models/DataModels';
-import { SpaceChild } from '../services/RoomManager';
 import { getThemeColors } from '../utils/ThemeManager';
-import { AppLogger } from '../utils/AppLogger';
+import { SpaceDetailViewModel, SpaceDetailState } from '../viewmodels/SpaceDetailViewModel';
 import { ServiceLocator } from '../services/ServiceLocator';
-
-const logger = AppLogger.getLogger('SpaceDetailPage');
-
-@Builder
-export function SpaceDetailPageBuilder(name: string, param: Object) {
-  SpaceDetailPage({
-    // 修复点3：增加 param 判空保护，防止取属性时报 undefined 错误
-    spaceId: param ? (((param as Record<string, Object>)['spaceId'] as string) || '') : '',
-    spaceName: param ? (((param as Record<string, Object>)['spaceName'] as string) || '空间') : '空间'
-  })
-}
 
 @Component
 struct SpaceRoomItem {
-  // @Prop 修饰自定义的简单数据结构没有问题
   @Prop room: Room = new Room('');
-  // 修复点1：去掉 @Prop 修饰符，改为普通属性，防止深拷贝引发底层指针异常
-  pathStack?: NavPathStack;
-
-  aboutToAppear() {
-  }
+  onNavigateToRoom?: (roomId: string, roomName: string) => void;
 
   build() {
     Row() {
@@ -64,57 +47,54 @@ struct SpaceRoomItem {
     })
     .backgroundColor(getThemeColors().bg)
     .onClick(() => {
-      const stack = this.pathStack;
-      if (!stack) {
-        logger.error('SpaceRoomItem navigateToRoom: pathStack is null');
-        return;
+      if (this.onNavigateToRoom) {
+        this.onNavigateToRoom(this.room.id, this.room.getDisplayName());
       }
-      const param: Record<string, Object> = {
-        "roomId": this.room.id,
-        "roomName": this.room.getDisplayName()
-      };
-      stack.pushPathByName('RoomDetailPage', param);
     });
   }
 }
 
-// 修复点2：已删除 @Entry 装饰器
+@Builder
+export function SpaceDetailPageBuilder(name: string, param: Object) {
+  SpaceDetailPage({
+    spaceId: param ? (((param as Record<string, Object>)['spaceId'] as string) || '') : '',
+    spaceName: param ? (((param as Record<string, Object>)['spaceName'] as string) || '空间') : '空间'
+  })
+}
+
 @Component
 struct SpaceDetailPage {
   @State spaceName: string = '';
   @State spaceId: string = '';
   @State childRooms: Room[] = [];
   @State isLoading: boolean = true;
-  private roomManager = ServiceLocator.getRoomManager();
+  private viewModel: SpaceDetailViewModel | null = null;
   pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
-    this.loadSpaceDetails();
-  }
+    this.viewModel = new SpaceDetailViewModel(
+      this.spaceId,
+      this.spaceName,
+      ServiceLocator.getRoomManager()
+    );
 
-  async loadSpaceDetails() {
-    this.isLoading = true;
-    try {
-      const space = await this.roomManager.getRoom(this.spaceId);
-      if (space) {
-        this.spaceName = space.getDisplayName();
-      }
+    const self = this;
+    this.viewModel.setOnStateChanged((state: SpaceDetailState) => {
+      self.spaceName = state.spaceName;
+      self.spaceId = state.spaceId;
+      self.childRooms = state.childRooms;
+      self.isLoading = state.isLoading;
+    });
 
-      const children: SpaceChild[] = await this.roomManager.getSpaceChildren(this.spaceId);
-      const rooms: Room[] = [];
-      for (let i = 0; i < children.length; i++) {
-        const child = children[i];
-        const room = await this.roomManager.getRoom(child.room_id);
-        if (room) {
-          rooms.push(room);
-        }
-      }
-      this.childRooms = rooms;
-    } catch (error) {
-logger.error('Failed to load space details:', error);
-    } finally {
-      this.isLoading = false;
-    }
+    this.viewModel.setOnNavigateToRoom((roomId: string, roomName: string) => {
+      const param: Record<string, Object> = {
+        "roomId": roomId,
+        "roomName": roomName
+      };
+      self.pathStack.pushPathByName('RoomDetailPage', param);
+    });
+
+    this.viewModel.loadSpaceDetails();
   }
 
   build() {
@@ -164,7 +144,12 @@ logger.error('Failed to load space details:', error);
             List() {
               ForEach(this.childRooms, (room: Room) => {
                 ListItem() {
-                  SpaceRoomItem({ room: room, pathStack: this.pathStack });
+                  SpaceRoomItem({
+                    room: room,
+                    onNavigateToRoom: (roomId: string, roomName: string) => {
+                      this.viewModel?.navigateToRoom(room);
+                    }
+                  });
                 }
               });
             }

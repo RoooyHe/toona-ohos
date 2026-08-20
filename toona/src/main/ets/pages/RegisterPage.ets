@@ -1,34 +1,6 @@
-import { ThemeColors, getThemeColors } from '../utils/ThemeManager';
-import { ToastUtils } from '../utils/ToastUtils';
-import { AppLogger } from '../utils/AppLogger';
+import { getThemeColors } from '../utils/ThemeManager';
+import { RegisterViewModel, RegisterState } from '../viewmodels/RegisterViewModel';
 import { ServiceLocator } from '../services/ServiceLocator';
-
-const logger = AppLogger.getLogger('RegisterPage');
-
-interface RegisterThemeColors {
-  bg: string;
-  bgSoft: string;
-  text: string;
-  textSecondary: string;
-  textMute: string;
-  textMute2: string;
-  textFaint: string;
-  inputBg: string;
-  primary: string;
-  primaryDeep: string;
-  primarySoft: string;
-  onPrimary: string;
-  divider: string;
-  dividerStrong: string;
-  dividerCool: string;
-  surface: string;
-  surfaceNight: string;
-  surfaceNightSoft: string;
-  tabBg: string;
-  error: string;
-  success: string;
-  warning: string;
-}
 
 @Builder
 export function RegisterPageBuilder(name: string, param: Object) {
@@ -43,103 +15,29 @@ struct RegisterPage {
   @State confirmPassword: string = '';
   @State isLoading: boolean = false;
   @State errorMessage: string = '';
+  private viewModel: RegisterViewModel | null = null;
   pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
-    this.homeserver = ServiceLocator.getAuthManager().getHomeserver() || '';
-  }
+    this.viewModel = new RegisterViewModel(ServiceLocator.getAuthManager());
 
-  getThemeColors(): RegisterThemeColors {
-    const colors = getThemeColors();
-    return {
-      bg: colors.bg,
-      bgSoft: colors.bgSoft,
-      text: colors.text,
-      textSecondary: colors.textSecondary,
-      textMute: colors.textMute,
-      textMute2: colors.textMute2,
-      textFaint: colors.textFaint,
-      inputBg: colors.inputBg,
-      primary: colors.primary,
-      primaryDeep: colors.primaryDeep,
-      primarySoft: colors.primarySoft,
-      onPrimary: colors.onPrimary,
-      divider: colors.divider,
-      dividerStrong: colors.dividerStrong,
-      dividerCool: colors.dividerCool,
-      surface: colors.surface,
-      surfaceNight: colors.surfaceNight,
-      surfaceNightSoft: colors.surfaceNightSoft,
-      tabBg: colors.tabBg,
-      error: colors.error,
-      success: colors.success,
-      warning: colors.warning
-    };
-  }
-
-  handleRegister() {
-    if (!this.homeserver || !this.username || !this.password || !this.confirmPassword) {
-      this.errorMessage = '请填写所有字段';
-      return;
-    }
-
-    if (this.password !== this.confirmPassword) {
-      this.errorMessage = '两次密码输入不一致';
-      return;
-    }
-
-    if (this.password.length < 8) {
-      this.errorMessage = '密码长度至少8位';
-      return;
-    }
-
-    let serverUrl = this.homeserver.trim();
-    if (!serverUrl.startsWith('http://') && !serverUrl.startsWith('https://')) {
-      serverUrl = 'https://' + serverUrl;
-    }
-    serverUrl = serverUrl.replace(/\/$/, '');
-
-    this.isLoading = true;
-    this.errorMessage = '';
     const self = this;
-
-    this.doRegister(serverUrl).catch((error: Error) => {
-      logger.error('Registration failed:', error);
-      const errorMsg: string = error.message;
-      if (errorMsg.includes('M_USER_IN_USE')) {
-        self.errorMessage = '用户名已被使用';
-      } else if (errorMsg.includes('M_WEAK_PASSWORD')) {
-        self.errorMessage = '密码强度不够';
-      } else if (errorMsg.includes(':')) {
-        const parts: string[] = errorMsg.split(':');
-        self.errorMessage = parts[1] ? parts[1].trim() : errorMsg;
-      } else {
-        self.errorMessage = '注册失败，请检查服务器地址';
-      }
-    }).finally(() => {
-      self.isLoading = false;
+    this.viewModel.setOnStateChanged((state: RegisterState) => {
+      self.homeserver = state.homeserver;
+      self.username = state.username;
+      self.password = state.password;
+      self.confirmPassword = state.confirmPassword;
+      self.isLoading = state.isLoading;
+      self.errorMessage = state.errorMessage;
     });
-  }
 
-  async doRegister(serverUrl: string): Promise<void> {
-    const authManager = ServiceLocator.getAuthManager();
-    if (serverUrl !== authManager.getHomeserver()) {
-      await authManager.setHomeserver(serverUrl);
-    }
-
-    const isValidServer = await authManager.checkHomeserverVersion();
-    if (!isValidServer) {
-      this.errorMessage = '无法连接到服务器';
-      return;
-    }
-
-    await authManager.register(this.username, this.password);
-
-    ToastUtils.show('注册成功', 2000);
-
-    this.pathStack.clear();
-    const param: Record<string, Object> = {};
-    this.pathStack.pushPathByName('MainPage', param);
+    this.viewModel.setOnRegisterSuccess(() => {
+      if (self.pathStack) {
+        self.pathStack.clear();
+        const param: Record<string, Object> = {};
+        self.pathStack.pushPathByName('MainPage', param);
+      }
+    });
   }
 
   build() {
@@ -167,7 +65,7 @@ struct RegisterPage {
             .letterSpacing(-0.42)
             .margin({ bottom: 40 });
 
-          TextInput({ placeholder: ' homeserver (如: matrix.org)' })
+          TextInput({ placeholder: ' homeserver (如: matrix.org)', text: this.homeserver })
             .width('100%')
             .height(50)
             .fontSize(16)
@@ -178,7 +76,7 @@ struct RegisterPage {
             .fontColor(getThemeColors().text)
             .placeholderColor(getThemeColors().textSecondary)
             .onChange((value: string) => {
-              this.homeserver = value;
+              this.viewModel?.setHomeserver(value);
             });
 
           TextInput({ placeholder: ' 用户名' })
@@ -191,7 +89,7 @@ struct RegisterPage {
             .fontColor(getThemeColors().text)
             .placeholderColor(getThemeColors().textSecondary)
             .onChange((value: string) => {
-              this.username = value;
+              this.viewModel?.setUsername(value);
             });
 
           TextInput({ placeholder: ' 密码 (至少8位)' })
@@ -205,7 +103,7 @@ struct RegisterPage {
             .fontColor(getThemeColors().text)
             .placeholderColor(getThemeColors().textSecondary)
             .onChange((value: string) => {
-              this.password = value;
+              this.viewModel?.setPassword(value);
             });
 
           TextInput({ placeholder: ' 确认密码' })
@@ -219,7 +117,7 @@ struct RegisterPage {
             .fontColor(getThemeColors().text)
             .placeholderColor(getThemeColors().textSecondary)
             .onChange((value: string) => {
-              this.confirmPassword = value;
+              this.viewModel?.setConfirmPassword(value);
             });
 
           if (this.errorMessage) {
@@ -240,7 +138,7 @@ struct RegisterPage {
             .margin({ top: 20 })
             .enabled(!this.isLoading)
             .onClick(() => {
-              this.handleRegister();
+              this.viewModel?.register();
             });
         }
         .width('85%')

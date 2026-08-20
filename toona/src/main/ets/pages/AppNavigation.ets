@@ -10,6 +10,7 @@ import { DeviceKeysStorage } from '../database/dao/DeviceKeysDao';
 import { SyncManager } from '../services/SyncManager';
 import { RoomManager } from '../services/RoomManager';
 import { MessageManager } from '../services/MessageManager';
+import { MessageSender } from '../services/MessageSender';
 import { DeviceManager } from '../services/DeviceManager';
 import { MediaManager } from '../services/MediaManager';
 import { PushManager } from '../services/PushManager';
@@ -20,6 +21,12 @@ import { DeviceSecurityManager } from '../services/DeviceSecurityManager';
 import { ScanManager } from '../services/ScanManager';
 import { ShareManager } from '../services/ShareManager';
 import { ServiceCollaborationManager } from '../services/ServiceCollaborationManager';
+import { HarmonyFilePicker } from '../platform/adapters/HarmonyFilePicker';
+import { HarmonyClipboard } from '../platform/adapters/HarmonyClipboard';
+import { HarmonyAudioRecorder } from '../platform/adapters/HarmonyAudioRecorder';
+import { IFilePicker } from '../platform/adapters/IFilePicker';
+import { IClipboard } from '../platform/adapters/IClipboard';
+import { IAudioRecorder } from '../platform/adapters/IAudioRecorder';
 import { ConnectionConfig } from '../network/ConnectionConfig';
 import { BaseHttpClient } from '../network/clients/BaseHttpClient';
 import { RoomHttpClient } from '../network/clients/RoomHttpClient';
@@ -69,7 +76,8 @@ struct AppNavigation {
     const eventProcessor = new EventProcessor(localDatabase, cryptoService);
     const syncManager = new SyncManager(authManager, localDatabase, eventProcessor, cryptoService, baseClient);
     const roomManager = new RoomManager(authManager, localDatabase, roomClient);
-    const messageManager = new MessageManager(authManager, localDatabase, messageClient);
+    const messageManager = new MessageManager(localDatabase, messageClient);
+    const messageSender = new MessageSender(messageClient);
     const deviceManager = new DeviceManager(authManager, deviceClient);
     const mediaManager = new MediaManager(mediaClient);
     const pushManager = new PushManager(pushClient);
@@ -87,6 +95,7 @@ struct AppNavigation {
     ServiceLocator.setSyncManager(syncManager);
     ServiceLocator.setRoomManager(roomManager);
     ServiceLocator.setMessageManager(messageManager);
+    ServiceLocator.setMessageSender(messageSender);
     ServiceLocator.setCryptoService(cryptoService);
     ServiceLocator.setVerificationService(verificationService);
     ServiceLocator.setDeviceManager(deviceManager);
@@ -99,6 +108,13 @@ struct AppNavigation {
     ServiceLocator.setDeviceSecurityManager(deviceSecurityManager);
     ServiceLocator.setScanManager(scanManager);
     ServiceLocator.setShareManager(shareManager);
+    const filePicker: IFilePicker = new HarmonyFilePicker();
+    const clipboard: IClipboard = new HarmonyClipboard();
+    const audioRecorder: IAudioRecorder = new HarmonyAudioRecorder();
+
+    ServiceLocator.setFilePicker(filePicker);
+    ServiceLocator.setClipboard(clipboard);
+    ServiceLocator.setAudioRecorder(audioRecorder);
     ServiceLocator.setServiceCollaborationManager(serviceCollaborationManager);
   }
 

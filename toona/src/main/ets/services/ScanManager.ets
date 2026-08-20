@@ -2,7 +2,7 @@ import { scanCore, scanBarcode } from '@kit.ScanKit';
 import { ToastUtils } from '../utils/ToastUtils';
 import { AppLogger } from '../utils/AppLogger';
 
-interface ParsedMatrixLink {
+export interface ParsedMatrixLink {
   type: string;
   roomId?: string;
   userId?: string;
@@ -18,7 +18,12 @@ interface MatrixLinkResult {
   via?: string[];
 }
 
-export class ScanManager {
+export interface IScanManager {
+  startScan(): Promise<string | null>;
+  parseMatrixToLink(url: string): ParsedMatrixLink | null;
+}
+
+export class ScanManager implements IScanManager {
   private logger = AppLogger.getLogger(ScanManager);
 
   async startScan(): Promise<string | null> {

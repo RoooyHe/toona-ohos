@@ -1,6 +1,7 @@
 import { ToastUtils } from '../utils/ToastUtils';
 import { getThemeColors } from '../utils/ThemeManager';
 import { NotificationSettingsViewModel, NotificationSettingsState } from '../viewmodels/NotificationSettingsViewModel';
+import { ServiceLocator } from '../services/ServiceLocator';
 
 @Builder
 export function NotificationSettingsPageBuilder(name: string, param: Object) {
@@ -16,7 +17,7 @@ struct NotificationSettingsPage {
   @State mutedRooms: string[] = [];
   @State isLoading: boolean = true;
   pathStack: NavPathStack = new NavPathStack();
-  private vm: NotificationSettingsViewModel = new NotificationSettingsViewModel();
+  private vm: NotificationSettingsViewModel = new NotificationSettingsViewModel(ServiceLocator.getPushManager());
 
   aboutToAppear() {
     this.vm.setOnStateChanged((state: NotificationSettingsState) => {

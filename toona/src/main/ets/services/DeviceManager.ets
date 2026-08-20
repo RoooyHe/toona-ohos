@@ -3,7 +3,12 @@ import { Device, DevicesResponse, UpdateDeviceRequest } from '../models/MatrixTy
 import { AuthManager, IAuthManager } from './AuthManager';
 import { DeviceHttpClient, DeviceAuthData } from '../network/clients/DeviceHttpClient';
 
-export class DeviceManager {
+export interface IDeviceManager {
+  getDevices(): Promise<DevicesResponse>;
+  deleteDevice(deviceId: string, authData?: DeviceAuthData): Promise<void>;
+}
+
+export class DeviceManager implements IDeviceManager {
   private deviceHttpClient: DeviceHttpClient;
   private logger = AppLogger.getLogger(DeviceManager);
   private authManager: IAuthManager;

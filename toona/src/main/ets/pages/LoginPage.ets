@@ -1,9 +1,7 @@
 import { ToastUtils } from '../utils/ToastUtils';
-import { UserAuthManager } from '../services/UserAuthManager';
 import { getThemeColors } from '../utils/ThemeManager';
-import { AppLogger } from '../utils/AppLogger';
+import { LoginViewModel, LoginState } from '../viewmodels/LoginViewModel';
 import { ServiceLocator } from '../services/ServiceLocator';
-import { IAuthManager, SavedCredentials } from '../services/AuthManager';
 
 @Builder
 export function LoginPageBuilder(name: string, param: Object) {
@@ -20,125 +18,39 @@ struct LoginPage {
   @State errorMessage: string = '';
   @State rememberMe: boolean = true;
   @State isDiscovering: boolean = false;
-  private authManager: IAuthManager = ServiceLocator.getAuthManager();
-  private userAuthManager: UserAuthManager = ServiceLocator.getUserAuthManager();
-  private logger = AppLogger.getLogger(LoginPage);
+  private viewModel: LoginViewModel | null = null;
   pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
-    this.loadSavedCredentials();
-  }
+    this.viewModel = new LoginViewModel(ServiceLocator.getAuthManager());
 
-  async loadSavedCredentials() {
-    try {
-      const creds = await this.authManager.loadSavedCredentials();
-      if (creds && creds.rememberMe) {
-        this.homeserver = creds.homeserver;
-        this.userId = creds.userId;
-        this.rememberMe = true;
+    const self = this;
+    this.viewModel.setOnStateChanged((state: LoginState) => {
+      self.homeserver = state.homeserver;
+      self.userId = state.userId;
+      self.password = state.password;
+      self.isLoading = state.isLoading;
+      self.errorMessage = state.errorMessage;
+      self.rememberMe = state.rememberMe;
+      self.isDiscovering = state.isDiscovering;
+    });
+
+    this.viewModel.setOnLoginSuccess(() => {
+      if (self.pathStack) {
+        self.pathStack.clear();
+        const param: Record<string, Object> = {};
+        self.pathStack.pushPathByName('MainPage', param);
       }
-    } catch (error) {
-      this.logger.error('Failed to load saved credentials:', error);
-    }
-  }
+    });
 
-  async handleLogin() {
-    if (!this.homeserver || !this.userId || !this.password) {
-      this.errorMessage = '请填写所有字段';
-      return;
-    }
-
-    this.isDiscovering = true;
-    this.errorMessage = '';
-    this.isLoading = true;
-
-    try {
-      let serverUrl: string;
-      if (this.homeserver.includes('.')) {
-        const discovered = await this.authManager.discoverHomeserverUrl(this.homeserver);
-        serverUrl = discovered || this.homeserver;
-      } else {
-        serverUrl = this.homeserver.trim();
-        if (!serverUrl.startsWith('http://') && !serverUrl.startsWith('https://')) {
-          serverUrl = 'https://' + serverUrl;
-        }
-        serverUrl = serverUrl.replace(/\/$/, '');
+    this.viewModel.setOnNavigateToRegister(() => {
+      if (self.pathStack) {
+        const param: Record<string, Object> = {};
+        self.pathStack.pushPathByName('RegisterPage', param);
       }
+    });
 
-      await this.authManager.setHomeserver(serverUrl);
-
-      const isValidServer = await this.authManager.checkHomeserverVersion();
-      if (!isValidServer) {
-        this.errorMessage = '无法连接到服务器';
-        this.isLoading = false;
-        this.isDiscovering = false;
-        return;
-      }
-
-      await this.authManager.login(this.userId, this.password);
-
-      await this.authManager.saveCredentials(this.homeserver, this.userId, this.rememberMe);
-
-      ToastUtils.show('登录成功', 2000);
-
-      try {
-        if (this.pathStack) {
-          this.pathStack.clear();
-          const param: Record<string, Object> = {};
-          this.pathStack.pushPathByName('MainPage', param);
-        }
-      } catch (e) {
-        this.logger.error('Navigation failed:', e);
-      }
-    } catch (error) {
-      this.logger.error('Login failed:', error);
-      const errorMsg: string = error instanceof Error ? error.message : String(error);
-      if (errorMsg.includes('M_FORBIDDEN')) {
-        this.errorMessage = '用户名或密码错误';
-      } else if (errorMsg.includes('M_USER_IN_USE')) {
-        this.errorMessage = '用户已存在';
-      } else if (errorMsg.includes(':')) {
-        const parts: string[] = errorMsg.split(':');
-        this.errorMessage = parts[1] ? parts[1].trim() : errorMsg;
-      } else {
-        this.errorMessage = '登录失败，请检查服务器地址';
-      }
-    } finally {
-      this.isLoading = false;
-      this.isDiscovering = false;
-    }
-  }
-
-  handleRegister() {
-    if (this.pathStack) {
-      const param: Record<string, Object> = {};
-      this.pathStack.pushPathByName('RegisterPage', param);
-    }
-  }
-
-  handleSSOLogin() {
-    ToastUtils.show('SSO登录需要配置身份提供商', 2000);
-  }
-
-  async handleBiometricLogin() {
-    try {
-      const success = await this.userAuthManager.authenticateWithFace();
-      if (success) {
-        ToastUtils.show('验证成功，正在登录...');
-        try {
-          if (this.pathStack) {
-            this.pathStack.clear();
-            const param: Record<string, Object> = {};
-            this.pathStack.pushPathByName('MainPage', param);
-          }
-        } catch (e) {
-          this.logger.error('Navigation failed:', e);
-        }
-      }
-    } catch (error) {
-      this.logger.error('Biometric login failed: %{public}s', error.message);
-      ToastUtils.show('生物识别登录失败');
-    }
+    this.viewModel.loadSavedCredentials();
   }
 
   build() {
@@ -168,7 +80,7 @@ struct LoginPage {
               .borderRadius(6)
               .margin({ bottom: 15 })
               .onChange((value: string) => {
-                this.homeserver = value;
+                this.viewModel?.setHomeserver(value);
               });
             TextInput({ placeholder: ' 用户名', text: this.userId })
               .width('100%')
@@ -178,7 +90,7 @@ struct LoginPage {
               .borderRadius(6)
               .margin({ bottom: 15 })
               .onChange((value: string) => {
-                this.userId = value;
+                this.viewModel?.setUserId(value);
               });
             TextInput({ placeholder: ' 密码', text: this.password })
               .width('100%')
@@ -189,14 +101,14 @@ struct LoginPage {
               .type(InputType.Password)
               .margin({ bottom: 10 })
               .onChange((value: string) => {
-                this.password = value;
+                this.viewModel?.setPassword(value);
               });
             Row() {
               Checkbox()
                 .select(this.rememberMe)
                 .selectedColor(getThemeColors().primary)
                 .onChange((value: boolean) => {
-                  this.rememberMe = value;
+                  this.viewModel?.setRememberMe(value);
                 });
               Text('记住我')
                 .fontSize(14)
@@ -237,7 +149,7 @@ struct LoginPage {
               .margin({ top: 10 })
               .enabled(!this.isLoading && !this.isDiscovering)
               .onClick(() => {
-                this.handleLogin();
+                this.viewModel?.login();
               });
             Row() {
               Line()
@@ -268,7 +180,7 @@ struct LoginPage {
               .borderColor(getThemeColors().dividerStrong)
               .enabled(!this.isLoading && !this.isDiscovering)
               .onClick(() => {
-                this.handleSSOLogin();
+                this.viewModel?.handleSSOLogin();
               });
 
             Button('生物识别登录')
@@ -282,7 +194,7 @@ struct LoginPage {
               .margin({ top: 10 })
               .enabled(!this.isLoading && !this.isDiscovering)
               .onClick(() => {
-                this.handleBiometricLogin();
+                ToastUtils.show('生物识别登录暂不可用', 2000);
               });
 
             Row() {
@@ -293,7 +205,7 @@ struct LoginPage {
                 .fontSize(14)
                 .fontColor(getThemeColors().primary)
                 .onClick(() => {
-                  this.handleRegister();
+                  this.viewModel?.navigateToRegister();
                 });
             }
             .margin({ top: 20 });

@@ -1,32 +1,11 @@
 import { Room } from '../models/DataModels';
 import { getThemeColors } from '../utils/ThemeManager';
-import { AppLogger } from '../utils/AppLogger';
+import { SpaceViewModel, SpaceState, SpaceItem } from '../viewmodels/SpaceViewModel';
 import { IRoomManager } from '../services/RoomManager';
 
-const logger = AppLogger.getLogger('SpacePage');
-
-// 空间项数据结构
-interface SpaceItem {
-  room: Room;
-  children: SpaceItem[];
-  isExpanded: boolean;
-  level: number;
-}
-
-@Builder
-export function SpacePageBuilder(name: string, param: Object) {
-  SpacePage({
-    pathStack: param ? (((param as Record<string, Object>)['pathStack'] as NavPathStack)) : new NavPathStack()
-  })
-}
-
-/**
- * 内部组件：空间列表项
- */
 @Component
 struct SpaceListItem {
   @Prop item: SpaceItem;
-  pathStack?: NavPathStack;
   onToggle?: (roomId: string) => void;
   onNavigateToSpace?: (space: Room) => void;
   onNavigateToRoom?: (room: Room) => void;
@@ -41,7 +20,7 @@ struct SpaceListItem {
             .fontSize(12)
             .fontColor(getThemeColors().textSecondary)
             .margin({ right: 8 })
-            .onClick((e) => {
+            .onClick(() => {
               if (this.onToggle) {
                 this.onToggle(this.item.room.id);
               }
@@ -106,7 +85,6 @@ struct SpaceListItem {
         ForEach(this.item.children, (child: SpaceItem) => {
           SpaceListItem({
             item: child,
-            pathStack: this.pathStack,
             onToggle: this.onToggle,
             onNavigateToSpace: this.onNavigateToSpace,
             onNavigateToRoom: this.onNavigateToRoom
@@ -117,130 +95,59 @@ struct SpaceListItem {
   }
 }
 
+@Builder
+export function SpacePageBuilder(name: string, param: Object) {
+  SpacePage({
+    pathStack: param ? (((param as Record<string, Object>)['pathStack'] as NavPathStack)) : new NavPathStack(),
+    roomManager: param ? (((param as Record<string, Object>)['roomManager'] as IRoomManager)) : null
+  })
+}
+
 @Component
 export struct SpacePage {
   @State spaceItems: SpaceItem[] = [];
   @State isLoading: boolean = true;
-  // 依赖 MainPage 传进来的 pathStack 即可
   pathStack: NavPathStack = new NavPathStack();
   roomManager: IRoomManager | null = null;
-  private expandedSpaces: Set<string> = new Set();
+  private viewModel: SpaceViewModel | null = null;
 
   aboutToAppear() {
-    this.loadSpaces();
-  }
-
-  async loadSpaces() {
     if (!this.roomManager) {
       return;
     }
-    this.isLoading = true;
-    try {
-      const rooms = await this.roomManager.getRooms();
-      this.spaceItems = this.buildSpaceTree(rooms);
-    } catch (error) {
-logger.error('Failed to load spaces:', error);
-    } finally {
-      this.isLoading = false;
-    }
-  }
+    this.viewModel = new SpaceViewModel(this.roomManager);
 
-  buildSpaceTree(rooms: Room[]): SpaceItem[] {
-    const spaceMap: Map<string, SpaceItem> = new Map();
-    const rootItems: SpaceItem[] = [];
+    const self = this;
+    this.viewModel.setOnStateChanged((state: SpaceState) => {
+      self.spaceItems = state.spaceItems;
+      self.isLoading = state.isLoading;
+    });
 
-    const spaceRooms = rooms.filter(room => room.isSpace === true);
-    for (const room of spaceRooms) {
-      spaceMap.set(room.id, {
-        room: room,
-        children: [],
-        isExpanded: this.expandedSpaces.has(room.id),
-        level: 0
-      });
-    }
+    this.viewModel.setOnNavigateToSpace((spaceId: string, spaceName: string) => {
+      const param: Record<string, Object> = {
+        "spaceId": spaceId,
+        "spaceName": spaceName
+      };
+      self.pathStack.pushPathByName('SpaceDetailPage', param);
+    });
 
-    for (const item of spaceMap.values()) {
-      const content = item.room.lastEvent?.content as Record<string, string | object>;
-      const parentRoomId = content?.parent as string;
+    this.viewModel.setOnNavigateToRoom((roomId: string, roomName: string) => {
+      const param: Record<string, Object> = {
+        "roomId": roomId,
+        "roomName": roomName
+      };
+      self.pathStack.pushPathByName('RoomDetailPage', param);
+    });
 
-      if (parentRoomId && spaceMap.has(parentRoomId)) {
-        const parent = spaceMap.get(parentRoomId)!;
-        item.level = parent.level + 1;
-        parent.children.push(item);
-      } else {
-        rootItems.push(item);
-      }
-    }
+    this.viewModel.setOnNavigateToJoinSpace(() => {
+      const param: Record<string, Object> = {};
+      self.pathStack.pushPathByName('JoinSpacePage', param);
+    });
 
-    for (const room of rooms) {
-      if (!room.isSpace && !this.isChildOfAnySpace(room, spaceRooms)) {
-        rootItems.push({
-          room: room,
-          children: [],
-          isExpanded: false,
-          level: 0
-        });
-      }
-    }
-
-    return rootItems;
-  }
-
-  private isChildOfAnySpace(room: Room, spaces: Room[]): boolean {
-    const content = room.lastEvent?.content as Record<string, string | object>;
-    return !!(content?.parent);
-  }
-
-  onToggleSpace(roomId: string) {
-    if (this.expandedSpaces.has(roomId)) {
-      this.expandedSpaces.delete(roomId);
-    } else {
-      this.expandedSpaces.add(roomId);
-    }
-    this.refreshTree();
-  }
-
-  async refreshTree() {
-    if (!this.roomManager) {
-      return;
-    }
-    const rooms = await this.roomManager.getRooms();
-    this.spaceItems = this.buildSpaceTree(rooms);
-  }
-
-  // 移除了多余的安全校验，直接使用 MainPage 传递进来的 pathStack 进行跳转
-  navigateToSpaceDetail(space: Room) {
-    if (!this.pathStack) {
-      return;
-    }
-    const param: Record<string, Object> = {
-      "spaceId": space.id,
-      "spaceName": space.getDisplayName()
-    };
-    this.pathStack.pushPathByName('SpaceDetailPage', param);
-  }
-
-  navigateToRoom(room: Room) {
-    if (!this.pathStack) {
-      return;
-    }
-    const param: Record<string, Object> = {
-      "roomId": room.id,
-      "roomName": room.getDisplayName()
-    };
-    this.pathStack.pushPathByName('RoomDetailPage', param);
-  }
-
-  navigateToJoinSpace() {
-    if (!this.pathStack) {
-      return;
-    }
-    const param: Record<string, Object> = {};
-    this.pathStack.pushPathByName('JoinSpacePage', param);
+    this.viewModel.loadSpaces();
   }
 
   build() {
-    // 🎯 这里移除了导致闪退的 NavDestination
     Stack() {
       Column() {
         if (this.isLoading) {
@@ -261,10 +168,9 @@ logger.error('Failed to load spaces:', error);
               ListItem() {
                 SpaceListItem({
                   item: item,
-                  pathStack: this.pathStack,
-                  onToggle: (id): void => this.onToggleSpace(id),
-                  onNavigateToSpace: (s): void => this.navigateToSpaceDetail(s),
-                  onNavigateToRoom: (r): void => this.navigateToRoom(r)
+                  onToggle: (id): void => this.viewModel?.toggleSpace(id),
+                  onNavigateToSpace: (s): void => this.viewModel?.navigateToSpace(s),
+                  onNavigateToRoom: (r): void => this.viewModel?.navigateToRoom(r)
                 });
               }
             });

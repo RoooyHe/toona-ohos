@@ -12,7 +12,8 @@ import { BiometricSettings } from './components/settings/BiometricSettings';
 import { CollaborationSettings } from './components/settings/CollaborationSettings';
 import { AboutSection } from './components/settings/AboutSection';
 import { LogoutButton } from './components/settings/LogoutButton';
-import { SettingsViewModel, SettingsState } from '../viewmodels/SettingsViewModel';
+import { SettingsViewModel, SettingsState, SettingsDeps } from '../viewmodels/SettingsViewModel';
+import { ServiceLocator } from '../services/ServiceLocator';
 import { Room } from '../models/DataModels';
 import { Device } from '../models/MatrixTypes';
 import { PresenceState } from '../models/MatrixTypes';
@@ -44,7 +45,20 @@ export struct SettingsPage {
   @State isE2EEEnabled: boolean = false;
   @State currentDeviceId: string = '';
 
-  private vm: SettingsViewModel = new SettingsViewModel();
+  private vm: SettingsViewModel = new SettingsViewModel({
+    authManager: ServiceLocator.getAuthManager(),
+    roomManager: ServiceLocator.getRoomManager(),
+    userManager: ServiceLocator.getUserManager(),
+    mediaManager: ServiceLocator.getMediaManager(),
+    roomTagManager: ServiceLocator.getRoomTagManager(),
+    deviceManager: ServiceLocator.getDeviceManager(),
+    shareManager: ServiceLocator.getShareManager(),
+    deviceSecurityManager: ServiceLocator.getDeviceSecurityManager(),
+    scanManager: ServiceLocator.getScanManager(),
+    userAuthManager: ServiceLocator.getUserAuthManager(),
+    serviceCollaborationManager: ServiceLocator.getServiceCollaborationManager(),
+    filePicker: ServiceLocator.getFilePicker()
+  } as SettingsDeps);
   pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {

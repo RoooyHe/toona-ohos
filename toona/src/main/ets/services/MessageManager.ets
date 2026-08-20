@@ -1,6 +1,4 @@
 import { MessageHttpClient } from '../network/clients/MessageHttpClient';
-import { SendMessageResult } from '../models/MatrixTypes';
-import { IAuthManager } from './AuthManager';
 import { LocalDatabase } from '../database/LocalDatabase';
 import { Message } from '../models/DataModels';
 import { RandomUtil } from '@wondertek/wdkitlib';
@@ -14,113 +12,45 @@ interface PendingMessage {
   reject: (error: Error) => void;
 }
 
-export class MessageManager {
+export interface IMessageManager {
+  deleteMessage(roomId: string, eventId: string, reason?: string): Promise<void>;
+  forwardMessage(roomId: string, content: Record<string, string | object>): Promise<string>;
+  getMessages(roomId: string, limit?: number, beforeEventId?: string): Promise<Message[]>;
+}
+
+export class MessageManager implements IMessageManager {
   private logger = AppLogger.getLogger(MessageManager);
   private messageHttpClient: MessageHttpClient;
-  private authManager: IAuthManager;
   private localDatabase: LocalDatabase;
   private offlineQueue: PendingMessage[] = [];
 
   constructor(
-    authManager: IAuthManager,
     localDatabase: LocalDatabase,
     messageHttpClient: MessageHttpClient
   ) {
-    this.authManager = authManager;
     this.localDatabase = localDatabase;
     this.messageHttpClient = messageHttpClient;
   }
 
-  async sendTextMessage(roomId: string, text: string): Promise<string> {
-    const content: Record<string, string | object> = {
-      "msgtype": 'm.text',
-      "body": text
-    };
-
-    return this.sendMessage(roomId, 'm.room.message', content);
-  }
-
-  async sendEmoteMessage(roomId: string, text: string): Promise<string> {
-    const content: Record<string, string | object> = {
-      "msgtype": 'm.emote',
-      "body": text
-    };
-
-    return this.sendMessage(roomId, 'm.room.message', content);
-  }
-
-  async sendNoticeMessage(roomId: string, text: string): Promise<string> {
-    const content: Record<string, string | object> = {
-      "msgtype": 'm.notice',
-      "body": text
-    };
-
-    return this.sendMessage(roomId, 'm.room.message', content);
-  }
-
-  async sendMessage(roomId: string, eventType: string, content: Record<string, string | object>): Promise<string> {
-    const txnId = this.generateTransactionId();
-
+  async deleteMessage(roomId: string, eventId: string, reason?: string): Promise<void> {
     try {
-      return await this.messageHttpClient.sendEvent(roomId, eventType, txnId, content);
+      const txnId: string = this.generateTransactionId();
+      await this.messageHttpClient.redactEvent(roomId, eventId, txnId, reason);
     } catch (error) {
-      this.logger.error('Failed to send message:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to send message: ${errMsg}`);
+      this.logger.error('Failed to delete message: ' + errMsg);
+      throw new Error('Failed to delete message: ' + errMsg);
     }
   }
 
-  async sendReplyMessage(roomId: string, eventId: string, text: string): Promise<string> {
-    const inReplyTo: Record<string, string | object> = {
-      'event_id': eventId
-    };
-    const relatesTo: Record<string, string | object> = {
-      'm.in_reply_to': inReplyTo
-    };
-    const content: Record<string, string | object> = {
-      'm.relates_to': relatesTo,
-      'msgtype': 'm.text',
-      'body': text
-    };
-
-    return this.sendMessage(roomId, 'm.room.message', content);
-  }
-
-  async editMessage(roomId: string, eventId: string, newText: string): Promise<string> {
-    const newContent: Record<string, string | object> = {
-      'msgtype': 'm.text',
-      'body': newText
-    };
-    const relatesTo: Record<string, string | object> = {
-      'event_id': eventId,
-      'rel_type': 'm.replace'
-    };
-    const content: Record<string, string | object> = {
-      'msgtype': 'm.text',
-      'body': newText,
-      'm.new_content': newContent,
-      'm.relates_to': relatesTo
-    };
-
-    const txnId = this.generateTransactionId();
-
+  async forwardMessage(roomId: string, content: Record<string, string | object>): Promise<string> {
+    const txnId: string = this.generateTransactionId();
     try {
       return await this.messageHttpClient.sendEvent(roomId, 'm.room.message', txnId, content);
     } catch (error) {
-      this.logger.error('Failed to edit message:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to edit message: ${errMsg}`);
-    }
-  }
-
-  async deleteMessage(roomId: string, eventId: string, reason?: string): Promise<void> {
-    try {
-      const txnId = this.generateTransactionId();
-      await this.messageHttpClient.redactEvent(roomId, eventId, txnId, reason);
-    } catch (error) {
-      this.logger.error('Failed to delete message:', error);
-      const errMsg: string = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to delete message: ${errMsg}`);
+      this.logger.error('Failed to forward message: ' + errMsg);
+      throw new Error('Failed to forward message: ' + errMsg);
     }
   }
 
@@ -129,8 +59,8 @@ export class MessageManager {
   }
 
   async getMessage(roomId: string, eventId: string): Promise<Message | null> {
-    const messages = await this.localDatabase.getMessages(roomId, 1);
-    return messages.find(m => m.eventId === eventId) || null;
+    const messages: Message[] = await this.localDatabase.getMessages(roomId, 1);
+    return messages.find((m: Message): boolean => m.eventId === eventId) || null;
   }
 
   private generateTransactionId(): string {
@@ -164,25 +94,24 @@ export class MessageManager {
     this.offlineQueue = [];
 
     for (let i = 0; i < queue.length; i++) {
-      const pending = queue[i];
+      const pending: PendingMessage = queue[i];
       try {
-        const eventId = await this.sendMessage(
+        const eventId: string = await this.messageHttpClient.sendEvent(
           pending.roomId,
           'm.room.message',
+          pending.txnId,
           pending.content
         );
         pending.resolve(eventId);
       } catch (error) {
-        pending.reject(error);
+        const errMsg: string = error instanceof Error ? error.message : String(error);
+        pending.reject(new Error(errMsg));
       }
     }
   }
 
-  isOnline(): boolean {
-    return this.authManager.isLoggedIn();
-  }
-
   async retryFailedMessage(roomId: string, message: Message): Promise<string> {
-    return this.sendMessage(roomId, message.type, message.content);
+    const txnId: string = this.generateTransactionId();
+    return await this.messageHttpClient.sendEvent(roomId, message.type, txnId, message.content);
   }
 }

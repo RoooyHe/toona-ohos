@@ -2,8 +2,9 @@ import { ToastUtils } from '../utils/ToastUtils';
 import { AppLogger } from '../utils/AppLogger';
 import { ISyncManager } from '../services/SyncManager';
 import { IRoomManager } from '../services/RoomManager';
-import { RoomTagManager } from '../services/RoomTagManager';
-import { ServiceLocator } from '../services/ServiceLocator';
+import { IRoomTagManager } from '../services/RoomTagManager';
+import { IAuthManager } from '../services/AuthManager';
+import { IUserManager } from '../services/UserManager';
 
 const logger = AppLogger.getLogger('MainViewModel');
 
@@ -24,12 +25,30 @@ export type MainStateCallback = (state: MainState) => void;
 
 export type LogoutCallback = () => void;
 
+export interface MainDeps {
+  syncManager: ISyncManager;
+  roomManager: IRoomManager;
+  authManager: IAuthManager;
+  userManager: IUserManager;
+  roomTagManager: IRoomTagManager;
+}
+
 export class MainViewModel {
-  private syncManager: ISyncManager = ServiceLocator.getSyncManager();
-  private roomManager: IRoomManager = ServiceLocator.getRoomManager();
-  private roomTagManager: RoomTagManager = ServiceLocator.getRoomTagManager();
+  private syncManager: ISyncManager;
+  private roomManager: IRoomManager;
+  private authManager: IAuthManager;
+  private userManager: IUserManager;
+  private roomTagManager: IRoomTagManager;
   private onStateChanged: MainStateCallback | null = null;
   private logoutCallback: LogoutCallback | null = null;
+
+  constructor(deps: MainDeps) {
+    this.syncManager = deps.syncManager;
+    this.roomManager = deps.roomManager;
+    this.authManager = deps.authManager;
+    this.userManager = deps.userManager;
+    this.roomTagManager = deps.roomTagManager;
+  }
 
   private state: MainState = {
     userInitial: '',
@@ -70,7 +89,7 @@ export class MainViewModel {
     return this.roomManager;
   }
 
-  getRoomTagManager(): RoomTagManager {
+  getRoomTagManager(): IRoomTagManager {
     return this.roomTagManager;
   }
 
@@ -105,7 +124,7 @@ export class MainViewModel {
     try {
       await this.syncManager.init(getContext());
       await this.syncManager.start();
-      const session = ServiceLocator.getAuthManager().getSession();
+      const session = this.authManager.getSession();
       if (session) {
         const userId = session.userId;
         const colonIndex = userId.indexOf(':');
@@ -157,8 +176,7 @@ export class MainViewModel {
 
   async loadUserProfile(): Promise<void> {
     try {
-      const userManager = ServiceLocator.getUserManager();
-      const profile = await userManager.getUserProfile();
+      const profile = await this.userManager.getUserProfile();
       this.state.userDisplayName = profile.displayName || '';
       this.state.userAvatarUrl = profile.avatarUrl || '';
       if (this.state.userDisplayName && !this.state.userInitial) {
@@ -173,7 +191,7 @@ export class MainViewModel {
 
   async handleLogout(): Promise<void> {
     try {
-      await ServiceLocator.getAuthManager().logout();
+      await this.authManager.logout();
       if (this.logoutCallback) {
         this.logoutCallback();
       }

@@ -1,7 +1,8 @@
 import { ToastUtils } from '../utils/ToastUtils';
 import { QuickDialogManager, QuickDialogParams, QuickDialogController, QuickDialogDecoratorParams } from 'quickdialog';
 import { getThemeColors } from '../utils/ThemeManager';
-import { JoinRoomViewModel, JoinRoomState } from '../viewmodels/JoinRoomViewModel';
+import { JoinRoomViewModel, JoinRoomState, JoinRoomDeps } from '../viewmodels/JoinRoomViewModel';
+import { ServiceLocator } from '../services/ServiceLocator';
 
 interface DirectoryUser {
   user_id: string;
@@ -129,7 +130,11 @@ struct JoinRoomPage {
   @State isSearching: boolean = false;
   @State roomAddress: string = '';
   @State isJoining: boolean = false;
-  private vm: JoinRoomViewModel = new JoinRoomViewModel();
+  private vm: JoinRoomViewModel = new JoinRoomViewModel({
+    roomManager: ServiceLocator.getRoomManager(),
+    authManager: ServiceLocator.getAuthManager(),
+    scanManager: ServiceLocator.getScanManager()
+  } as JoinRoomDeps);
   private createRoomDialogController: QuickDialogController | undefined = undefined;
   pathStack: NavPathStack = new NavPathStack();
 

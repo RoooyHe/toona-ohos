@@ -4,7 +4,16 @@ import { AuthManager, IAuthManager } from './AuthManager';
 import { LocalDatabase } from '../database/LocalDatabase';
 import { UserHttpClient } from '../network/clients/UserHttpClient';
 
-export class RoomTagManager {
+export interface IRoomTagManager {
+  isFavorite(roomId: string): Promise<boolean>;
+  addFavorite(roomId: string, order?: number): Promise<void>;
+  removeFavorite(roomId: string): Promise<void>;
+  isLowPriority(roomId: string): Promise<boolean>;
+  addLowPriority(roomId: string, order?: number): Promise<void>;
+  removeLowPriority(roomId: string): Promise<void>;
+}
+
+export class RoomTagManager implements IRoomTagManager {
   private logger = AppLogger.getLogger(RoomTagManager);
   private userHttpClient: UserHttpClient;
   private authManager: IAuthManager;

@@ -10,7 +10,11 @@ import {
 } from '../models/MatrixTypes';
 import { PushHttpClient } from '../network/clients/PushHttpClient';
 
-export class PushManager {
+export interface IPushManager {
+  getPushRules(): Promise<PushRules>;
+}
+
+export class PushManager implements IPushManager {
   private pushHttpClient: PushHttpClient;
   private logger = AppLogger.getLogger(PushManager);
 

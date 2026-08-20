@@ -1,7 +1,7 @@
 import { IFilePicker, SelectedFile } from '../platform/adapters/IFilePicker';
 import { IAudioRecorder, RecordingResult } from '../platform/adapters/IAudioRecorder';
-import { MediaManager } from './MediaManager';
-import { MessageManager } from './MessageManager';
+import { IMediaManager } from './MediaManager';
+import { IMessageSender } from './MessageSender';
 import { AppLogger } from '../utils/AppLogger';
 import { ToastUtils } from '../utils/ToastUtils';
 
@@ -24,22 +24,29 @@ interface MediaUploadConfig {
   failureToast: string;
 }
 
-export class MediaActionHandler {
+export interface IMediaActionHandler {
+  selectAndUploadImage(roomId: string): Promise<void>;
+  uploadAndSend(roomId: string, buffer: ArrayBuffer, fileName: string, fileSize: number, mediaType: MediaSendType): Promise<void>;
+  startRecording(context: Object): Promise<Object | null>;
+  stopRecording(recorder: Object, audioPath: string, audioFd: number): Promise<RecordingResult | null>;
+}
+
+export class MediaActionHandler implements IMediaActionHandler {
   private filePicker: IFilePicker;
   private audioRecorder: IAudioRecorder;
-  private mediaManager: MediaManager;
-  private messageManager: MessageManager;
+  private mediaManager: IMediaManager;
+  private messageSender: IMessageSender;
 
   constructor(
     filePicker: IFilePicker,
     audioRecorder: IAudioRecorder,
-    mediaManager: MediaManager,
-    messageManager: MessageManager
+    mediaManager: IMediaManager,
+    messageSender: IMessageSender
   ) {
     this.filePicker = filePicker;
     this.audioRecorder = audioRecorder;
     this.mediaManager = mediaManager;
-    this.messageManager = messageManager;
+    this.messageSender = messageSender;
   }
 
   private getUploadConfig(mediaType: MediaSendType): MediaUploadConfig {
@@ -151,7 +158,7 @@ export class MediaActionHandler {
             messageContent[key] = config.extraFields[key];
           }
         }
-        await this.messageManager.sendMessage(roomId, 'm.room.message', messageContent);
+        await this.messageSender.sendMedia(roomId, messageContent);
         ToastUtils.show(config.successToast);
       }
     } catch (error) {

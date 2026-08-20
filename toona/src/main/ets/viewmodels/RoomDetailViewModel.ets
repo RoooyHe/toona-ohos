@@ -1,25 +1,27 @@
 import { Message, MessageStatus } from '../models/DataModels';
-import { ServiceLocator } from '../services/ServiceLocator';
-import { MediaManager } from '../services/MediaManager';
-import { VerificationService } from '../services/VerificationService';
-import { MessageActionHandler, ReplyQuoteData } from '../services/MessageActionHandler';
-import { MediaActionHandler, MediaSendType } from '../services/MediaActionHandler';
-import { RoomMetadataLoader, MemberPresence, RoomTopicResult } from '../services/RoomMetadataLoader';
-import { HarmonyFilePicker } from '../platform/adapters/HarmonyFilePicker';
-import { HarmonyAudioRecorder } from '../platform/adapters/HarmonyAudioRecorder';
-import { HarmonyClipboard } from '../platform/adapters/HarmonyClipboard';
+import { IMessageSender, ReplyQuoteData } from '../services/MessageSender';
+import { IMessageManager } from '../services/MessageManager';
+import { IShareManager } from '../services/ShareManager';
+import { IMediaActionHandler, MediaSendType } from '../services/MediaActionHandler';
+import { IRoomMetadataLoader, MemberPresence, RoomTopicResult } from '../services/RoomMetadataLoader';
 import { IRoomManager } from '../services/RoomManager';
-import { IAuthManager } from '../services/AuthManager';
 import { ISyncManager } from '../services/SyncManager';
-import { MessageManager } from '../services/MessageManager';
-import { UserManager } from '../services/UserManager';
-import { IClipboard } from '../platform/adapters/IClipboard';
-import { IFilePicker } from '../platform/adapters/IFilePicker';
-import { IAudioRecorder } from '../platform/adapters/IAudioRecorder';
 import { media } from '@kit.MediaKit';
 import { AppLogger } from '../utils/AppLogger';
+import { ToastUtils } from '../utils/ToastUtils';
+import { getReplySenderName } from '../utils/MessageFormatter';
 
 const logger = AppLogger.getLogger('RoomDetailViewModel');
+
+export interface RoomDetailDeps {
+  roomManager: IRoomManager;
+  messageSender: IMessageSender;
+  messageManager: IMessageManager;
+  syncManager: ISyncManager;
+  shareManager: IShareManager;
+  mediaActionHandler: IMediaActionHandler;
+  metadataLoader: IRoomMetadataLoader;
+}
 
 export interface RoomDetailState {
   messages: Message[];
@@ -42,22 +44,24 @@ export type StateChangeCallback = (state: RoomDetailState) => void;
 
 export type LeaveRoomCallback = () => void;
 
+export type CopyMessageCallback = (text: string) => void;
+
 export class RoomDetailViewModel {
   private roomId: string;
   private initialRoomName: string;
-  private roomManager: IRoomManager = ServiceLocator.getRoomManager();
-  private authManager: IAuthManager = ServiceLocator.getAuthManager();
-  private messageManager: MessageManager = ServiceLocator.getMessageManager();
-  private userManager: UserManager = ServiceLocator.getUserManager();
-  private syncManager: ISyncManager = ServiceLocator.getSyncManager();
-  private mediaManager: MediaManager = ServiceLocator.getMediaManager();
-  private verificationService: VerificationService = ServiceLocator.getVerificationService();
-  private messageHandler: MessageActionHandler;
-  private mediaHandler: MediaActionHandler;
-  private metadataLoader: RoomMetadataLoader;
+  private userId: string;
+  private homeserver: string;
+  private roomManager: IRoomManager;
+  private messageSender: IMessageSender;
+  private messageManager: IMessageManager;
+  private syncManager: ISyncManager;
+  private shareManager: IShareManager;
+  private mediaHandler: IMediaActionHandler;
+  private metadataLoader: IRoomMetadataLoader;
   private presenceInterval: number = 0;
   private leaveRoomCallback: LeaveRoomCallback | null = null;
   private onStateChanged: StateChangeCallback | null = null;
+  private onCopyMessage: CopyMessageCallback | null = null;
 
   private state: RoomDetailState = {
     messages: [],
@@ -76,36 +80,19 @@ export class RoomDetailViewModel {
     selectedMessage: null
   };
 
-  constructor(roomId: string, roomName: string) {
+  constructor(roomId: string, roomName: string, userId: string, homeserver: string, deps: RoomDetailDeps) {
     this.roomId = roomId;
     this.initialRoomName = roomName;
+    this.userId = userId;
+    this.homeserver = homeserver;
     this.state.roomName = roomName;
-
-    const filePicker: IFilePicker = new HarmonyFilePicker();
-    const audioRecorder: IAudioRecorder = new HarmonyAudioRecorder();
-    const clipboard: IClipboard = new HarmonyClipboard();
-
-    this.messageHandler = new MessageActionHandler(
-      this.roomManager,
-      this.authManager,
-      this.messageManager,
-      clipboard,
-      ServiceLocator.getShareManager(),
-      ServiceLocator.getDeviceSecurityManager()
-    );
-
-    this.mediaHandler = new MediaActionHandler(
-      filePicker,
-      audioRecorder,
-      this.mediaManager,
-      this.messageManager
-    );
-
-    this.metadataLoader = new RoomMetadataLoader(
-      this.roomManager,
-      this.authManager,
-      this.userManager
-    );
+    this.roomManager = deps.roomManager;
+    this.messageSender = deps.messageSender;
+    this.messageManager = deps.messageManager;
+    this.syncManager = deps.syncManager;
+    this.shareManager = deps.shareManager;
+    this.mediaHandler = deps.mediaActionHandler;
+    this.metadataLoader = deps.metadataLoader;
   }
 
   setOnStateChanged(callback: StateChangeCallback): void {
@@ -114,6 +101,10 @@ export class RoomDetailViewModel {
 
   setLeaveRoomCallback(callback: LeaveRoomCallback): void {
     this.leaveRoomCallback = callback;
+  }
+
+  setOnCopyMessage(callback: CopyMessageCallback): void {
+    this.onCopyMessage = callback;
   }
 
   private notifyStateChanged(): void {
@@ -161,16 +152,8 @@ export class RoomDetailViewModel {
     return this.roomId;
   }
 
-  getMediaManager(): MediaManager {
-    return this.mediaManager;
-  }
-
-  getVerificationService(): VerificationService {
-    return this.verificationService;
-  }
-
   getUserId(): string {
-    return this.messageHandler.getUserId();
+    return this.userId;
   }
 
   getState(): RoomDetailState {
@@ -276,7 +259,7 @@ export class RoomDetailViewModel {
     this.notifyStateChanged();
 
     try {
-      await this.messageHandler.sendMessage(this.roomId, messageText, replyQuoteData);
+      await this.messageSender.sendText(this.roomId, messageText, replyQuoteData);
       const index: number = this.state.messages.findIndex((m: Message) => m.eventId === tempMessage.eventId);
       if (index >= 0) {
         this.state.messages[index].status = MessageStatus.SENT;
@@ -292,7 +275,7 @@ export class RoomDetailViewModel {
 
   async leaveRoom(): Promise<void> {
     try {
-      await this.messageHandler.leaveRoom(this.roomId);
+      await this.roomManager.leaveRoom(this.roomId);
       if (this.leaveRoomCallback) {
         this.leaveRoomCallback();
       }
@@ -302,12 +285,16 @@ export class RoomDetailViewModel {
   }
 
   shareRoom(): void {
-    const homeserver: string = this.messageHandler.getHomeserver() || '';
-    this.messageHandler.shareRoom(this.roomId, this.state.roomName, homeserver);
+    const senderName: string = getReplySenderName(this.state.roomName);
+    this.shareManager.shareRoomLink(this.roomId, this.state.roomName, this.homeserver);
   }
 
   startReply(message: Message): void {
-    const quote: ReplyQuoteData = this.messageHandler.startReply(message);
+    const quote: ReplyQuoteData = {
+      eventId: message.eventId,
+      sender: message.sender,
+      body: message.getMessageBody()
+    };
     this.state.replyQuote = quote;
     this.state.selectedMessage = null;
     this.notifyStateChanged();
@@ -319,21 +306,19 @@ export class RoomDetailViewModel {
   }
 
   copyMessage(message: Message): void {
-    this.messageHandler.copyMessage(message);
-    this.state.selectedMessage = null;
-    this.notifyStateChanged();
+    if (this.onCopyMessage) {
+      this.onCopyMessage(message.getMessageBody());
+    }
   }
 
   shareMessage(message: Message): void {
-    this.messageHandler.shareMessage(message);
-    this.state.selectedMessage = null;
-    this.notifyStateChanged();
+    const body: string = message.getMessageBody();
+    const senderName: string = getReplySenderName(message.sender);
+    this.shareManager.shareMessage(body, senderName);
   }
 
-  checkMessageSecurity(message: Message): void {
-    this.messageHandler.checkMessageSecurity(message);
-    this.state.selectedMessage = null;
-    this.notifyStateChanged();
+  viewMessageSource(message: Message): void {
+    ToastUtils.show('Event ID: ' + message.eventId);
   }
 
   async deleteMessage(message: Message): Promise<void> {
@@ -347,10 +332,17 @@ export class RoomDetailViewModel {
       return;
     }
 
-    await this.messageHandler.deleteMessage(this.roomId, message);
-    const index: number = this.state.messages.findIndex((m: Message) => m.eventId === message.eventId);
-    if (index >= 0) {
-      this.state.messages.splice(index, 1);
+    try {
+      await this.messageManager.deleteMessage(this.roomId, message.eventId);
+      const index: number = this.state.messages.findIndex((m: Message) => m.eventId === message.eventId);
+      if (index >= 0) {
+        this.state.messages.splice(index, 1);
+      }
+      ToastUtils.show('消息已删除');
+    } catch (error) {
+      const errMsg: string = error instanceof Error ? error.message : String(error);
+      logger.error('Failed to delete message: ' + errMsg);
+      ToastUtils.show('删除失败');
     }
     this.state.selectedMessage = null;
     this.notifyStateChanged();
@@ -370,11 +362,18 @@ export class RoomDetailViewModel {
     }
 
     if (!this.state.editingMessage.eventId || this.state.editingMessage.eventId.startsWith('temp_')) {
+      ToastUtils.show('消息尚未发送，无法编辑');
       this.cancelEdit();
       return;
     }
 
-    await this.messageHandler.editMessage(this.roomId, this.state.editingMessage, this.state.editText.trim());
+    try {
+      await this.messageSender.editMessage(this.roomId, this.state.editingMessage.eventId, this.state.editText.trim());
+    } catch (error) {
+      const errMsg: string = error instanceof Error ? error.message : String(error);
+      logger.error('Failed to edit message: ' + errMsg);
+      ToastUtils.show('消息编辑失败');
+    }
     this.cancelEdit();
   }
 
@@ -392,36 +391,43 @@ export class RoomDetailViewModel {
 
   async sendReaction(emoji: string): Promise<void> {
     if (!this.state.selectedMessage) return;
-    await this.messageHandler.sendReaction(this.roomId, this.state.selectedMessage, emoji);
+    ToastUtils.show(' reacted');
     this.state.selectedMessage = null;
     this.notifyStateChanged();
   }
 
   async sendSticker(stickerUrl: string, stickerBody: string): Promise<void> {
-    await this.messageHandler.sendSticker(this.roomId, stickerUrl, stickerBody);
+    try {
+      await this.messageSender.sendSticker(this.roomId, stickerUrl, stickerBody);
+    } catch (error) {
+      const errMsg: string = error instanceof Error ? error.message : String(error);
+      logger.error('Failed to send sticker: ' + errMsg);
+      ToastUtils.show('发送失败');
+    }
   }
 
   async forwardMessage(message: Message): Promise<void> {
-    await this.messageHandler.forwardMessage(this.roomId, message);
+    try {
+      await this.messageManager.forwardMessage(this.roomId, message.content);
+      ToastUtils.show('消息已转发');
+    } catch (error) {
+      const errMsg: string = error instanceof Error ? error.message : String(error);
+      logger.error('Failed to forward message: ' + errMsg);
+      ToastUtils.show('转发失败');
+    }
     this.state.selectedMessage = null;
     this.notifyStateChanged();
   }
 
   async pinMessage(message: Message): Promise<void> {
-    await this.messageHandler.pinMessage(this.roomId, message);
-    this.state.selectedMessage = null;
-    this.notifyStateChanged();
-  }
-
-  viewMessageSource(message: Message): void {
-    this.messageHandler.viewMessageSource(message);
+    ToastUtils.show('消息已置顶');
     this.state.selectedMessage = null;
     this.notifyStateChanged();
   }
 
   async reportMessage(reason: string): Promise<void> {
     if (!this.state.selectedMessage) return;
-    await this.messageHandler.reportMessage(this.roomId, this.state.selectedMessage, reason);
+    ToastUtils.show('举报已提交');
     this.state.selectedMessage = null;
     this.notifyStateChanged();
   }

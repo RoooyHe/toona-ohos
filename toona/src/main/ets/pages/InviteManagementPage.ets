@@ -1,18 +1,6 @@
-import { ToastUtils } from '../utils/ToastUtils';
 import { getThemeColors } from '../utils/ThemeManager';
-import { AppLogger } from '../utils/AppLogger';
+import { InviteManagementViewModel, InviteManagementState, RoomInvite } from '../viewmodels/InviteManagementViewModel';
 import { ServiceLocator } from '../services/ServiceLocator';
-
-const logger = AppLogger.getLogger('InviteManagementPage');
-
-interface RoomInvite {
-  roomId: string;
-  name: string;
-  topic: string;
-  avatarUrl: string;
-  inviter: string;
-  timestamp: number;
-}
 
 @Builder
 export function InviteManagementPageBuilder(name: string, param: Object) {
@@ -24,59 +12,29 @@ struct InviteManagementPage {
   @State invites: RoomInvite[] = [];
   @State isLoading: boolean = true;
   @State processingInvite: string = '';
-  private roomManager = ServiceLocator.getRoomManager();
+  private viewModel: InviteManagementViewModel | null = null;
   pathStack: NavPathStack = new NavPathStack();
-  private logger = AppLogger.getLogger('InviteManagementPage');
 
   aboutToAppear() {
-    this.loadInvites();
-  }
+    this.viewModel = new InviteManagementViewModel(ServiceLocator.getRoomManager());
 
-  async loadInvites() {
-    this.isLoading = true;
-    try {
-      this.invites = [];
-    } catch (error) {
-      this.logger.error('Failed to load invites:', error);
-      ToastUtils.show('Failed to load invites');
-    } finally {
-      this.isLoading = false;
-    }
-  }
+    const self = this;
+    this.viewModel.setOnStateChanged((state: InviteManagementState) => {
+      self.invites = state.invites;
+      self.isLoading = state.isLoading;
+      self.processingInvite = state.processingInvite;
+    });
 
-  async acceptInvite(invite: RoomInvite) {
-    this.processingInvite = invite.roomId;
-    try {
-      await this.roomManager.joinRoom(invite.roomId);
-      ToastUtils.show('Joined room');
-      this.invites = this.invites.filter(i => i.roomId !== invite.roomId);
-      this.pathStack.pop();
-    } catch (error) {
-      this.logger.error('Failed to accept invite:', error);
-      ToastUtils.show('Failed to join room');
-    } finally {
-      this.processingInvite = '';
-    }
-  }
+    this.viewModel.setOnInviteAccepted(() => {
+      self.pathStack.pop();
+    });
 
-  async declineInvite(invite: RoomInvite) {
-    this.processingInvite = invite.roomId;
-    try {
-      await this.roomManager.leaveRoom(invite.roomId);
-      ToastUtils.show('Invite declined');
-      this.invites = this.invites.filter(i => i.roomId !== invite.roomId);
-    } catch (error) {
-      this.logger.error('Failed to decline invite:', error);
-      ToastUtils.show('Failed to decline invite');
-    } finally {
-      this.processingInvite = '';
-    }
+    this.viewModel.loadInvites();
   }
 
   build() {
     NavDestination() {
       Column() {
-        // Header
         Row() {
           Button('←')
             .fontSize(18)
@@ -134,7 +92,6 @@ struct InviteManagementPage {
               ListItem() {
                 Column() {
                   Row() {
-                    // Room Avatar
                     Stack() {
                       if (invite.avatarUrl) {
                         Image(ServiceLocator.getMediaManager().getHttpUrl(invite.avatarUrl))
@@ -183,7 +140,6 @@ struct InviteManagementPage {
                   }
                   .width('100%');
 
-                  // Action Buttons
                   Row() {
                     Button('Decline')
                       .fontSize(14)
@@ -195,7 +151,7 @@ struct InviteManagementPage {
                       .padding({ left: 16, right: 16, top: 8, bottom: 8 })
                       .enabled(this.processingInvite !== invite.roomId)
                       .onClick(() => {
-                        this.declineInvite(invite);
+                        this.viewModel?.declineInvite(invite);
                       });
 
                     Blank();
@@ -208,7 +164,7 @@ struct InviteManagementPage {
                       .padding({ left: 16, right: 16, top: 8, bottom: 8 })
                       .enabled(this.processingInvite !== invite.roomId)
                       .onClick(() => {
-                        this.acceptInvite(invite);
+                        this.viewModel?.acceptInvite(invite);
                       });
                   }
                   .width('100%')

@@ -1,6 +1,7 @@
 import { ToastUtils } from '../utils/ToastUtils';
 import { getThemeColors } from '../utils/ThemeManager';
 import { RoomSettingsViewModel, RoomSettingsState } from '../viewmodels/RoomSettingsViewModel';
+import { ServiceLocator } from '../services/ServiceLocator';
 
 @Builder
 export function RoomSettingsPageBuilder(name: string, param: Object) {
@@ -23,7 +24,7 @@ struct RoomSettingsPage {
   @State isPublic: boolean = false;
   @State isLoading: boolean = true;
   pathStack: NavPathStack = new NavPathStack();
-  private vm: RoomSettingsViewModel = new RoomSettingsViewModel(this.roomId, this.roomName);
+  private vm: RoomSettingsViewModel = new RoomSettingsViewModel(this.roomId, this.roomName, ServiceLocator.getRoomManager());
 
   private syncState(state: RoomSettingsState): void {
     this.roomId = state.roomId;

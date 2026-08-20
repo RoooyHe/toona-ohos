@@ -3,7 +3,7 @@ import { getThemeColors } from '../utils/ThemeManager';
 import { AppLogger } from '../utils/AppLogger';
 import { ISyncManager } from '../services/SyncManager';
 import { IRoomManager } from '../services/RoomManager';
-import { RoomTagManager } from '../services/RoomTagManager';
+import { IRoomTagManager } from '../services/RoomTagManager';
 
 enum FilterType {
   ALL = 'all',
@@ -32,7 +32,7 @@ struct RoomListPage {
   onNavigateToRoom: (room: Room) => void = () => {};
   syncManager: ISyncManager | null = null;
   roomManager: IRoomManager | null = null;
-  roomTagManager: RoomTagManager | null = null;
+  roomTagManager: IRoomTagManager | null = null;
 
   aboutToAppear() {
     this.loadRooms();
