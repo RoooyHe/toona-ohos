@@ -14,6 +14,8 @@ import { AboutSection } from './components/settings/AboutSection';
 import { LogoutButton } from './components/settings/LogoutButton';
 import { SettingsViewModel, SettingsState, SettingsDeps } from '../viewmodels/SettingsViewModel';
 import { ServiceLocator } from '../services/ServiceLocator';
+import { IDeviceSecurityManager } from '../services/DeviceSecurityManager';
+import { IScanManager } from '../services/ScanManager';
 import { Room } from '../models/DataModels';
 import { Device } from '../models/MatrixTypes';
 import { PresenceState } from '../models/MatrixTypes';
@@ -53,12 +55,10 @@ export struct SettingsPage {
     roomTagManager: ServiceLocator.getRoomTagManager(),
     deviceManager: ServiceLocator.getDeviceManager(),
     shareManager: ServiceLocator.getShareManager(),
-    deviceSecurityManager: ServiceLocator.getDeviceSecurityManager(),
-    scanManager: ServiceLocator.getScanManager(),
-    userAuthManager: ServiceLocator.getUserAuthManager(),
-    serviceCollaborationManager: ServiceLocator.getServiceCollaborationManager(),
     filePicker: ServiceLocator.getFilePicker()
   } as SettingsDeps);
+  private deviceSecurityManager: IDeviceSecurityManager = ServiceLocator.getDeviceSecurityManager();
+  private scanManager: IScanManager = ServiceLocator.getScanManager();
   pathStack: NavPathStack = new NavPathStack();
 
   aboutToAppear() {
@@ -85,6 +85,43 @@ export struct SettingsPage {
     });
     this.vm.setLogoutCallback(() => {
       this.pathStack.clear();
+    });
+    this.vm.setOnDeviceSecurity(async () => {
+      const status = await this.deviceSecurityManager.checkDeviceSecurityStatus();
+      let message = '';
+      if (status.isTrusted) {
+        message = '设备安全: 安全芯片已启用';
+      } else if (status.hasSecurityChip) {
+        message = '设备安全: 部分安全功能可用';
+      } else {
+        message = '设备安全: 使用软件级安全保护';
+      }
+      ToastUtils.show(message, 3000);
+    });
+    this.vm.setOnScan(async () => {
+      try {
+        const result = await this.scanManager.startScan();
+        if (result) {
+          const parsed = this.scanManager.parseMatrixToLink(result);
+          if (parsed && parsed.roomId) {
+            ToastUtils.show(`识别房间: ${parsed.roomId}`);
+          } else {
+            ToastUtils.show('扫描成功，请在加入房间页面使用');
+          }
+        }
+      } catch (error) {
+        const errMsg: string = error instanceof Error ? error.message : String(error);
+        ToastUtils.show('扫码失败');
+      }
+    });
+    this.vm.setOnBiometricToggle((enable: boolean) => {
+      ToastUtils.show(enable ? '生物识别功能暂不可用' : '生物识别登录已关闭');
+    });
+    this.vm.setOnBiometricVerify(() => {
+      ToastUtils.show('生物识别功能暂不可用');
+    });
+    this.vm.setOnCollaboration(() => {
+      ToastUtils.show('当前设备不支持跨设备协作');
     });
     this.vm.initialize();
   }

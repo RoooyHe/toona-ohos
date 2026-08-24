@@ -10,11 +10,9 @@ import { MediaManager, IMediaManager } from './MediaManager';
 import { PushManager, IPushManager } from './PushManager';
 import { RoomTagManager, IRoomTagManager } from './RoomTagManager';
 import { UserManager, IUserManager } from './UserManager';
-import { UserAuthManager } from './UserAuthManager';
 import { DeviceSecurityManager, IDeviceSecurityManager } from './DeviceSecurityManager';
 import { ScanManager, IScanManager } from './ScanManager';
 import { ShareManager, IShareManager } from './ShareManager';
-import { ServiceCollaborationManager } from './ServiceCollaborationManager';
 import { EventProcessor } from './EventProcessor';
 import { LocalDatabase } from '../database/LocalDatabase';
 import { ConnectionConfig } from '../network/ConnectionConfig';
@@ -38,11 +36,9 @@ export class ServiceLocator {
   private static readonly ROOM_TAG_KEY: string = 'svc_roomTagManager';
   private static readonly USER_KEY: string = 'svc_userManager';
   private static readonly LOCAL_DB_KEY: string = 'svc_localDatabase';
-  private static readonly USER_AUTH_KEY: string = 'svc_userAuthManager';
   private static readonly DEVICE_SECURITY_KEY: string = 'svc_deviceSecurityManager';
   private static readonly SCAN_KEY: string = 'svc_scanManager';
   private static readonly SHARE_KEY: string = 'svc_shareManager';
-  private static readonly COLLABORATION_KEY: string = 'svc_serviceCollaborationManager';
   private static readonly EVENT_PROCESSOR_KEY: string = 'svc_eventProcessor';
   private static readonly CONNECTION_CONFIG_KEY: string = 'svc_connectionConfig';
   private static readonly MESSAGE_SENDER_KEY: string = 'svc_messageSender';
@@ -219,19 +215,6 @@ export class ServiceLocator {
     return db;
   }
 
-  static setUserAuthManager(mgr: UserAuthManager): void {
-    AppStorage.setOrCreate<UserAuthManager>(ServiceLocator.USER_AUTH_KEY, mgr);
-    logger.info('UserAuthManager registered');
-  }
-
-  static getUserAuthManager(): UserAuthManager {
-    const mgr: UserAuthManager | undefined = AppStorage.get<UserAuthManager>(ServiceLocator.USER_AUTH_KEY);
-    if (!mgr) {
-      throw new Error('UserAuthManager not initialized');
-    }
-    return mgr;
-  }
-
   static setDeviceSecurityManager(mgr: DeviceSecurityManager): void {
     AppStorage.setOrCreate<DeviceSecurityManager>(ServiceLocator.DEVICE_SECURITY_KEY, mgr);
     logger.info('DeviceSecurityManager registered');
@@ -267,19 +250,6 @@ export class ServiceLocator {
     const mgr: ShareManager | undefined = AppStorage.get<ShareManager>(ServiceLocator.SHARE_KEY);
     if (!mgr) {
       throw new Error('ShareManager not initialized');
-    }
-    return mgr;
-  }
-
-  static setServiceCollaborationManager(mgr: ServiceCollaborationManager): void {
-    AppStorage.setOrCreate<ServiceCollaborationManager>(ServiceLocator.COLLABORATION_KEY, mgr);
-    logger.info('ServiceCollaborationManager registered');
-  }
-
-  static getServiceCollaborationManager(): ServiceCollaborationManager {
-    const mgr: ServiceCollaborationManager | undefined = AppStorage.get<ServiceCollaborationManager>(ServiceLocator.COLLABORATION_KEY);
-    if (!mgr) {
-      throw new Error('ServiceCollaborationManager not initialized');
     }
     return mgr;
   }
@@ -362,11 +332,9 @@ export class ServiceLocator {
     AppStorage.set<RoomTagManager | undefined>(ServiceLocator.ROOM_TAG_KEY, undefined);
     AppStorage.set<UserManager | undefined>(ServiceLocator.USER_KEY, undefined);
     AppStorage.set<LocalDatabase | undefined>(ServiceLocator.LOCAL_DB_KEY, undefined);
-    AppStorage.set<UserAuthManager | undefined>(ServiceLocator.USER_AUTH_KEY, undefined);
     AppStorage.set<DeviceSecurityManager | undefined>(ServiceLocator.DEVICE_SECURITY_KEY, undefined);
     AppStorage.set<ScanManager | undefined>(ServiceLocator.SCAN_KEY, undefined);
     AppStorage.set<ShareManager | undefined>(ServiceLocator.SHARE_KEY, undefined);
-    AppStorage.set<ServiceCollaborationManager | undefined>(ServiceLocator.COLLABORATION_KEY, undefined);
     AppStorage.set<EventProcessor | undefined>(ServiceLocator.EVENT_PROCESSOR_KEY, undefined);
     AppStorage.set<ConnectionConfig | undefined>(ServiceLocator.CONNECTION_CONFIG_KEY, undefined);
     AppStorage.set<MessageSender | undefined>(ServiceLocator.MESSAGE_SENDER_KEY, undefined);

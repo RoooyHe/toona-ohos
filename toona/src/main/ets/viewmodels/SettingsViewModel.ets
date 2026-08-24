@@ -1,7 +1,5 @@
 import { ToastUtils } from '../utils/ToastUtils';
 import { AppLogger } from '../utils/AppLogger';
-import { ServiceCollaborationManager } from '../services/ServiceCollaborationManager';
-import { UserAuthManager } from '../services/UserAuthManager';
 import { IAuthManager } from '../services/AuthManager';
 import { IRoomManager } from '../services/RoomManager';
 import { IUserManager } from '../services/UserManager';
@@ -9,8 +7,6 @@ import { IMediaManager } from '../services/MediaManager';
 import { IRoomTagManager } from '../services/RoomTagManager';
 import { IDeviceManager } from '../services/DeviceManager';
 import { IShareManager } from '../services/ShareManager';
-import { IDeviceSecurityManager } from '../services/DeviceSecurityManager';
-import { IScanManager } from '../services/ScanManager';
 import { IFilePicker, SelectedFile } from '../platform/adapters/IFilePicker';
 import { Room } from '../models/DataModels';
 import { UserProfile } from '../models/DataModels';
@@ -28,12 +24,18 @@ export interface SettingsDeps {
   roomTagManager: IRoomTagManager;
   deviceManager: IDeviceManager;
   shareManager: IShareManager;
-  deviceSecurityManager: IDeviceSecurityManager;
-  scanManager: IScanManager;
-  userAuthManager: UserAuthManager;
-  serviceCollaborationManager: ServiceCollaborationManager;
   filePicker: IFilePicker;
 }
+
+export type DeviceSecurityCallback = () => void;
+
+export type ScanCallback = () => void;
+
+export type BiometricToggleCallback = (enable: boolean) => void;
+
+export type BiometricVerifyCallback = () => void;
+
+export type CollaborationCallback = () => void;
 
 export interface SettingsState {
   userId: string;
@@ -69,14 +71,15 @@ export class SettingsViewModel {
   private roomTagManager: IRoomTagManager;
   private deviceManager: IDeviceManager;
   private shareManager: IShareManager;
-  private deviceSecurityManager: IDeviceSecurityManager;
-  private scanManager: IScanManager;
-  private userAuthManager: UserAuthManager;
-  private collaborationManager: ServiceCollaborationManager;
   private filePicker: IFilePicker;
   private themeManager: ThemeManager = ThemeManager.getInstance();
   private onStateChanged: SettingsStateCallback | null = null;
   private logoutCallback: LogoutCallback | null = null;
+  private onDeviceSecurity: DeviceSecurityCallback | null = null;
+  private onScan: ScanCallback | null = null;
+  private onBiometricToggle: BiometricToggleCallback | null = null;
+  private onBiometricVerify: BiometricVerifyCallback | null = null;
+  private onCollaboration: CollaborationCallback | null = null;
 
   private state: SettingsState = {
     userId: '',
@@ -108,10 +111,6 @@ export class SettingsViewModel {
     this.roomTagManager = deps.roomTagManager;
     this.deviceManager = deps.deviceManager;
     this.shareManager = deps.shareManager;
-    this.deviceSecurityManager = deps.deviceSecurityManager;
-    this.scanManager = deps.scanManager;
-    this.userAuthManager = deps.userAuthManager;
-    this.collaborationManager = deps.serviceCollaborationManager;
     this.filePicker = deps.filePicker;
   }
 
@@ -121,6 +120,26 @@ export class SettingsViewModel {
 
   setLogoutCallback(callback: LogoutCallback): void {
     this.logoutCallback = callback;
+  }
+
+  setOnDeviceSecurity(callback: DeviceSecurityCallback): void {
+    this.onDeviceSecurity = callback;
+  }
+
+  setOnScan(callback: ScanCallback): void {
+    this.onScan = callback;
+  }
+
+  setOnBiometricToggle(callback: BiometricToggleCallback): void {
+    this.onBiometricToggle = callback;
+  }
+
+  setOnBiometricVerify(callback: BiometricVerifyCallback): void {
+    this.onBiometricVerify = callback;
+  }
+
+  setOnCollaboration(callback: CollaborationCallback): void {
+    this.onCollaboration = callback;
   }
 
   private notifyStateChanged(): void {
@@ -352,70 +371,32 @@ export class SettingsViewModel {
   }
 
   async onFindCollaborativeDevices(): Promise<void> {
-    const isSupported = await this.collaborationManager.isCollaborationSupported();
-    if (!isSupported) {
-      ToastUtils.show('当前设备不支持跨设备协作');
-      return;
+    if (this.onCollaboration) {
+      this.onCollaboration();
     }
-    const devices = await this.collaborationManager.getCollaborationDevices();
-    if (devices.length === 0) {
-      ToastUtils.show('未发现可协作设备');
-      return;
-    }
-    ToastUtils.show(`发现 ${devices.length} 个可协作设备`);
   }
 
   async onCheckDeviceSecurity(): Promise<void> {
-    const status = await this.deviceSecurityManager.checkDeviceSecurityStatus();
-    let message = '';
-    if (status.isTrusted) {
-      message = '设备安全: 安全芯片已启用';
-    } else if (status.hasSecurityChip) {
-      message = '设备安全: 部分安全功能可用';
-    } else {
-      message = '设备安全: 使用软件级安全保护';
+    if (this.onDeviceSecurity) {
+      this.onDeviceSecurity();
     }
-    ToastUtils.show(message, 3000);
   }
 
   async onScanQRCode(): Promise<void> {
-    try {
-      const result = await this.scanManager.startScan();
-      if (result) {
-        const parsed = this.scanManager.parseMatrixToLink(result);
-        if (parsed && parsed.roomId) {
-          ToastUtils.show(`识别房间: ${parsed.roomId}`);
-        } else {
-          ToastUtils.show('扫描成功，请在加入房间页面使用');
-        }
-      }
-    } catch (error) {
-      logger.error('Scan error: %{public}s', error.message);
-      ToastUtils.show('扫码失败');
+    if (this.onScan) {
+      this.onScan();
     }
   }
 
   async onToggleBiometric(enable: boolean): Promise<void> {
-    if (enable) {
-      const success = await this.userAuthManager.authenticateWithFace();
-      if (success) {
-        this.userAuthManager.setBiometricEnabled(true);
-        ToastUtils.show('生物识别登录已启用');
-      } else {
-        ToastUtils.show('生物识别验证失败');
-      }
-    } else {
-      this.userAuthManager.setBiometricEnabled(false);
-      ToastUtils.show('生物识别登录已关闭');
+    if (this.onBiometricToggle) {
+      this.onBiometricToggle(enable);
     }
   }
 
   async onVerifyBiometric(): Promise<void> {
-    const success = await this.userAuthManager.authenticateWithFace();
-    if (success) {
-      ToastUtils.show('生物识别验证成功');
-    } else {
-      ToastUtils.show('生物识别验证失败');
+    if (this.onBiometricVerify) {
+      this.onBiometricVerify();
     }
   }
 

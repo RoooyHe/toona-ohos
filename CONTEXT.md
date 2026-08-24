@@ -42,8 +42,8 @@ Every service that a ViewModel depends on has an `IXxx` interface. Concrete clas
 | `IPushManager` | `PushManager` | NotificationSettings |
 | `IVerificationService` | `VerificationService` | — (used by MessageBubble, not ViewModel) |
 | `IShareManager` | `ShareManager` | RoomDetail |
-| `IDeviceSecurityManager` | `DeviceSecurityManager` | Settings |
-| `IScanManager` | `ScanManager` | JoinRoom, Settings |
+| `IDeviceSecurityManager` | `DeviceSecurityManager` | — (page-level, not in ViewModel deps) |
+| `IScanManager` | `ScanManager` | JoinRoom (via deps), Settings (page-level callback) |
 | `IMediaActionHandler` | `MediaActionHandler` | RoomDetail |
 | `IRoomMetadataLoader` | `RoomMetadataLoader` | RoomDetail |
 
@@ -56,7 +56,7 @@ ViewModels accept dependencies via constructor. ViewModels with >4 deps use a de
 | `RoomDetailViewModel` | Deps struct | `RoomDetailDeps` (7 fields) + userId/homeserver strings + onCopyMessage callback |
 | `MainViewModel` | Deps struct | `MainDeps` (5 fields) |
 | `JoinRoomViewModel` | Deps struct | `JoinRoomDeps` (3 fields) |
-| `SettingsViewModel` | Deps struct | `SettingsDeps` (12 fields) |
+| `SettingsViewModel` | Deps struct | `SettingsDeps` (8 fields) + 5 callbacks (deviceSecurity, scan, biometricToggle, biometricVerify, collaboration) |
 | `RoomSettingsViewModel` | Individual params | — (1 dep: IRoomManager) |
 | `NotificationSettingsViewModel` | Individual params | — (1 dep: IPushManager) |
 | `LoginViewModel` | Individual params | — (1 dep: IAuthManager) |
@@ -75,5 +75,7 @@ ViewModels accept dependencies via constructor. ViewModels with >4 deps use a de
 - `IMediaActionHandler` and `IRoomMetadataLoader` seams: pre-built externally by the page, injected as deps. Two adapters justify each seam (prod + test fake).
 - ViewModels accept dependencies via constructor, not static `ServiceLocator` access.
 - Value params (userId, homeserver) and callbacks (onCopyMessage, onLeaveRoom, onStateChanged) are separate from deps struct — deps struct is purely service seams.
+- Platform and hardware-bound deps (IDeviceSecurityManager, IScanManager) live at page level, injected into ViewModels via callbacks. Same pattern as RoomDetailPage with deviceSecurityManager.
+- Stub-only services (UserAuthManager, ServiceCollaborationManager) are deleted; their behavior moves to page-level callback implementations that show Toast.
 - Pages get platform deps (IMediaManager, IVerificationService) directly from ServiceLocator for child components, not through ViewModel getters.
 - ServiceLocator getters return interface types; pages build deps structs from ServiceLocator.

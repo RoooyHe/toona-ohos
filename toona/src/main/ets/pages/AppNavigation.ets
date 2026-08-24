@@ -16,11 +16,9 @@ import { MediaManager } from '../services/MediaManager';
 import { PushManager } from '../services/PushManager';
 import { RoomTagManager } from '../services/RoomTagManager';
 import { UserManager } from '../services/UserManager';
-import { UserAuthManager } from '../services/UserAuthManager';
 import { DeviceSecurityManager } from '../services/DeviceSecurityManager';
 import { ScanManager } from '../services/ScanManager';
 import { ShareManager } from '../services/ShareManager';
-import { ServiceCollaborationManager } from '../services/ServiceCollaborationManager';
 import { HarmonyFilePicker } from '../platform/adapters/HarmonyFilePicker';
 import { HarmonyClipboard } from '../platform/adapters/HarmonyClipboard';
 import { HarmonyAudioRecorder } from '../platform/adapters/HarmonyAudioRecorder';
@@ -83,11 +81,9 @@ struct AppNavigation {
     const pushManager = new PushManager(pushClient);
     const roomTagManager = new RoomTagManager(authManager, localDatabase, userClient);
     const userManager = new UserManager(authManager, userClient);
-    const userAuthManager = new UserAuthManager();
     const deviceSecurityManager = new DeviceSecurityManager();
     const scanManager = new ScanManager();
     const shareManager = new ShareManager();
-    const serviceCollaborationManager = new ServiceCollaborationManager();
 
     ServiceLocator.setConnectionConfig(config);
     ServiceLocator.setAuthManager(authManager);
@@ -104,7 +100,6 @@ struct AppNavigation {
     ServiceLocator.setRoomTagManager(roomTagManager);
     ServiceLocator.setUserManager(userManager);
     ServiceLocator.setEventProcessor(eventProcessor);
-    ServiceLocator.setUserAuthManager(userAuthManager);
     ServiceLocator.setDeviceSecurityManager(deviceSecurityManager);
     ServiceLocator.setScanManager(scanManager);
     ServiceLocator.setShareManager(shareManager);
@@ -115,7 +110,6 @@ struct AppNavigation {
     ServiceLocator.setFilePicker(filePicker);
     ServiceLocator.setClipboard(clipboard);
     ServiceLocator.setAudioRecorder(audioRecorder);
-    ServiceLocator.setServiceCollaborationManager(serviceCollaborationManager);
   }
 
   onPageShow() {
