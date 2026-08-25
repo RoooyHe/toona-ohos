@@ -8,23 +8,23 @@ import {
   NotificationsResponse,
   SetNotificationMarkerRequest
 } from '../models/MatrixTypes';
-import { PushHttpClient } from '../network/clients/PushHttpClient';
+import { BaseHttpClient } from '../network/clients/BaseHttpClient';
 
 export interface IPushManager {
   getPushRules(): Promise<PushRules>;
 }
 
 export class PushManager implements IPushManager {
-  private pushHttpClient: PushHttpClient;
+  private baseClient: BaseHttpClient;
   private logger = AppLogger.getLogger(PushManager);
 
-  constructor(pushHttpClient: PushHttpClient) {
-    this.pushHttpClient = pushHttpClient;
+  constructor(baseClient: BaseHttpClient) {
+    this.baseClient = baseClient;
   }
 
   async getPushRules(): Promise<PushRules> {
     try {
-      return await this.pushHttpClient.getPushRules();
+      return await this.baseClient.get<PushRules>('/pushrules');
     } catch (error) {
       this.logger.error('Failed to get push rules:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -34,7 +34,8 @@ export class PushManager implements IPushManager {
 
   async getPushRule(scope: PushRuleScope, kind: PushRuleKind, ruleId: string): Promise<PushRule> {
     try {
-      return await this.pushHttpClient.getPushRule(scope, kind, ruleId);
+      const encoded = this.baseClient.encodePath(scope, kind, ruleId);
+      return await this.baseClient.get<PushRule>(`/pushrules/${encoded}`);
     } catch (error) {
       this.logger.error('Failed to get push rule:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -49,7 +50,11 @@ export class PushManager implements IPushManager {
     rule: Partial<PushRule>
   ): Promise<void> {
     try {
-      await this.pushHttpClient.setPushRule(scope, kind, ruleId, rule);
+      const encoded = this.baseClient.encodePath(scope, kind, ruleId);
+      await this.baseClient.put<void>(
+        `/pushrules/${encoded}`,
+        rule as Record<string, string | object>
+      );
     } catch (error) {
       this.logger.error('Failed to add push rule:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -64,7 +69,11 @@ export class PushManager implements IPushManager {
     rule: Partial<PushRule>
   ): Promise<void> {
     try {
-      await this.pushHttpClient.setPushRule(scope, kind, ruleId, rule);
+      const encoded = this.baseClient.encodePath(scope, kind, ruleId);
+      await this.baseClient.put<void>(
+        `/pushrules/${encoded}`,
+        rule as Record<string, string | object>
+      );
     } catch (error) {
       this.logger.error('Failed to update push rule:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -74,7 +83,8 @@ export class PushManager implements IPushManager {
 
   async deletePushRule(scope: PushRuleScope, kind: PushRuleKind, ruleId: string): Promise<void> {
     try {
-      await this.pushHttpClient.deletePushRule(scope, kind, ruleId);
+      const encoded = this.baseClient.encodePath(scope, kind, ruleId);
+      await this.baseClient.delete<void>(`/pushrules/${encoded}`);
     } catch (error) {
       this.logger.error('Failed to delete push rule:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -89,7 +99,11 @@ export class PushManager implements IPushManager {
     actions: PushRuleAction[]
   ): Promise<void> {
     try {
-      await this.pushHttpClient.setPushRuleActions(scope, kind, ruleId, actions);
+      const encoded = this.baseClient.encodePath(scope, kind, ruleId);
+      await this.baseClient.post<void>(
+        `/pushrules/${encoded}/actions`,
+        { "actions": actions }
+      );
     } catch (error) {
       this.logger.error('Failed to set push rule actions:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -99,7 +113,11 @@ export class PushManager implements IPushManager {
 
   async getNotifications(limit?: number, since?: string): Promise<NotificationsResponse> {
     try {
-      return await this.pushHttpClient.getNotifications(limit, since);
+      const queryParams = this.baseClient.buildQueryParams({
+        'limit': limit,
+        'since': since
+      });
+      return await this.baseClient.get<NotificationsResponse>('/notifications', queryParams);
     } catch (error) {
       this.logger.error('Failed to get notifications:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -110,7 +128,7 @@ export class PushManager implements IPushManager {
   async setNotificationMarker(notificationKey: string): Promise<void> {
     try {
       const request: SetNotificationMarkerRequest = { notification_key: notificationKey };
-      await this.pushHttpClient.setNotificationMarker(request);
+      await this.baseClient.post<void>('/notifications', request as Record<string, string | object>);
     } catch (error) {
       this.logger.error('Failed to set notification marker:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);

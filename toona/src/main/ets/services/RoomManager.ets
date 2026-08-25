@@ -1,4 +1,3 @@
-import { RoomHttpClient } from '../network/clients/RoomHttpClient';
 import { RoomStateParser } from '../utils/RoomStateParser';
 import {
   RoomCreateResponse,
@@ -10,15 +9,22 @@ import {
   ParsedRoomState,
   Event,
   PublicRoomsResponse,
-  PublicRoom
+  PublicRoom,
+  RoomAvatarContent,
+  RoomMembersResponse,
+  SetReadMarkersRequest,
+  ReceiptContent,
+  RoomDirectoryResponse,
+  CanonicalAliasContent,
+  RoomAliasesContent
 } from '../models/MatrixTypes';
 import { AuthManager, IAuthManager } from './AuthManager';
 import { LocalDatabase } from '../database/LocalDatabase';
 import { Room, Message } from '../models/DataModels';
 import { AppLogger } from '../utils/AppLogger';
+import { BaseHttpClient } from '../network/clients/BaseHttpClient';
 
 const logger = AppLogger.getLogger('RoomManager');
-
 
 export interface SpaceChild {
   room_id: string;
@@ -52,6 +58,10 @@ interface ImageMessageContent {
   body: string;
   url: import("../models/MatrixTypes").MediaUploadResponse;
   info: ImageInfo;
+}
+
+interface TypingUsersResponse {
+  user_ids: string[];
 }
 
 export interface IRoomManager {
@@ -91,18 +101,18 @@ export class RoomManager implements IRoomManager {
   sendMessage(roomId: string, arg1: string,
     imageMessageContent: ImageMessageContent) {
   }
-  private roomClient: RoomHttpClient;
+  private baseClient: BaseHttpClient;
   private authManager: IAuthManager;
   private localDatabase: LocalDatabase;
 
   constructor(
     authManager: IAuthManager,
     localDatabase: LocalDatabase,
-    roomClient: RoomHttpClient
+    baseClient: BaseHttpClient
   ) {
     this.authManager = authManager;
     this.localDatabase = localDatabase;
-    this.roomClient = roomClient;
+    this.baseClient = baseClient;
   }
 
   async getRooms(): Promise<Room[]> {
@@ -143,7 +153,7 @@ export class RoomManager implements IRoomManager {
     }
 
     try {
-      const response = await this.roomClient.post<RoomCreateResponse>('/createRoom', content);
+      const response = await this.baseClient.post<RoomCreateResponse>('/createRoom', content);
       return response.room_id;
     } catch (error) {
       logger.error('Failed to create room:', error);
@@ -157,7 +167,7 @@ export class RoomManager implements IRoomManager {
     const emptyContent: Record<string, string | object> = {};
 
     try {
-      await this.roomClient.post<object>(`/rooms/${encodedRoomId}/join`, emptyContent);
+      await this.baseClient.post<object>(`/rooms/${encodedRoomId}/join`, emptyContent);
     } catch (error) {
       logger.error('Failed to join room:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -170,7 +180,7 @@ export class RoomManager implements IRoomManager {
     const emptyContent: Record<string, string | object> = {};
 
     try {
-      await this.roomClient.post<object>(`/rooms/${encodedRoomId}/leave`, emptyContent);
+      await this.baseClient.post<object>(`/rooms/${encodedRoomId}/leave`, emptyContent);
     } catch (error) {
       logger.error('Failed to leave room:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -185,7 +195,7 @@ export class RoomManager implements IRoomManager {
     };
 
     try {
-      await this.roomClient.post<object>(`/rooms/${encodedRoomId}/invite`, content);
+      await this.baseClient.post<object>(`/rooms/${encodedRoomId}/invite`, content);
     } catch (error) {
       logger.error('Failed to invite user:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -197,7 +207,7 @@ export class RoomManager implements IRoomManager {
     const encodedRoomId = encodeURIComponent(roomId);
 
     try {
-      const response = await this.roomClient.get<JoinedMembersResponse>(
+      const response = await this.baseClient.get<JoinedMembersResponse>(
         `/rooms/${encodedRoomId}/joined_members`
       );
       return Object.keys(response.joined);
@@ -227,7 +237,7 @@ export class RoomManager implements IRoomManager {
     }
 
     try {
-      const response = await this.roomClient.get<RoomMessagesResponse>(
+      const response = await this.baseClient.get<RoomMessagesResponse>(
         `/rooms/${encodedRoomId}/messages`,
         queryParams
       );
@@ -250,7 +260,7 @@ export class RoomManager implements IRoomManager {
     const encodedAlias = encodeURIComponent(roomAlias);
 
     try {
-      const response = await this.roomClient.get<DirectoryRoomResponse>(
+      const response = await this.baseClient.get<DirectoryRoomResponse>(
         `/directory/room/${encodedAlias}`
       );
       return response.room_id;
@@ -268,7 +278,7 @@ export class RoomManager implements IRoomManager {
     };
 
     try {
-      await this.roomClient.put<object>(`/rooms/${encodedRoomId}/state/m.room.name`, content);
+      await this.baseClient.put<object>(`/rooms/${encodedRoomId}/state/m.room.name`, content);
     } catch (error) {
       logger.error('Failed to set room name:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -283,7 +293,7 @@ export class RoomManager implements IRoomManager {
     };
 
     try {
-      await this.roomClient.put<object>(`/rooms/${encodedRoomId}/state/m.room.topic`, content);
+      await this.baseClient.put<object>(`/rooms/${encodedRoomId}/state/m.room.topic`, content);
     } catch (error) {
       logger.error('Failed to set room topic:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -293,7 +303,7 @@ export class RoomManager implements IRoomManager {
 
   async getJoinedRooms(): Promise<string[]> {
     try {
-      const response = await this.roomClient.get<JoinedRoomsResponse>('/joined_rooms');
+      const response = await this.baseClient.get<JoinedRoomsResponse>('/joined_rooms');
       return response.joined_rooms;
     } catch (error) {
       logger.error('Failed to get joined rooms:', error);
@@ -306,7 +316,7 @@ export class RoomManager implements IRoomManager {
     const encodedRoomId = encodeURIComponent(roomId);
 
     try {
-      const response = await this.roomClient.get<RoomCreateResponse>(
+      const response = await this.baseClient.get<RoomCreateResponse>(
         `/rooms/${encodedRoomId}/state`
       );
       const state = this.parseRoomStateEvents(roomId, response.events);
@@ -323,7 +333,7 @@ export class RoomManager implements IRoomManager {
     const encodedRoomId = encodeURIComponent(roomId);
 
     try {
-      const response = await this.roomClient.get<Record<string, string | object>>(
+      const response = await this.baseClient.get<Record<string, string | object>>(
         `/rooms/${encodedRoomId}/state/m.room.name`
       );
       const nameVal = response['name'];
@@ -338,7 +348,7 @@ export class RoomManager implements IRoomManager {
     const encodedRoomId = encodeURIComponent(roomId);
 
     try {
-      const response = await this.roomClient.get<Record<string, string | object>>(
+      const response = await this.baseClient.get<Record<string, string | object>>(
         `/rooms/${encodedRoomId}/state/m.room.topic`
       );
       const topicVal = response['topic'];
@@ -354,7 +364,7 @@ export class RoomManager implements IRoomManager {
     const emptyContent: Record<string, string | object> = {};
 
     try {
-      await this.roomClient.post<object>(`/rooms/${encodedRoomId}/forget`, emptyContent);
+      await this.baseClient.post<object>(`/rooms/${encodedRoomId}/forget`, emptyContent);
     } catch (error) {
       logger.error('Failed to forget room:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -370,7 +380,7 @@ export class RoomManager implements IRoomManager {
     };
 
     try {
-      await this.roomClient.post<object>(`/rooms/${encodedRoomId}/kick`, content);
+      await this.baseClient.post<object>(`/rooms/${encodedRoomId}/kick`, content);
     } catch (error) {
       logger.error('Failed to kick user:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -386,7 +396,7 @@ export class RoomManager implements IRoomManager {
     };
 
     try {
-      await this.roomClient.post<object>(`/rooms/${encodedRoomId}/ban`, content);
+      await this.baseClient.post<object>(`/rooms/${encodedRoomId}/ban`, content);
     } catch (error) {
       logger.error('Failed to ban user:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -401,7 +411,7 @@ export class RoomManager implements IRoomManager {
     };
 
     try {
-      await this.roomClient.post<object>(`/rooms/${encodedRoomId}/unban`, content);
+      await this.baseClient.post<object>(`/rooms/${encodedRoomId}/unban`, content);
     } catch (error) {
       logger.error('Failed to unban user:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -451,7 +461,7 @@ export class RoomManager implements IRoomManager {
     content.initial_state = initialState;
 
     try {
-      const response = await this.roomClient.post<RoomCreateResponse>('/createRoom', content);
+      const response = await this.baseClient.post<RoomCreateResponse>('/createRoom', content);
       return response.room_id;
     } catch (error) {
       logger.error('Failed to create space:', error);
@@ -464,7 +474,7 @@ export class RoomManager implements IRoomManager {
     const encodedRoomId = encodeURIComponent(roomId);
 
     try {
-      const response = await this.roomClient.get<SpaceChildrenResponse>(
+      const response = await this.baseClient.get<SpaceChildrenResponse>(
         `/rooms/${encodedRoomId}/spaces`,
         undefined,
         'v1'
@@ -486,7 +496,7 @@ export class RoomManager implements IRoomManager {
     };
 
     try {
-      await this.roomClient.put<object>(
+      await this.baseClient.put<object>(
         `/rooms/${encodedParentId}/state/m.space.child/${encodedChildId}`,
         content
       );
@@ -502,7 +512,7 @@ export class RoomManager implements IRoomManager {
     const encodedChildId = encodeURIComponent(childRoomId);
 
     try {
-      await this.roomClient.delete<object>(
+      await this.baseClient.delete<object>(
         `/rooms/${encodedParentId}/state/m.space.child/${encodedChildId}`
       );
     } catch (error) {
@@ -523,7 +533,16 @@ export class RoomManager implements IRoomManager {
     }
 
     try {
-      await this.roomClient.putTyping(roomId, userId, true, timeout);
+      const encodedRoomId = this.baseClient.encodePath(roomId);
+      const encodedUserId = this.baseClient.encodePath(userId);
+      const body: Record<string, string | object> = { 'typing': 'true' };
+      if (timeout !== undefined) {
+        body['timeout'] = String(timeout);
+      }
+      await this.baseClient.put<void>(
+        `/rooms/${encodedRoomId}/typing/${encodedUserId}`,
+        body
+      );
     } catch (error) {
       logger.error('Failed to start typing:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -538,7 +557,13 @@ export class RoomManager implements IRoomManager {
     }
 
     try {
-      await this.roomClient.putTyping(roomId, userId, false);
+      const encodedRoomId = this.baseClient.encodePath(roomId);
+      const encodedUserId = this.baseClient.encodePath(userId);
+      const body: Record<string, string | object> = { 'typing': 'false' };
+      await this.baseClient.put<void>(
+        `/rooms/${encodedRoomId}/typing/${encodedUserId}`,
+        body
+      );
     } catch (error) {
       logger.error('Failed to stop typing:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -553,7 +578,12 @@ export class RoomManager implements IRoomManager {
     }
 
     try {
-      return await this.roomClient.getTypingUsers(roomId, userId);
+      const encodedRoomId = this.baseClient.encodePath(roomId);
+      const encodedUserId = this.baseClient.encodePath(userId);
+      const response = await this.baseClient.get<TypingUsersResponse>(
+        `/rooms/${encodedRoomId}/typing/${encodedUserId}`
+      );
+      return response.user_ids || [];
     } catch (error) {
       logger.error('Failed to get typing users:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -563,7 +593,13 @@ export class RoomManager implements IRoomManager {
 
   async sendReadReceipt(roomId: string, eventId: string, threadId?: string): Promise<void> {
     try {
-      await this.roomClient.postReceipt(roomId, 'm.read', eventId, threadId);
+      const encodedRoomId = this.baseClient.encodePath(roomId);
+      const encodedEventId = this.baseClient.encodePath(eventId);
+      const body: Record<string, string | object> = {};
+      if (threadId !== undefined) {
+        body['thread_id'] = threadId;
+      }
+      await this.baseClient.post<void>(`/rooms/${encodedRoomId}/receipt/m.read/${encodedEventId}`, body);
     } catch (error) {
       logger.error('Failed to send read receipt:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -573,7 +609,13 @@ export class RoomManager implements IRoomManager {
 
   async sendPrivateReadReceipt(roomId: string, eventId: string, threadId?: string): Promise<void> {
     try {
-      await this.roomClient.postReceipt(roomId, 'm.read.private', eventId, threadId);
+      const encodedRoomId = this.baseClient.encodePath(roomId);
+      const encodedEventId = this.baseClient.encodePath(eventId);
+      const body: Record<string, string | object> = {};
+      if (threadId !== undefined) {
+        body['thread_id'] = threadId;
+      }
+      await this.baseClient.post<void>(`/rooms/${encodedRoomId}/receipt/m.read.private/${encodedEventId}`, body);
     } catch (error) {
       logger.error('Failed to send private read receipt:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -586,9 +628,9 @@ export class RoomManager implements IRoomManager {
       const room: Record<string, string | object> = {
         'name': query
       };
-      return await this.roomClient.postPublicRooms(room);
+      return await this.postPublicRooms(room);
     }
-    return await this.roomClient.getPublicRooms(server, limit, since);
+    return await this.getPublicRooms(server, limit, since);
   }
 
   async searchUsers(query: string, limit?: number): Promise<Record<string, string | object>> {
@@ -596,6 +638,19 @@ export class RoomManager implements IRoomManager {
       'search_term': query,
       'limit': String(limit ?? 10)
     };
-    return await this.roomClient.post<Record<string, string | object>>('/user_directory/search', body);
+    return await this.baseClient.post<Record<string, string | object>>('/user_directory/search', body);
+  }
+
+  private async getPublicRooms(server?: string, limit?: number, since?: string): Promise<PublicRoomsResponse> {
+    const queryParams = this.baseClient.buildQueryParams({
+      'server': server,
+      'limit': limit,
+      'since': since
+    });
+    return await this.baseClient.get<PublicRoomsResponse>('/publicRooms', queryParams);
+  }
+
+  private async postPublicRooms(room: Record<string, string | object>): Promise<PublicRoomsResponse> {
+    return await this.baseClient.post<PublicRoomsResponse>('/publicRooms', room);
   }
 }

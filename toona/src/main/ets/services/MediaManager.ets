@@ -1,7 +1,7 @@
 import { AppLogger } from '../utils/AppLogger';
 import { MediaUploadResponse, MediaConfig as MediaConfigResponse, UrlPreviewResponse } from '../models/MatrixTypes';
 import { MxcUtils } from '../utils/MxcUtils';
-import { MediaHttpClient } from '../network/clients/MediaHttpClient';
+import { BaseHttpClient } from '../network/clients/BaseHttpClient';
 
 interface ParsedMxcUri {
   serverName: string;
@@ -18,11 +18,11 @@ export interface IMediaManager {
 }
 
 export class MediaManager implements IMediaManager {
-  private mediaClient: MediaHttpClient;
+  private baseClient: BaseHttpClient;
   private logger = AppLogger.getLogger(MediaManager);
 
-  constructor(mediaClient: MediaHttpClient) {
-    this.mediaClient = mediaClient;
+  constructor(baseClient: BaseHttpClient) {
+    this.baseClient = baseClient;
   }
 
   async uploadMedia(
@@ -31,7 +31,11 @@ export class MediaManager implements IMediaManager {
     fileName?: string
   ): Promise<MediaUploadResponse> {
     try {
-      return await this.mediaClient.uploadMedia(data, contentType, fileName);
+      let endpoint = '/_matrix/media/v3/upload';
+      if (fileName) {
+        endpoint += `?filename=${encodeURIComponent(fileName)}`;
+      }
+      return await this.baseClient.upload<MediaUploadResponse>(endpoint, data, contentType, fileName || 'media');
     } catch (error) {
       this.logger.error('Failed to upload media:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -66,7 +70,9 @@ export class MediaManager implements IMediaManager {
       throw new Error('Invalid mxc:// URI');
     }
     try {
-      return await this.mediaClient.downloadMedia(parsed.serverName, parsed.mediaId);
+      const encodedPath = this.baseClient.encodePath(parsed.serverName, parsed.mediaId);
+      const url = this.baseClient.buildMediaUrl(`/download/${encodedPath}`);
+      return await this.baseClient.requestBinary(url);
     } catch (error) {
       this.logger.error('Failed to download media:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -86,14 +92,19 @@ export class MediaManager implements IMediaManager {
       throw new Error('Invalid mxc:// URI');
     }
     try {
-      return await this.mediaClient.getThumbnail(
-        parsed.serverName,
-        parsed.mediaId,
-        width,
-        height,
-        method,
-        animated
-      );
+      const encodedPath = this.baseClient.encodePath(parsed.serverName, parsed.mediaId);
+      const queryParams: Record<string, string | number> = {
+        "width": width,
+        "height": height
+      };
+      if (method) {
+        queryParams['method'] = method;
+      }
+      if (animated !== undefined) {
+        queryParams['animated'] = animated ? 'true' : 'false';
+      }
+      const url = this.baseClient.buildMediaUrl(`/thumbnail/${encodedPath}`, queryParams);
+      return await this.baseClient.requestBinary(url);
     } catch (error) {
       this.logger.error('Failed to get thumbnail:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -103,7 +114,11 @@ export class MediaManager implements IMediaManager {
 
   async getUrlPreview(url: string, ts?: number): Promise<UrlPreviewResponse> {
     try {
-      return await this.mediaClient.getUrlPreview(url, ts);
+      const queryParams = this.baseClient.buildQueryParams({
+        'url': url,
+        'ts': ts
+      });
+      return await this.baseClient.requestMediaJson<UrlPreviewResponse>('/preview_url', queryParams);
     } catch (error) {
       this.logger.error('Failed to get URL preview:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -113,7 +128,7 @@ export class MediaManager implements IMediaManager {
 
   async getMediaConfig(): Promise<MediaConfigResponse> {
     try {
-      return await this.mediaClient.getMediaConfig();
+      return await this.baseClient.requestMediaJson<MediaConfigResponse>('/config');
     } catch (error) {
       this.logger.error('Failed to get media config:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -122,7 +137,7 @@ export class MediaManager implements IMediaManager {
   }
 
   getHttpUrl(mxcUri: string): string {
-    const homeserver = this.mediaClient.getBaseUrl();
+    const homeserver = this.baseClient.getBaseUrl();
     return MxcUtils.getHttpUri(mxcUri, homeserver);
   }
 
@@ -132,7 +147,7 @@ export class MediaManager implements IMediaManager {
     height: number,
     method?: 'crop' | 'scale'
   ): string {
-    const homeserver = this.mediaClient.getBaseUrl();
+    const homeserver = this.baseClient.getBaseUrl();
     return MxcUtils.getThumbnailHttpUri(mxcUri, homeserver, width, height, method);
   }
 

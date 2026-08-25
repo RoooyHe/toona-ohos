@@ -27,13 +27,6 @@ import { IClipboard } from '../platform/adapters/IClipboard';
 import { IAudioRecorder } from '../platform/adapters/IAudioRecorder';
 import { ConnectionConfig } from '../network/ConnectionConfig';
 import { BaseHttpClient } from '../network/clients/BaseHttpClient';
-import { RoomHttpClient } from '../network/clients/RoomHttpClient';
-import { MediaHttpClient } from '../network/clients/MediaHttpClient';
-import { UserHttpClient } from '../network/clients/UserHttpClient';
-import { PushHttpClient } from '../network/clients/PushHttpClient';
-import { DeviceHttpClient } from '../network/clients/DeviceHttpClient';
-import { CryptoHttpClient } from '../network/clients/CryptoHttpClient';
-import { MessageHttpClient } from '../network/clients/MessageHttpClient';
 
 @Builder
 export function AppNavigationBuilder(name: string, param: Object) {
@@ -57,30 +50,23 @@ struct AppNavigation {
     const config = new ConnectionConfig();
 
     const baseClient = new BaseHttpClient(config);
-    const roomClient = new RoomHttpClient(config);
-    const mediaClient = new MediaHttpClient(config);
-    const userClient = new UserHttpClient(config);
-    const pushClient = new PushHttpClient(config);
-    const deviceClient = new DeviceHttpClient(config);
-    const cryptoClient = new CryptoHttpClient(config);
-    const messageClient = new MessageHttpClient(config);
 
     const authManager = new AuthManager(config, baseClient);
     const localDatabase = new LocalDatabase();
     const cryptoDao = CryptoDao.getInstance();
     const deviceKeysStorage = DeviceKeysStorage.getInstance();
     const verificationService = new VerificationService(authManager, deviceKeysStorage);
-    const cryptoService = new CryptoService(authManager, cryptoClient, verificationService, cryptoDao, deviceKeysStorage);
+    const cryptoService = new CryptoService(authManager, verificationService, cryptoDao, deviceKeysStorage);
     const eventProcessor = new EventProcessor(localDatabase, cryptoService);
     const syncManager = new SyncManager(authManager, localDatabase, eventProcessor, cryptoService, baseClient);
-    const roomManager = new RoomManager(authManager, localDatabase, roomClient);
-    const messageManager = new MessageManager(localDatabase, messageClient);
-    const messageSender = new MessageSender(messageClient);
-    const deviceManager = new DeviceManager(authManager, deviceClient);
-    const mediaManager = new MediaManager(mediaClient);
-    const pushManager = new PushManager(pushClient);
-    const roomTagManager = new RoomTagManager(authManager, localDatabase, userClient);
-    const userManager = new UserManager(authManager, userClient);
+    const roomManager = new RoomManager(authManager, localDatabase, baseClient);
+    const messageManager = new MessageManager(localDatabase, baseClient);
+    const messageSender = new MessageSender(baseClient);
+    const deviceManager = new DeviceManager(authManager, baseClient);
+    const mediaManager = new MediaManager(baseClient);
+    const pushManager = new PushManager(baseClient);
+    const roomTagManager = new RoomTagManager(authManager, localDatabase, baseClient);
+    const userManager = new UserManager(authManager, baseClient);
     const deviceSecurityManager = new DeviceSecurityManager();
     const scanManager = new ScanManager();
     const shareManager = new ShareManager();

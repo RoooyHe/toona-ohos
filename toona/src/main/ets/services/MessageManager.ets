@@ -1,8 +1,9 @@
-import { MessageHttpClient } from '../network/clients/MessageHttpClient';
 import { LocalDatabase } from '../database/LocalDatabase';
 import { Message } from '../models/DataModels';
 import { RandomUtil } from '@wondertek/wdkitlib';
 import { AppLogger } from '../utils/AppLogger';
+import { BaseHttpClient } from '../network/clients/BaseHttpClient';
+import { SendMessageResult, RelationsResponse } from '../models/MatrixTypes';
 
 interface PendingMessage {
   roomId: string;
@@ -20,22 +21,27 @@ export interface IMessageManager {
 
 export class MessageManager implements IMessageManager {
   private logger = AppLogger.getLogger(MessageManager);
-  private messageHttpClient: MessageHttpClient;
+  private baseClient: BaseHttpClient;
   private localDatabase: LocalDatabase;
   private offlineQueue: PendingMessage[] = [];
 
   constructor(
     localDatabase: LocalDatabase,
-    messageHttpClient: MessageHttpClient
+    baseClient: BaseHttpClient
   ) {
     this.localDatabase = localDatabase;
-    this.messageHttpClient = messageHttpClient;
+    this.baseClient = baseClient;
   }
 
   async deleteMessage(roomId: string, eventId: string, reason?: string): Promise<void> {
     try {
       const txnId: string = this.generateTransactionId();
-      await this.messageHttpClient.redactEvent(roomId, eventId, txnId, reason);
+      const encodedRoomId = this.baseClient.encodePath(roomId);
+      const encodedEventId = this.baseClient.encodePath(eventId);
+      const body: Record<string, string | object> = {
+        "reason": reason !== undefined ? reason : ''
+      };
+      await this.baseClient.put<object>(`/rooms/${encodedRoomId}/redact/${encodedEventId}/${txnId}`, body);
     } catch (error) {
       const errMsg: string = error instanceof Error ? error.message : String(error);
       this.logger.error('Failed to delete message: ' + errMsg);
@@ -46,7 +52,7 @@ export class MessageManager implements IMessageManager {
   async forwardMessage(roomId: string, content: Record<string, string | object>): Promise<string> {
     const txnId: string = this.generateTransactionId();
     try {
-      return await this.messageHttpClient.sendEvent(roomId, 'm.room.message', txnId, content);
+      return await this.sendEvent(roomId, 'm.room.message', txnId, content);
     } catch (error) {
       const errMsg: string = error instanceof Error ? error.message : String(error);
       this.logger.error('Failed to forward message: ' + errMsg);
@@ -65,6 +71,20 @@ export class MessageManager implements IMessageManager {
 
   private generateTransactionId(): string {
     return `m${Date.now()}${RandomUtil.generateUUIDRandom().replace(/-/g, '').substring(0, 7)}`;
+  }
+
+  private async sendEvent(
+    roomId: string,
+    eventType: string,
+    txnId: string,
+    content: Record<string, string | object>
+  ): Promise<string> {
+    const encodedRoomId = this.baseClient.encodePath(roomId);
+    const response = await this.baseClient.put<SendMessageResult>(
+      `/rooms/${encodedRoomId}/send/${eventType}/${txnId}`,
+      content
+    );
+    return response.event_id;
   }
 
   queueOfflineMessage(roomId: string, content: Record<string, string | object>, resolve: (eventId: string) => void,
@@ -96,7 +116,7 @@ export class MessageManager implements IMessageManager {
     for (let i = 0; i < queue.length; i++) {
       const pending: PendingMessage = queue[i];
       try {
-        const eventId: string = await this.messageHttpClient.sendEvent(
+        const eventId: string = await this.sendEvent(
           pending.roomId,
           'm.room.message',
           pending.txnId,
@@ -112,6 +132,6 @@ export class MessageManager implements IMessageManager {
 
   async retryFailedMessage(roomId: string, message: Message): Promise<string> {
     const txnId: string = this.generateTransactionId();
-    return await this.messageHttpClient.sendEvent(roomId, message.type, txnId, message.content);
+    return await this.sendEvent(roomId, message.type, txnId, message.content);
   }
 }
