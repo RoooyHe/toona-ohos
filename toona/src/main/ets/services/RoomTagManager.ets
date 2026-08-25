@@ -2,7 +2,7 @@ import { AppLogger } from '../utils/AppLogger';
 import { RoomTags, TagContent } from '../models/MatrixTypes';
 import { AuthManager, IAuthManager } from './AuthManager';
 import { LocalDatabase } from '../database/LocalDatabase';
-import { UserHttpClient } from '../network/clients/UserHttpClient';
+import { BaseHttpClient } from '../network/clients/BaseHttpClient';
 
 export interface IRoomTagManager {
   isFavorite(roomId: string): Promise<boolean>;
@@ -15,18 +15,18 @@ export interface IRoomTagManager {
 
 export class RoomTagManager implements IRoomTagManager {
   private logger = AppLogger.getLogger(RoomTagManager);
-  private userHttpClient: UserHttpClient;
+  private baseClient: BaseHttpClient;
   private authManager: IAuthManager;
   private localDatabase: LocalDatabase;
 
   constructor(
     authManager: IAuthManager,
     localDatabase: LocalDatabase,
-    userHttpClient: UserHttpClient
+    baseClient: BaseHttpClient
   ) {
     this.authManager = authManager;
     this.localDatabase = localDatabase;
-    this.userHttpClient = userHttpClient;
+    this.baseClient = baseClient;
   }
 
   async getRoomTags(roomId: string): Promise<RoomTags> {
@@ -48,7 +48,17 @@ export class RoomTagManager implements IRoomTagManager {
       throw new Error('Not logged in');
     }
     try {
-      await this.userHttpClient.addRoomTag(userId, roomId, tag, order);
+      const encodedUserId = this.baseClient.encodePath(userId);
+      const encodedRoomId = this.baseClient.encodePath(roomId);
+      const encodedTag = this.baseClient.encodePath(tag);
+      const body: Record<string, string | number | undefined> = {};
+      if (order !== undefined) {
+        body['order'] = order;
+      }
+      await this.baseClient.put<void>(
+        `/user/${encodedUserId}/rooms/${encodedRoomId}/tags/${encodedTag}`,
+        body as Record<string, string | object>
+      );
     } catch (error) {
       this.logger.error('Failed to add room tag:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -62,7 +72,12 @@ export class RoomTagManager implements IRoomTagManager {
       throw new Error('Not logged in');
     }
     try {
-      await this.userHttpClient.removeRoomTag(userId, roomId, tag);
+      const encodedUserId = this.baseClient.encodePath(userId);
+      const encodedRoomId = this.baseClient.encodePath(roomId);
+      const encodedTag = this.baseClient.encodePath(tag);
+      await this.baseClient.delete<void>(
+        `/user/${encodedUserId}/rooms/${encodedRoomId}/tags/${encodedTag}`
+      );
     } catch (error) {
       this.logger.error('Failed to remove room tag:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);

@@ -56,11 +56,11 @@ export class BaseHttpClient {
     return headers;
   }
 
-  protected encodePath(...segments: string[]): string {
+  public encodePath(...segments: string[]): string {
     return segments.map((s: string) => encodeURIComponent(s)).join('/');
   }
 
-  protected buildQueryParams(params: Record<string, string | number | undefined>): Record<string, string | number> {
+  public buildQueryParams(params: Record<string, string | number | undefined>): Record<string, string | number> {
     const result: Record<string, string | number> = {};
     const keys = Object.keys(params);
     for (let i = 0; i < keys.length; i++) {

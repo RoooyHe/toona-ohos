@@ -1,8 +1,16 @@
-import { UserHttpClient } from '../network/clients/UserHttpClient';
 import { AppLogger } from '../utils/AppLogger';
 import { AuthManager, IAuthManager } from './AuthManager';
 import { GetPresenceResponse, PresenceState, SetPresenceRequest } from '../models/MatrixTypes';
 import { UserProfile } from '../models/DataModels';
+import { BaseHttpClient } from '../network/clients/BaseHttpClient';
+
+interface DisplayNameResponse {
+  displayname?: string;
+}
+
+interface AvatarUrlResponse {
+  avatar_url?: string;
+}
 
 export interface IUserManager {
   getUserProfile(userId?: string): Promise<UserProfile>;
@@ -15,13 +23,13 @@ export interface IUserManager {
 }
 
 export class UserManager implements IUserManager {
-  private userHttpClient: UserHttpClient;
   private logger = AppLogger.getLogger(UserManager);
   private authManager: IAuthManager;
+  private baseClient: BaseHttpClient;
 
-  constructor(authManager: IAuthManager, userHttpClient: UserHttpClient) {
+  constructor(authManager: IAuthManager, baseClient: BaseHttpClient) {
     this.authManager = authManager;
-    this.userHttpClient = userHttpClient;
+    this.baseClient = baseClient;
   }
 
   async getDisplayName(userId?: string): Promise<string | null> {
@@ -30,7 +38,11 @@ export class UserManager implements IUserManager {
       throw new Error('Not logged in');
     }
     try {
-      return await this.userHttpClient.getDisplayName(targetUserId);
+      const encodedUserId = this.baseClient.encodePath(targetUserId);
+      const response = await this.baseClient.get<DisplayNameResponse>(
+        `/profile/${encodedUserId}/displayname`
+      );
+      return response.displayname ?? null;
     } catch (error) {
       this.logger.error('Failed to get display name:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -44,7 +56,11 @@ export class UserManager implements IUserManager {
       throw new Error('Not logged in');
     }
     try {
-      await this.userHttpClient.setDisplayName(userId, displayName);
+      const encodedUserId = this.baseClient.encodePath(userId);
+      await this.baseClient.put<void>(
+        `/profile/${encodedUserId}/displayname`,
+        { "displayname": displayName }
+      );
     } catch (error) {
       this.logger.error('Failed to set display name:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -58,7 +74,11 @@ export class UserManager implements IUserManager {
       throw new Error('Not logged in');
     }
     try {
-      return await this.userHttpClient.getAvatarUrl(targetUserId);
+      const encodedUserId = this.baseClient.encodePath(targetUserId);
+      const response = await this.baseClient.get<AvatarUrlResponse>(
+        `/profile/${encodedUserId}/avatar_url`
+      );
+      return response.avatar_url ?? null;
     } catch (error) {
       this.logger.error('Failed to get avatar URL:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -72,7 +92,11 @@ export class UserManager implements IUserManager {
       throw new Error('Not logged in');
     }
     try {
-      await this.userHttpClient.setAvatarUrl(userId, avatarUrl);
+      const encodedUserId = this.baseClient.encodePath(userId);
+      await this.baseClient.put<void>(
+        `/profile/${encodedUserId}/avatar_url`,
+        { "avatar_url": avatarUrl }
+      );
     } catch (error) {
       this.logger.error('Failed to set avatar URL:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -96,7 +120,8 @@ export class UserManager implements IUserManager {
 
   async getPresence(userId: string): Promise<GetPresenceResponse> {
     try {
-      return await this.userHttpClient.getPresence(userId);
+      const encodedUserId = this.baseClient.encodePath(userId);
+      return await this.baseClient.get<GetPresenceResponse>(`/presence/${encodedUserId}/status`);
     } catch (error) {
       this.logger.error('Failed to get presence:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);
@@ -110,7 +135,12 @@ export class UserManager implements IUserManager {
       if (statusMsg !== undefined) {
         request.status_msg = statusMsg;
       }
-      await this.userHttpClient.setPresence(userId, request);
+      const encodedUserId = this.baseClient.encodePath(userId);
+      const body: Record<string, string | object> = { 'presence': request.presence };
+      if (request.status_msg !== undefined) {
+        body['status_msg'] = request.status_msg;
+      }
+      await this.baseClient.put<void>(`/presence/${encodedUserId}/status`, body);
     } catch (error) {
       this.logger.error('Failed to set presence:', error);
       const errMsg: string = error instanceof Error ? error.message : String(error);

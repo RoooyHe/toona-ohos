@@ -24,7 +24,6 @@ import {
 import { CryptoDao } from '../database/dao/CryptoDao';
 import { DeviceKeysStorage } from '../database/dao/DeviceKeysDao';
 import { InboundGroupSessionEntity } from '../database/entities/InboundGroupSessionEntity';
-import { CryptoHttpClient } from '../network/clients/CryptoHttpClient';
 import { AuthManager, IAuthManager } from './AuthManager';
 import { VerificationService } from './VerificationService';
 
@@ -74,7 +73,6 @@ export class CryptoService {
   private initialized: boolean = false;
   private cryptoDao: CryptoDao;
   private deviceKeysStorage: DeviceKeysStorage;
-  private cryptoHttpClient: CryptoHttpClient;
   private authManager: IAuthManager;
   private verificationService: VerificationService;
 
@@ -88,13 +86,11 @@ export class CryptoService {
 
   constructor(
     authManager: IAuthManager,
-    matrixEndpoints: CryptoHttpClient,
     verificationService: VerificationService,
     cryptoDao: CryptoDao,
     deviceKeysStorage: DeviceKeysStorage
   ) {
     this.authManager = authManager;
-    this.cryptoHttpClient = matrixEndpoints;
     this.verificationService = verificationService;
     this.cryptoDao = cryptoDao;
     this.deviceKeysStorage = deviceKeysStorage;

@@ -1,6 +1,7 @@
-import { MessageHttpClient } from '../network/clients/MessageHttpClient';
 import { AppLogger } from '../utils/AppLogger';
 import { RandomUtil } from '@wondertek/wdkitlib';
+import { BaseHttpClient } from '../network/clients/BaseHttpClient';
+import { SendMessageResult } from '../models/MatrixTypes';
 
 export interface ReplyQuoteData {
   eventId: string;
@@ -17,10 +18,10 @@ export interface IMessageSender {
 
 export class MessageSender implements IMessageSender {
   private logger = AppLogger.getLogger(MessageSender);
-  private messageHttpClient: MessageHttpClient;
+  private baseClient: BaseHttpClient;
 
-  constructor(messageHttpClient: MessageHttpClient) {
-    this.messageHttpClient = messageHttpClient;
+  constructor(baseClient: BaseHttpClient) {
+    this.baseClient = baseClient;
   }
 
   async sendText(roomId: string, text: string, replyQuote?: ReplyQuoteData | null): Promise<string> {
@@ -39,7 +40,7 @@ export class MessageSender implements IMessageSender {
 
     const txnId: string = this.generateTransactionId();
     try {
-      return await this.messageHttpClient.sendEvent(roomId, 'm.room.message', txnId, content);
+      return await this.sendEvent(roomId, 'm.room.message', txnId, content);
     } catch (error) {
       const errMsg: string = error instanceof Error ? error.message : String(error);
       this.logger.error('Failed to send text message: ' + errMsg);
@@ -56,7 +57,7 @@ export class MessageSender implements IMessageSender {
 
     const txnId: string = this.generateTransactionId();
     try {
-      return await this.messageHttpClient.sendEvent(roomId, 'm.sticker', txnId, content);
+      return await this.sendEvent(roomId, 'm.sticker', txnId, content);
     } catch (error) {
       const errMsg: string = error instanceof Error ? error.message : String(error);
       this.logger.error('Failed to send sticker: ' + errMsg);
@@ -67,7 +68,7 @@ export class MessageSender implements IMessageSender {
   async sendMedia(roomId: string, content: Record<string, string | object>): Promise<string> {
     const txnId: string = this.generateTransactionId();
     try {
-      return await this.messageHttpClient.sendEvent(roomId, 'm.room.message', txnId, content);
+      return await this.sendEvent(roomId, 'm.room.message', txnId, content);
     } catch (error) {
       const errMsg: string = error instanceof Error ? error.message : String(error);
       this.logger.error('Failed to send media message: ' + errMsg);
@@ -93,7 +94,7 @@ export class MessageSender implements IMessageSender {
 
     const txnId: string = this.generateTransactionId();
     try {
-      return await this.messageHttpClient.sendEvent(roomId, 'm.room.message', txnId, content);
+      return await this.sendEvent(roomId, 'm.room.message', txnId, content);
     } catch (error) {
       const errMsg: string = error instanceof Error ? error.message : String(error);
       this.logger.error('Failed to edit message: ' + errMsg);
@@ -103,5 +104,19 @@ export class MessageSender implements IMessageSender {
 
   private generateTransactionId(): string {
     return `m${Date.now()}${RandomUtil.generateUUIDRandom().replace(/-/g, '').substring(0, 7)}`;
+  }
+
+  private async sendEvent(
+    roomId: string,
+    eventType: string,
+    txnId: string,
+    content: Record<string, string | object>
+  ): Promise<string> {
+    const encodedRoomId = this.baseClient.encodePath(roomId);
+    const response = await this.baseClient.put<SendMessageResult>(
+      `/rooms/${encodedRoomId}/send/${eventType}/${txnId}`,
+      content
+    );
+    return response.event_id;
   }
 }

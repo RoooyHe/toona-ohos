@@ -79,3 +79,5 @@ ViewModels accept dependencies via constructor. ViewModels with >4 deps use a de
 - Stub-only services (UserAuthManager, ServiceCollaborationManager) are deleted; their behavior moves to page-level callback implementations that show Toast.
 - Pages get platform deps (IMediaManager, IVerificationService) directly from ServiceLocator for child components, not through ViewModel getters.
 - ServiceLocator getters return interface types; pages build deps structs from ServiceLocator.
+- HTTP client layer collapsed: all per-feature HTTP clients deleted. Managers hold a `BaseHttpClient` and call its generic methods directly. Endpoint paths and protocol logic live inside the manager that owns them — one module, one seam. `BaseHttpClient.encodePath` and `buildQueryParams` are public so managers can construct URLs.
+- CryptoService has no HTTP client: its former `CryptoHttpClient` was dead code (all methods were stubs). Removed until real crypto implementation.
