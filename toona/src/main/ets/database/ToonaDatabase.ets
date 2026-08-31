@@ -13,6 +13,39 @@ const logger = AppLogger.getLogger('ToonaDatabase');
 
 @Database({ entities: [MessageEntity, RoomEntity, UserEntity, RoomMemberEntity, InboundGroupSessionEntity, OlmSessionEntity, DeviceKeysEntity], name: "toona_matrix.db", version: 7 })
 export class ToonaDatabase {
+  private static async columnExists(db: relationalStore.RdbStore, tableName: string, columnName: string): Promise<boolean> {
+    try {
+      const resultSet = await db.querySql(`PRAGMA table_info(${tableName})`);
+      let row = resultSet.go();
+      while (!row.isEndOfRecord()) {
+        if (row.getString(1) === columnName) {
+          return true;
+        }
+        row = resultSet.go();
+      }
+      return false;
+    } catch (error) {
+      logger.error(`columnExists check failed: ${tableName}.${columnName}`, error);
+      return false;
+    }
+  }
+
+  private static async addColumnIfMissing(
+    db: relationalStore.RdbStore,
+    tableName: string,
+    columnName: string,
+    columnDef: string
+  ): Promise<void> {
+    if (!(await ToonaDatabase.columnExists(db, tableName, columnName))) {
+      try {
+        await db.executeSql(`ALTER TABLE ${tableName} ADD COLUMN ${columnDef}`);
+        logger.info(`Added column ${columnName} to ${tableName}`);
+      } catch (error) {
+        logger.error(`Failed to add column ${columnName} to ${tableName}`, error);
+      }
+    }
+  }
+
   async onCreate(db: relationalStore.RdbStore): Promise<void> {
     logger.info('Database created');
   }
@@ -21,38 +54,16 @@ export class ToonaDatabase {
     logger.info(`Database upgrade from ${oldVersion} to ${newVersion}`);
 
     if (oldVersion < 2 && newVersion >= 2) {
-      const migrations = [
-        'ALTER TABLE rooms ADD COLUMN canonical_alias TEXT',
-        'ALTER TABLE rooms ADD COLUMN join_rule TEXT',
-        'ALTER TABLE rooms ADD COLUMN history_visibility TEXT',
-        'ALTER TABLE rooms ADD COLUMN create_time INTEGER',
-        'ALTER TABLE rooms ADD COLUMN creator TEXT',
-        'ALTER TABLE rooms ADD COLUMN is_space INTEGER DEFAULT 0'
-      ];
-
-      for (const migration of migrations) {
-        try {
-          await db.executeSql(migration);
-          logger.info(`Migration v1→v2 succeeded: ${migration}`);
-        } catch (error) {
-          logger.error(`Migration v1→v2 failed: ${migration}`, error);
-        }
-      }
+      await ToonaDatabase.addColumnIfMissing(db, 'rooms', 'canonical_alias', 'canonical_alias TEXT');
+      await ToonaDatabase.addColumnIfMissing(db, 'rooms', 'join_rule', 'join_rule TEXT');
+      await ToonaDatabase.addColumnIfMissing(db, 'rooms', 'history_visibility', 'history_visibility TEXT');
+      await ToonaDatabase.addColumnIfMissing(db, 'rooms', 'create_time', 'create_time INTEGER');
+      await ToonaDatabase.addColumnIfMissing(db, 'rooms', 'creator', 'creator TEXT');
+      await ToonaDatabase.addColumnIfMissing(db, 'rooms', 'is_space', 'is_space INTEGER DEFAULT 0');
     }
 
     if (oldVersion < 3 && newVersion >= 3) {
-      const migrations = [
-        'ALTER TABLE rooms ADD COLUMN tags TEXT'
-      ];
-
-      for (const migration of migrations) {
-        try {
-          await db.executeSql(migration);
-          logger.info(`Migration v2→v3 succeeded: ${migration}`);
-        } catch (error) {
-          logger.error(`Migration v2→v3 failed: ${migration}`, error);
-        }
-      }
+      await ToonaDatabase.addColumnIfMissing(db, 'rooms', 'tags', 'tags TEXT');
     }
 
     if (oldVersion < 4 && newVersion >= 4) {
@@ -108,36 +119,33 @@ export class ToonaDatabase {
     }
 
     if (oldVersion < 6 && newVersion >= 6) {
-      const migrations = [
-        `ALTER TABLE device_keys ADD COLUMN trust_level TEXT DEFAULT 'unverified'`,
-        `ALTER TABLE device_keys ADD COLUMN verified_at INTEGER DEFAULT 0`,
-        `ALTER TABLE device_keys ADD COLUMN verified_by TEXT DEFAULT ''`
-      ];
-
-      for (const migration of migrations) {
-        try {
-          await db.executeSql(migration);
-          logger.info(`Migration v5→v6 succeeded: ${migration.substring(0, 50)}...`);
-        } catch (error) {
-          logger.error(`Migration v5→v6 failed: ${migration.substring(0, 50)}...`, error);
-        }
-      }
+      await ToonaDatabase.addColumnIfMissing(db, 'device_keys', 'trust_level', "trust_level TEXT DEFAULT 'unverified'");
+      await ToonaDatabase.addColumnIfMissing(db, 'device_keys', 'verified_at', 'verified_at INTEGER DEFAULT 0');
+      await ToonaDatabase.addColumnIfMissing(db, 'device_keys', 'verified_by', "verified_by TEXT DEFAULT ''");
     }
 
     if (oldVersion < 7 && newVersion >= 7) {
-      const migrations = [
-        'ALTER TABLE rooms ADD COLUMN last_event_id TEXT',
-        'ALTER TABLE rooms ADD COLUMN last_event_time INTEGER'
-      ];
+      await ToonaDatabase.addColumnIfMissing(db, 'rooms', 'last_event_id', 'last_event_id TEXT');
+      await ToonaDatabase.addColumnIfMissing(db, 'rooms', 'last_event_time', 'last_event_time INTEGER');
+    }
 
-      for (const migration of migrations) {
-        try {
-          await db.executeSql(migration);
-          logger.info(`Migration v6→v7 succeeded: ${migration}`);
-        } catch (error) {
-          logger.error(`Migration v6→v7 failed: ${migration}`, error);
-        }
-      }
+    // Post-upgrade schema validation: ensure all expected columns exist
+    try {
+      await ToonaDatabase.addColumnIfMissing(db, 'rooms', 'canonical_alias', 'canonical_alias TEXT');
+      await ToonaDatabase.addColumnIfMissing(db, 'rooms', 'join_rule', 'join_rule TEXT');
+      await ToonaDatabase.addColumnIfMissing(db, 'rooms', 'history_visibility', 'history_visibility TEXT');
+      await ToonaDatabase.addColumnIfMissing(db, 'rooms', 'create_time', 'create_time INTEGER');
+      await ToonaDatabase.addColumnIfMissing(db, 'rooms', 'creator', 'creator TEXT');
+      await ToonaDatabase.addColumnIfMissing(db, 'rooms', 'is_space', 'is_space INTEGER DEFAULT 0');
+      await ToonaDatabase.addColumnIfMissing(db, 'rooms', 'tags', 'tags TEXT');
+      await ToonaDatabase.addColumnIfMissing(db, 'rooms', 'last_event_id', 'last_event_id TEXT');
+      await ToonaDatabase.addColumnIfMissing(db, 'rooms', 'last_event_time', 'last_event_time INTEGER');
+      await ToonaDatabase.addColumnIfMissing(db, 'device_keys', 'trust_level', "trust_level TEXT DEFAULT 'unverified'");
+      await ToonaDatabase.addColumnIfMissing(db, 'device_keys', 'verified_at', 'verified_at INTEGER DEFAULT 0');
+      await ToonaDatabase.addColumnIfMissing(db, 'device_keys', 'verified_by', "verified_by TEXT DEFAULT ''");
+      logger.info('Post-upgrade schema validation completed');
+    } catch (error) {
+      logger.error('Post-upgrade schema validation failed', error);
     }
   }
 }
