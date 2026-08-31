@@ -2,7 +2,6 @@ import { Room } from '@mlethe/room';
 
 import { Context } from '@kit.AbilityKit';
 import { AppLogger } from '../utils/AppLogger';
-import relationalStore from '@ohos.data.relationalStore';
 import { Room as RoomModel, Message, User, TagInfo } from '../models/DataModels';
 import { MessageStatus } from '../models/types/MessageTypes';
 import { ParsedRoomState, RoomMemberInfo } from '../models/types/RoomTypes';
@@ -72,9 +71,6 @@ export class LocalDatabase implements ILocalDatabase {
       // Initialize DeviceKeysStorage for device key persistence
       const deviceKeysStorage = DeviceKeysStorage.getInstance();
       deviceKeysStorage.init();
-
-      // Repair schema for users who may have been left on v7 with missing columns
-      await LocalDatabase.repairSchema(context);
 
       this.isInitialized = true;
     } catch (error) {
@@ -435,58 +431,6 @@ export class LocalDatabase implements ILocalDatabase {
     this.userDao = null;
     this.roomMemberDao = null;
     this.isInitialized = false;
-  }
-
-  private static async repairSchema(context: Context): Promise<void> {
-    try {
-      const store = await relationalStore.getRdbStore({
-        name: 'toona_matrix.db',
-        context: context
-      });
-      try {
-        await LocalDatabase.ensureColumn(store, 'rooms', 'last_event_id', 'last_event_id TEXT');
-        await LocalDatabase.ensureColumn(store, 'rooms', 'last_event_time', 'last_event_time INTEGER');
-        await LocalDatabase.ensureColumn(store, 'rooms', 'canonical_alias', 'canonical_alias TEXT');
-        await LocalDatabase.ensureColumn(store, 'rooms', 'join_rule', 'join_rule TEXT');
-        await LocalDatabase.ensureColumn(store, 'rooms', 'history_visibility', 'history_visibility TEXT');
-        await LocalDatabase.ensureColumn(store, 'rooms', 'create_time', 'create_time INTEGER');
-        await LocalDatabase.ensureColumn(store, 'rooms', 'creator', 'creator TEXT');
-        await LocalDatabase.ensureColumn(store, 'rooms', 'is_space', 'is_space INTEGER DEFAULT 0');
-        await LocalDatabase.ensureColumn(store, 'rooms', 'tags', 'tags TEXT');
-        await LocalDatabase.ensureColumn(store, 'device_keys', 'trust_level', "trust_level TEXT DEFAULT 'unverified'");
-        await LocalDatabase.ensureColumn(store, 'device_keys', 'verified_at', 'verified_at INTEGER DEFAULT 0');
-        await LocalDatabase.ensureColumn(store, 'device_keys', 'verified_by', "verified_by TEXT DEFAULT ''");
-      } finally {
-        // Do not close: getRdbStore returns a singleton that may be shared with the ORM
-      }
-    } catch (error) {
-      LocalDatabase.logger.error('Schema repair failed:', error);
-    }
-  }
-
-  private static async ensureColumn(
-    store: relationalStore.RdbStore,
-    tableName: string,
-    columnName: string,
-    columnDef: string
-  ): Promise<void> {
-    try {
-      const resultSet = await store.querySql(`PRAGMA table_info(${tableName})`);
-      let row = resultSet.go();
-      while (!row.isEndOfRecord()) {
-        if (row.getString(1) === columnName) {
-          return;
-        }
-        row = resultSet.go();
-      }
-      await store.executeSql(`ALTER TABLE ${tableName} ADD COLUMN ${columnDef}`);
-      LocalDatabase.logger.info(`Repaired: added ${columnName} to ${tableName}`);
-    } catch (error) {
-      const errMsg: string = error instanceof Error ? error.message : String(error);
-      LocalDatabase.logger.error(`ensureColumn failed for ${tableName}.${columnName}: ${errMsg}`);
-    }
-  }
-
   // ── Entity ↔ Model mappers ──
 
   private messageToEntity(msg: Message): MessageEntity {
@@ -590,3 +534,4 @@ export class LocalDatabase implements ILocalDatabase {
     return user;
   }
 }
+
