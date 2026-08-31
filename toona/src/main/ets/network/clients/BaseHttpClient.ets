@@ -163,7 +163,9 @@ export class BaseHttpClient {
           method: method as http.RequestMethod,
           header: headers,
           extraData: body,
-          expectDataType: expectDataType
+          expectDataType: expectDataType,
+          connectTimeout: this.config.getConnectTimeout(),
+          readTimeout: this.config.getReadTimeout()
         };
         httpRequest.request(url, options, (err, data) => {
           if (err) {
@@ -208,7 +210,9 @@ export class BaseHttpClient {
           method: method,
           header: headers,
           extraData: body,
-          expectDataType: expectDataType
+          expectDataType: expectDataType,
+          connectTimeout: this.config.getConnectTimeout(),
+          readTimeout: this.config.getReadTimeout()
         };
         httpRequest.request(url, options, (err, data) => {
           if (err) {
@@ -244,7 +248,9 @@ export class BaseHttpClient {
           method: http.RequestMethod.POST,
           header: headers,
           extraData: data,
-          expectDataType: http.HttpDataType.STRING
+          expectDataType: http.HttpDataType.STRING,
+          connectTimeout: this.config.getConnectTimeout(),
+          readTimeout: this.config.getReadTimeout()
         };
         httpRequest.request(url, options, (err, data) => {
           if (err) {
